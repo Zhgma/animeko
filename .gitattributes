@@ -1,0 +1,2 @@
+# Release digests cover exact bytes, including checksum-file line endings.
+assets/* -text
