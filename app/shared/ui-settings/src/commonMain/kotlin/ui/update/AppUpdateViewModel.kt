@@ -63,7 +63,7 @@ class AppUpdateViewModel : AbstractViewModel(), KoinComponent {
     private val fileDownloader by lazy {
         DefaultFileDownloader(clientProvider.get(maxRequestsPerHost = PARALLEL_DOWNLOAD_CONNECTIONS))
     }
-    private val updateChecker: UpdateChecker = UpdateChecker()
+    private val updateChecker: UpdateChecker = UpdateChecker(clientProvider.get())
 
     /**
      * 最新的版本. 当 [checked] 为 `true` 时, `null` 表示没有新版本. 否则表示还没有检查过.
@@ -293,6 +293,7 @@ class NewVersion(
      */
     val downloadUrlAlternatives: List<String>,
     val publishedAt: String,
+    val detailsUrl: String = "$FORK_RELEASES_URL/tag/v$name",
 ) {
     val majorChanges = changelogs.asSequence().flatMap { changelog ->
         changelog.changes.lineSequence()

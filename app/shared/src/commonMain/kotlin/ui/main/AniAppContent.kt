@@ -100,6 +100,8 @@ import me.him188.ani.app.ui.settings.mediasource.selector.EditSelectorMediaSourc
 import me.him188.ani.app.ui.settings.mediasource.selector.EditSelectorMediaSourceViewModel
 import me.him188.ani.app.ui.settings.tabs.media.torrent.peer.PeerFilterSettingsScreen
 import me.him188.ani.app.ui.settings.tabs.media.torrent.peer.PeerFilterSettingsViewModel
+import me.him188.ani.app.data.repository.manga.MangaCollection
+import me.him188.ani.app.ui.manga.MangaDetailsRoute
 import me.him188.ani.app.ui.subject.details.SubjectDetailsScreen
 import me.him188.ani.app.ui.subject.details.SubjectDetailsViewModel
 import me.him188.ani.app.ui.subject.episode.EpisodeScreen
@@ -332,6 +334,13 @@ private fun AniAppContentImpl(
                         navigator.navigateEpisodeDetails(subjectId, episodeId)
                     },
                     windowInsets = windowInsets,
+                )
+            }
+            entry<NavRoutes.MangaDetail> { route ->
+                MangaDetailsRoute(
+                    MangaCollection(route.subjectId, route.title, route.originalTitle, route.coverUrl,
+                        route.chaptersRead, route.volumesRead, 0, 0, 0, false),
+                    onBack = { aniNavigator.popBackStack() }, initialChapterId = route.initialChapterId,
                 )
             }
             entry<NavRoutes.SubjectDetail> { route ->

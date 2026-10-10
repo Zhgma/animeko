@@ -77,6 +77,13 @@ sealed class NavRoutes : NavKey {
     ) : NavRoutes()
 
     @Serializable
+    data class MangaDetail(
+        val subjectId: Int, val title: String, val originalTitle: String, val coverUrl: String,
+        val chaptersRead: Int = 0, val volumesRead: Int = 0,
+        val initialChapterId: String? = null,
+    ) : NavRoutes()
+
+    @Serializable
     data class SubjectDetail(
         val subjectId: Int,
         val placeholder: SubjectDetailPlaceholder? = null,

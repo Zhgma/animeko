@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="manga_tab">追漫</string>
+    <string name="manga_wish">想读</string>
+    <string name="manga_doing">在读</string>
+    <string name="manga_done">读过</string>
+    <string name="manga_hold">搁置</string>
+    <string name="manga_dropped">抛弃</string>
+    <string name="manga_refresh">刷新漫画收藏</string>
+    <string name="manga_manage">在 Bangumi 管理</string>
+    <string name="manga_login_title">连接你的 Bangumi 漫画收藏</string>
+    <string name="manga_login_message">登录并关联 Bangumi 后，即可查看收藏的漫画和阅读进度。</string>
+    <string name="manga_login">登录 / 关联 Bangumi</string>
+    <string name="manga_empty">这里还没有漫画</string>
+    <string name="manga_empty_message">在 Bangumi 将漫画加入这个收藏分类，然后回来刷新。</string>
+    <string name="manga_error">漫画收藏加载失败，请检查网络后重试。</string>
+    <string name="manga_retry">重试</string>
+    <string name="manga_loading">正在读取 Bangumi 漫画收藏…</string>
+    <string name="manga_count">%1$d 部漫画</string>
+    <string name="manga_progress">%1$d / %2$s 话 · %3$d / %4$s 卷</string>
+    <string name="manga_private">私密</string>
+    <string name="manga_score">我的评分 %1$d / 10</string>
+    <string name="manga_open">查看漫画详情</string>
+    <string name="manga_note">同步自 Bangumi · 点击封面查看详情</string>
+</resources>

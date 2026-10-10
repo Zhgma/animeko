@@ -331,7 +331,8 @@ private fun LazyGridItemScope.SearchResultColumnScopeImpl(
         currentSort: SearchSort,
         onLayoutKindChange: (SearchResultLayoutKind) -> Unit,
         onSortChange: (SearchSort) -> Unit,
-        modifier: Modifier
+        modifier: Modifier,
+        sortOptions: List<SearchSort>,
     ) {
         val modifier1 = modifier // 不要加动画, #1901
         val noResultsText = stringResource(Lang.foundation_load_error_no_results)
@@ -367,6 +368,7 @@ private fun LazyGridItemScope.SearchResultColumnScopeImpl(
                             SortButton(
                                 currentSort,
                                 onSortChange,
+                                sortOptions = sortOptions,
                             )
                         }
                     }
@@ -388,6 +390,7 @@ interface SearchResultColumnScope {
         onLayoutKindChange: (SearchResultLayoutKind) -> Unit,
         onSortChange: (SearchSort) -> Unit,
         modifier: Modifier = Modifier,
+        sortOptions: List<SearchSort> = SearchSort.entries,
     )
 }
 
@@ -423,6 +426,7 @@ private fun SortButton(
     currentSort: SearchSort,
     onSortChange: (SearchSort) -> Unit,
     modifier: Modifier = Modifier,
+    sortOptions: List<SearchSort> = SearchSort.entries,
 ) {
     val sortLabels = rememberSearchSortLabels()
     Box(
@@ -440,7 +444,7 @@ private fun SortButton(
             Text(getSortText(currentSort, sortLabels), softWrap = false)
         }
         DropdownMenu(showDropdown, { showDropdown = false }) {
-            for (sort in SearchSort.entries) {
+            for (sort in sortOptions) {
                 SelectableDropdownMenuItem(
                     selected = sort == currentSort,
                     text = {

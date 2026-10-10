@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="manga_tab">Manga</string>
+    <string name="manga_wish">Plan to read</string>
+    <string name="manga_doing">Reading</string>
+    <string name="manga_done">Read</string>
+    <string name="manga_hold">On hold</string>
+    <string name="manga_dropped">Dropped</string>
+    <string name="manga_refresh">Refresh manga</string>
+    <string name="manga_manage">Manage on Bangumi</string>
+    <string name="manga_login_title">Connect your Bangumi collection</string>
+    <string name="manga_login_message">Sign in and connect Bangumi to see your manga and reading progress.</string>
+    <string name="manga_login">Sign in / connect Bangumi</string>
+    <string name="manga_empty">No manga in this collection</string>
+    <string name="manga_empty_message">Add manga to this category on Bangumi, then refresh here.</string>
+    <string name="manga_error">Could not load Bangumi collections. Check your connection and try again.</string>
+    <string name="manga_retry">Retry</string>
+    <string name="manga_loading">Loading manga from Bangumi…</string>
+    <string name="manga_count">%1$d manga</string>
+    <string name="manga_progress">%1$d / %2$s chapters · %3$d / %4$s volumes</string>
+    <string name="manga_private">Private</string>
+    <string name="manga_score">My rating %1$d / 10</string>
+    <string name="manga_open">View manga details</string>
+    <string name="manga_note">Synced from Bangumi · tap a cover for details</string>
+</resources>

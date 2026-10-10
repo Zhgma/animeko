@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_type_anime">Anime</string>
+    <string name="search_type_book">Manga</string>
+    <string name="search_book_placeholder">Search Bangumi books</string>
+</resources>

@@ -105,7 +105,6 @@ import me.him188.ani.app.data.models.subject.toNavPlaceholder
 import me.him188.ani.app.data.repository.subject.CollectionsFilterQuery
 import me.him188.ani.app.navigation.LocalNavigator
 import me.him188.ani.app.ui.adaptive.AniTopAppBar
-import me.him188.ani.app.ui.adaptive.AniTopAppBarDefaults
 import me.him188.ani.app.ui.foundation.LocalPlatform
 import me.him188.ani.app.ui.foundation.ifThen
 import me.him188.ani.app.ui.foundation.input.touchHorizontalScrollOnly
@@ -133,10 +132,11 @@ import me.him188.ani.app.ui.lang.subject_collection_dropped
 import me.him188.ani.app.ui.lang.subject_collection_guest_mode_tip
 import me.him188.ani.app.ui.lang.subject_collection_move_to_watched
 import me.him188.ani.app.ui.lang.subject_collection_on_hold
-import me.him188.ani.app.ui.lang.subject_collection_page_title
 import me.him188.ani.app.ui.lang.subject_collection_syncing
 import me.him188.ani.app.ui.lang.subject_collection_uncollected
 import me.him188.ani.app.ui.lang.subject_collection_wish
+import me.him188.ani.app.ui.manga.MangaCollectionPage
+import me.him188.ani.app.ui.manga.TrackingCollectionTabs
 import me.him188.ani.app.ui.search.isLoadingFirstPageOrRefreshing
 import me.him188.ani.app.ui.subject.collection.components.EditableSubjectCollectionTypeState
 import me.him188.ani.app.ui.subject.collection.progress.SubjectProgressButton
@@ -253,12 +253,21 @@ fun CollectionPage(
     enableAnimation: Boolean = true,
 
     ) {
+    var mangaSelected by rememberSaveable { mutableStateOf(false) }
+    val trackingTitle: @Composable () -> Unit = {
+        TrackingCollectionTabs(mangaSelected) { mangaSelected = it }
+    }
+    if (mangaSelected) {
+        MangaCollectionPage(selfInfo, onClickLogin, onClickSettings, trackingTitle, modifier, windowInsets)
+        return
+    }
     val scope = rememberCoroutineScope()
     var hideBangumiSync by rememberSaveable { mutableStateOf(false) }
     val isBangumiSyncing = fullSyncState != null && !fullSyncState.finished
 
     // 如果有缓存, 列表区域要展示缓存, 错误就用图标放在角落
     CollectionPageLayout(
+        title = trackingTitle,
         settingsIcon = {
             if (selfInfo.isSessionValid == false // #1269 游客模式下无法打开设置界面
                 || currentWindowAdaptiveInfo1().windowSizeClass.isWidthAtLeastMedium
@@ -416,6 +425,7 @@ fun CollectionPage(
  */
 @Composable
 private fun CollectionPageLayout(
+    title: @Composable () -> Unit,
     settingsIcon: @Composable () -> Unit,
     actions: @Composable RowScope.() -> Unit,
     avatar: @Composable (recommendedSize: DpSize) -> Unit,
@@ -448,7 +458,7 @@ private fun CollectionPageLayout(
                     .ifThen(!frostedGlassActive) { background(appBarColors.containerColor) },
             ) {
                 AniTopAppBar(
-                    title = { AniTopAppBarDefaults.Title(stringResource(Lang.subject_collection_page_title)) },
+                    title = title,
                     modifier = Modifier,
                     actions = {
                         actions()

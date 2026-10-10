@@ -1,0 +1,374 @@
+/* Copyright (C) 2026 OpenAni and contributors. SPDX-License-Identifier: AGPL-3.0-only */
+package me.him188.ani.app.ui.manga
+
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.FullscreenExit
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.SecondaryTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.ui.semantics.onClick
+import kotlinx.coroutines.delay
+import me.him188.ani.app.data.models.preference.DarkMode
+import me.him188.ani.app.ui.foundation.theme.AniTheme
+import me.him188.ani.app.ui.subject.episode.EpisodeScreenLayout
+import me.him188.ani.app.ui.subject.episode.EpisodeScreenLayoutMode
+import me.him188.ani.app.ui.subject.details.sections.SubjectRatingSummary
+import me.him188.ani.app.ui.subject.details.sections.SubjectSummarySection
+import me.him188.ani.app.ui.subject.details.sections.SubjectInfoTable
+import me.him188.ani.app.videoplayer.ui.VideoScaffold
+import me.him188.ani.app.videoplayer.ui.PlayerControllerState
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntSize
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
+import me.him188.ani.app.data.repository.manga.MangaChapter
+import me.him188.ani.app.data.repository.manga.MangaPage
+import me.him188.ani.app.ui.foundation.AsyncImage
+import me.him188.ani.app.ui.rating.EditableRatingActions
+
+/** Uses the video page layout with a vertically scrolling manga surface. */
+@Composable
+internal fun MangaReaderScreen(
+    state: MangaDetailsUiState, onBack: () -> Unit, onChapter: (MangaChapter) -> Unit,
+    onPage: (String, Int) -> Unit, loadImage: suspend (MangaPage) -> String,
+    onReaderLayout: (Boolean, Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    fullscreen: Boolean = false, onFullscreen: (Boolean) -> Unit = {},
+    onComments: () -> Unit = {}, onRetryDownloads: () -> Unit = {},
+    ratingActions: EditableRatingActions = EditableRatingActions.Noop,
+    onRelations: () -> Unit = {}, onRetryRelations: () -> Unit = {}, onRelatedSubject: (Int) -> Unit = {},
+) {
+    val chapter = state.chapter ?: return
+    var showChapters by remember { mutableStateOf(false) }
+    var detailsTab by rememberSaveable { mutableIntStateOf(0) }
+    val siblings = state.chapters.filter { it.group == chapter.group }
+    val currentIndex = siblings.indexOfFirst { it.id == chapter.id }
+    BoxWithConstraints(modifier.fillMaxSize().testTag("manga-reader")) {
+        val landscape = maxWidth > maxHeight
+        val expanded = maxWidth >= 840.dp || (maxWidth >= 600.dp && maxHeight < 480.dp)
+        val mode = when {
+            fullscreen -> EpisodeScreenLayoutMode.VIDEO_ONLY
+            expanded -> EpisodeScreenLayoutMode.WIDE
+            else -> EpisodeScreenLayoutMode.COMPACT
+        }
+        EpisodeScreenLayout(mode, video = {
+            AniTheme(darkModeOverride = DarkMode.DARK) {
+                Box(Modifier.then(if (mode == EpisodeScreenLayoutMode.COMPACT)
+                    Modifier.fillMaxWidth().aspectRatio(16f / 9f) else Modifier.fillMaxSize())
+                    .background(Color(0xff101014)).testTag("manga-reading-pane")) {
+                    if (state.pages.isNotEmpty()) key(chapter.id, state.pages) {
+                        MangaReaderPages(state.pages, state.initialPage,
+                            onPage = { onPage(chapter.id, it) }, loadImage = loadImage,
+                            onPreviousChapter = siblings.getOrNull(currentIndex - 1)?.let { { onChapter(it) } },
+                            onNextChapter = siblings.getOrNull(currentIndex + 1)?.let { { onChapter(it) } },
+                            initialRightToLeft = state.memory?.rightToLeft ?: true,
+                            initialFirstPageSingle = state.memory?.firstPageSingle ?: false,
+                            onReaderLayout = onReaderLayout, modifier = Modifier.fillMaxSize(),
+                            title = "${state.book?.title.orEmpty()} · ${chapter.title}", onBack = onBack,
+                            fullscreen = fullscreen, onFullscreen = onFullscreen,
+                            onChapters = { showChapters = true }, spreadOverride = landscape)
+                    } else {
+                        Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                            if (state.pagesLoading) CircularProgressIndicator()
+                            state.pagesError?.let { MangaInlineError(it) { onChapter(chapter) } }
+                            TextButton(onBack) { Text("返回漫画详情") }
+                        }
+                    }
+                }
+            }
+        }, secondary = {
+            MangaReaderDetails(state, onComments, { showChapters = true }, onBack, onRetryDownloads, detailsTab, { detailsTab = it }, ratingActions, onRelations, onRetryRelations, onRelatedSubject)
+        }, modifier = Modifier.fillMaxSize().testTag("manga-player-layout-$mode"))
+    }
+    if (showChapters) AlertDialog(onDismissRequest = { showChapters = false }, title = { Text("章节目录") },
+        text = {
+            LazyColumn { items(siblings, key = { it.id }) { item ->
+                TextButton({ showChapters = false; onChapter(item) }, Modifier.fillMaxWidth()) {
+                    Text(item.title, color = if (item.id == chapter.id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                }
+            } }
+        }, confirmButton = { TextButton({ showChapters = false }) { Text("关闭") } })
+}
+
+@Composable
+private fun MangaReaderDetails(state: MangaDetailsUiState, onComments: () -> Unit,
+    onChapters: () -> Unit, onBack: () -> Unit, onRetryDownloads: () -> Unit, tab: Int, onTab: (Int) -> Unit,
+    ratingActions: EditableRatingActions, onRelations: () -> Unit, onRetryRelations: () -> Unit, onRelatedSubject: (Int) -> Unit,
+) {
+    Surface(Modifier.fillMaxSize().testTag("manga-reader-details")) {
+        Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing)) {
+            SecondaryTabRow(tab) {
+                Tab(tab == 0, { onTab(0) }, text = { Text("详情") }, modifier = Modifier.testTag("manga-reader-details-tab"))
+                Tab(tab == 1, { onTab(1) }, text = { Text("评论 (${state.commentsTotal})") }, modifier = Modifier.testTag("manga-reader-comments-tab"))
+            }
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                if (tab == 0) {
+                    item { Text(state.details?.title ?: state.book?.title.orEmpty(), style = MaterialTheme.typography.titleLarge) }
+                    item { Text("${state.chapter?.title.orEmpty()} · ${state.book?.source?.title.orEmpty()}") }
+                    item { Row {
+                        TextButton(onChapters) { Text("章节目录") }
+                        TextButton(onBack) { Text("作品详情") }
+                    } }
+                    item {
+                        Column(Modifier.testTag("manga-download-status"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            state.downloads.forEachIndexed { index, download ->
+                                Text("${if (index == 0) "本话" else "下一话"} · ${download.title}：" +
+                                    if (download.total > 0 && download.completed == download.total) "已缓存 ${download.total} 页"
+                                    else "缓存 ${download.completed} / ${if (download.total > 0) download.total else "…"} 页",
+                                    style = MaterialTheme.typography.bodySmall)
+                                download.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                            }
+                            if (state.downloads.any { it.error != null }) TextButton(onRetryDownloads) { Text("重试缓存") }
+                        }
+                    }
+                    state.details?.let { details ->
+                        item { SubjectRatingSummary(details.rating, onClick = ratingActions::requestEditRating) }
+                        item { MangaRatingEntry(state, ratingActions) }
+                        item { MangaRelatedSection(state, onRelations, onRetryRelations, onRelatedSubject) }
+                        item { SubjectSummarySection(details.summary.ifBlank { "暂无简介" }) }
+                        item { SubjectInfoTable(details.info) }
+                    }
+                } else item { MangaComments(state, onComments) }
+            }
+        }
+    }
+}
+
+/** Page indices remain in reading order; visual left/right order is applied by the row. */
+internal fun mangaReaderRows(pageCount: Int, spread: Boolean, firstPageSingle: Boolean): List<List<Int>> {
+    if (!spread) return List(pageCount) { listOf(it) }
+    val start = if (firstPageSingle && pageCount > 0) 1 else 0
+    return buildList {
+        if (start == 1) add(listOf(0))
+        addAll((start until pageCount).toList().chunked(2))
+    }
+}
+
+@Composable
+internal fun MangaReaderPages(
+    pages: List<MangaPage>, initialPage: Int, onPage: (Int) -> Unit, loadImage: suspend (MangaPage) -> String,
+    onPreviousChapter: (() -> Unit)?, onNextChapter: (() -> Unit)?, modifier: Modifier = Modifier,
+    initialRightToLeft: Boolean = true, initialFirstPageSingle: Boolean = false,
+    onReaderLayout: (Boolean, Boolean) -> Unit = { _, _ -> },
+    spreadOverride: Boolean? = null,
+    title: String = "", onBack: () -> Unit = {}, onChapters: () -> Unit = {},
+    fullscreen: Boolean = false, onFullscreen: (Boolean) -> Unit = {},
+) {
+    if (pages.isEmpty()) return
+    var rightToLeft by rememberSaveable { mutableStateOf(initialRightToLeft) }
+    var firstPageSingle by rememberSaveable { mutableStateOf(initialFirstPageSingle) }
+    var currentPage by rememberSaveable { mutableIntStateOf(initialPage.coerceIn(pages.indices)) }
+    var slider by remember { mutableStateOf<Float?>(null) }
+    val controller = remember(fullscreen) { PlayerControllerState() }
+    var showSettings by remember { mutableStateOf(false) }
+    var interaction by remember { mutableIntStateOf(0) }
+    val toggleControls: () -> Unit = { controller.toggleFullVisible(); interaction++ }
+    LaunchedEffect(controller.visibility, controller.alwaysOn, slider, interaction, showSettings) {
+        if (controller.visibility.bottomBar && !controller.alwaysOn && slider == null && !showSettings) {
+            delay(5000)
+            controller.toggleFullVisible(false)
+        }
+    }
+    val scope = rememberCoroutineScope()
+    val focusRequester = remember { FocusRequester() }
+    BoxWithConstraints(modifier) {
+        val spread = spreadOverride ?: (maxWidth > maxHeight)
+        val rows = remember(pages.size, spread, firstPageSingle) { mangaReaderRows(pages.size, spread, firstPageSingle) }
+        val listState = remember(rows) { LazyListState(rows.indexOfFirst { currentPage in it }.coerceAtLeast(0)) }
+        val currentRow = listState.firstVisibleItemIndex.coerceIn(rows.indices)
+        LaunchedEffect(listState) {
+            snapshotFlow { listState.firstVisibleItemIndex }.distinctUntilChanged().collect { row ->
+                currentPage = rows[row.coerceIn(rows.indices)].first()
+                onPage(currentPage)
+            }
+        }
+        LaunchedEffect(Unit) { focusRequester.requestFocus() }
+        fun move(delta: Int) { interaction++; scope.launch { listState.animateScrollToItem((currentRow + delta).coerceIn(rows.indices)) } }
+        Box(Modifier.fillMaxSize().focusRequester(focusRequester).onPreviewKeyEvent {
+            if (it.type != KeyEventType.KeyDown) false
+            else when (it.key) {
+                Key.DirectionDown, Key.PageDown -> { move(1); true }
+                Key.DirectionUp, Key.PageUp -> { move(-1); true }
+                Key.Spacebar -> { toggleControls(); true }
+                Key.F -> { onFullscreen(!fullscreen); true }
+                Key.Escape -> { if (fullscreen) onFullscreen(false) else controller.toggleFullVisible(false); true }
+                else -> false
+            }
+        }.focusable()) {
+            VideoScaffold(expanded = true, maintainAspectRatio = false, controllerState = controller,
+                modifier = Modifier.fillMaxSize(), contentWindowInsets = WindowInsets.safeDrawing,
+                topBar = {
+                    IconButton(onBack, Modifier.testTag("manga-reader-back")) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "返回漫画详情") }
+                    Text(title, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.titleSmall)
+                    TextButton(onChapters) { Text("目录") }
+                    IconButton({ showSettings = true }, Modifier.testTag("manga-reader-settings")) { Icon(Icons.Rounded.Settings, "阅读设置") }
+                    IconButton({ onFullscreen(!fullscreen) }, Modifier.testTag("manga-reader-fullscreen")) {
+                        Icon(if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen, if (fullscreen) "退出全屏" else "全屏")
+                    }
+                },
+                video = {
+            BoxWithConstraints(Modifier.fillMaxSize().pointerInput(controller) { detectTapGestures(onTap = { toggleControls() }) }
+                .semantics { onClick(label = "显示或隐藏阅读控制栏") { toggleControls(); true } }) {
+            val viewportHeight = maxHeight
+            LazyColumn(state = listState, modifier = Modifier.fillMaxSize().testTag("manga-reader-scroll").semantics { onClick { toggleControls(); true } },
+                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                itemsIndexed(rows, key = { _, row -> row.joinToString("-") }) { rowIndex, row ->
+                    Row(Modifier.fillMaxWidth().heightIn(min = if (rowIndex == rows.lastIndex) viewportHeight else 0.dp)
+                        .testTag("manga-reader-row-$rowIndex"), verticalAlignment = Alignment.Top) {
+                        val visualOrder = if (rightToLeft) row.reversed() else row
+                        if (spread && row.size == 1 && rightToLeft) Spacer(Modifier.weight(1f))
+                        visualOrder.forEach { index ->
+                            MangaReaderImage(pages[index], index + 1, currentRow == rowIndex, loadImage,
+                                Modifier.weight(1f).testTag("manga-reader-page-slot-${index + 1}"), onTap = toggleControls)
+                        }
+                        if (spread && row.size == 1 && !rightToLeft) Spacer(Modifier.weight(1f))
+                    }
+                }
+            }
+            }
+                }, bottomBar = {
+                Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp).testTag("manga-reader-controls")) {
+                    if (pages.size > 1) Slider(value = slider ?: currentPage.toFloat(),
+                        onValueChange = { slider = it; interaction++ }, valueRange = 0f..pages.lastIndex.toFloat(),
+                        onValueChangeFinished = {
+                            val target = slider?.toInt(); slider = null
+                            if (target != null) scope.launch { listState.scrollToItem(rows.indexOfFirst { target in it }.coerceAtLeast(0)) }
+                        }, modifier = Modifier.testTag("manga-reader-slider"))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        TextButton({ onPreviousChapter?.invoke() }, enabled = onPreviousChapter != null, modifier = Modifier.testTag("manga-previous-chapter")) { Text("上一话") }
+                        TextButton({ move(-1) }, enabled = currentRow > 0, modifier = Modifier.testTag("manga-previous-page")) { Text(if (spread) "上一组" else "上一页") }
+                        val row = rows[currentRow]
+                        Text(if (row.size == 1) "${row.first() + 1} / ${pages.size}" else "${row.first() + 1}–${row.last() + 1} / ${pages.size}", Modifier.testTag("manga-reader-page"))
+                        TextButton({ move(1) }, enabled = currentRow < rows.lastIndex, modifier = Modifier.testTag("manga-next-page")) { Text(if (spread) "下一组" else "下一页") }
+                        TextButton({ onNextChapter?.invoke() }, enabled = onNextChapter != null, modifier = Modifier.testTag("manga-next-chapter")) { Text("下一话") }
+                    }
+                }
+            })
+        }
+    }
+    if (showSettings) AlertDialog(onDismissRequest = { showSettings = false }, title = { Text("阅读设置") },
+        text = { Column {
+            TextButton({ rightToLeft = !rightToLeft; onReaderLayout(rightToLeft, firstPageSingle) },
+                Modifier.testTag("manga-reading-order")) { Text(if (rightToLeft) "先右后左" else "先左后右") }
+            TextButton({ firstPageSingle = !firstPageSingle; onReaderLayout(rightToLeft, firstPageSingle) },
+                Modifier.testTag("manga-spread-offset")) { Text(if (firstPageSingle) "配对：首张单独" else "配对：从首张开始") }
+        } }, confirmButton = { TextButton({ showSettings = false }, Modifier.testTag("manga-reader-settings-close")) { Text("完成") } })
+}
+
+@Composable
+private fun MangaReaderImage(page: MangaPage, number: Int, active: Boolean,
+    loadImage: suspend (MangaPage) -> String, modifier: Modifier = Modifier, onTap: () -> Unit = {},
+) {
+    val currentOnTap by rememberUpdatedState(onTap)
+    var uri by remember(page) { mutableStateOf<String?>(null) }
+    var error by remember(page) { mutableStateOf<String?>(null) }
+    var loaded by remember(page) { mutableStateOf(false) }
+    var revision by remember { mutableIntStateOf(0) }
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    var viewport by remember { mutableStateOf(IntSize.Zero) }
+    var aspect by remember(page) { mutableFloatStateOf(if (page.width > 0 && page.height > 0) page.width.toFloat() / page.height else 0.707f) }
+    LaunchedEffect(page, revision) {
+        error = null; uri = null; loaded = false
+        try { uri = loadImage(page) }
+        catch (e: CancellationException) { throw e }
+        catch (e: Exception) { error = e.message ?: "图片加载失败" }
+    }
+    LaunchedEffect(active) { if (!active) { scale = 1f; offset = Offset.Zero } }
+    Box(modifier.fillMaxWidth().aspectRatio(aspect).onSizeChanged { viewport = it }.clipToBounds().background(Color(0xff101014)), contentAlignment = Alignment.Center) {
+        val imageUri = uri
+        if (imageUri != null) key(revision) {
+            AsyncImage(imageUri, "漫画第 $number 页", Modifier.fillMaxSize().testTag("manga-page-image-$number")
+                .semantics { stateDescription = if (loaded) "decoded" else "loading" }
+                .pointerInput(Unit) { detectTapGestures(onTap = { currentOnTap() }, onDoubleTap = { scale = if (scale > 1f) 1f else 2.5f; offset = Offset.Zero }) }
+                .transformable(rememberTransformableState { zoom, pan, _ ->
+                    scale = (scale * zoom).coerceIn(1f, 5f)
+                    val limitX = viewport.width * (scale - 1) / 2
+                    val limitY = viewport.height * (scale - 1) / 2
+                    offset = if (scale == 1f) Offset.Zero else Offset(
+                        (offset.x + pan.x).coerceIn(-limitX, limitX), (offset.y + pan.y).coerceIn(-limitY, limitY),
+                    )
+                }, canPan = { scale > 1f })
+                .graphicsLayer { scaleX = scale; scaleY = scale; translationX = offset.x; translationY = offset.y },
+                contentScale = ContentScale.Fit, onSuccess = { loaded = true; if (it.width > 0 && it.height > 0) aspect = it.width.toFloat() / it.height },
+                onError = { error = "图片解码失败，请重试" })
+        }
+        if (error != null) Surface(Modifier.padding(24.dp), shape = MaterialTheme.shapes.medium) {
+            Box(Modifier.padding(20.dp)) { MangaInlineError(error.orEmpty()) { revision++ } }
+        } else if (!loaded) CircularProgressIndicator()
+    }
+}

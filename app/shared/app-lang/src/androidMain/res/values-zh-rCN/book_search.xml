@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_type_anime">番剧</string>
+    <string name="search_type_book">漫画</string>
+    <string name="search_book_placeholder">搜索 Bangumi 书籍</string>
+</resources>

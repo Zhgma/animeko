@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -35,6 +36,12 @@ import me.him188.ani.app.data.repository.user.SettingsRepository
 import me.him188.ani.app.domain.episode.GetAnimeSeasonIdsFlowUseCase
 import me.him188.ani.app.domain.episode.SetEpisodeCollectionTypeUseCase
 import me.him188.ani.app.domain.search.SubjectSearchQuery
+import me.him188.ani.app.domain.search.SubjectType
+import me.him188.ani.app.data.repository.manga.BangumiBookSearchRepository
+import me.him188.ani.app.data.repository.user.AccessTokenSession
+import me.him188.ani.app.domain.foundation.HttpClientProvider
+import me.him188.ani.app.domain.foundation.get
+import me.him188.ani.app.domain.session.SessionManager
 import me.him188.ani.app.domain.search.isExplicitR18
 import me.him188.ani.app.domain.search.withNsfwFilter
 import me.him188.ani.app.domain.search.withYearFilter
@@ -72,6 +79,12 @@ open class SearchViewModel(
     private val getAnimeSeasonIdsFlowUseCase: GetAnimeSeasonIdsFlowUseCase by inject()
     val setEpisodeCollectionType: SetEpisodeCollectionTypeUseCase by inject()
 
+    private val httpClientProvider: HttpClientProvider by inject()
+    private val sessionManager: SessionManager by inject()
+    private val bookSearchRepository by lazy { BangumiBookSearchRepository(httpClientProvider.get()) }
+    private val _bookPreview = MutableStateFlow<SubjectPreviewItemInfo?>(null)
+    val bookPreview = _bookPreview.asStateFlow()
+
     private val initialQuery = initialSearchQuery.normalized()
     private val hasInitialSearchQuery = initialQuery.shouldTriggerSearch()
     private val queryFlow = MutableStateFlow(initialQuery)
@@ -86,7 +99,19 @@ open class SearchViewModel(
             val rawQuery = queryFlow.value.normalized()
             val query = rawQuery.withNsfwFilter(nsfwSettingFlow.value)
 
-            subjectSearchRepository.searchSubjects(
+            if (rawQuery.type == SubjectType.BOOK) {
+                bookSearchRepository.search(query) {
+                    (sessionManager.sessionFlow.first() as? AccessTokenSession)?.tokens?.bangumiAccessToken
+                }.combine(nsfwSettingFlow) { data, nsfwMode ->
+                    data.map { book ->
+                        SubjectPreviewItemInfo(book.id, book.cover, book.title,
+                            (listOf(book.platform.ifBlank { "书籍" }, book.date) + book.tags).filter { it.isNotBlank() }.joinToString(" · "),
+                            null, null, book.rating, book.nsfw,
+                            if (book.nsfw) nsfwMode else NsfwMode.DISPLAY, originalTitle = book.originalTitle,
+                            subjectType = SubjectType.BOOK)
+                    }
+                }.cachedIn(scope)
+            } else subjectSearchRepository.searchSubjects(
                 searchQuery = query,
                 ignoreDoneAndDropped = {
                     settingsRepository.uiSettings.flow.map {
@@ -158,6 +183,15 @@ open class SearchViewModel(
     }
 
     fun suggestionsPager(query: String): Flow<PagingData<String>> {
+        if (queryFlow.value.type == SubjectType.BOOK) return flow {
+            val titles = try {
+                bookSearchRepository.titleSuggestions(
+                    SubjectSearchQuery(query.trim(), type = SubjectType.BOOK).withNsfwFilter(nsfwSettingFlow.value),
+                    (sessionManager.sessionFlow.first() as? AccessTokenSession)?.tokens?.bangumiAccessToken)
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { emptyList() }
+            emit(PagingData.from(titles))
+        }
         return subjectSearchCompletionRepository.completionsFlow(query.trim())
     }
 
@@ -192,6 +226,11 @@ open class SearchViewModel(
             }
 
             is SearchPageIntent.Play -> {
+                if (intent.item.subjectType != queryFlow.value.type) return
+                if (queryFlow.value.type == SubjectType.BOOK) {
+                    onSearchPageIntent(SearchPageIntent.OpenSubjectDetails(-1, intent.item))
+                    return
+                }
                 launchInBackground {
                     episodeCollectionRepository.subjectEpisodeCollectionInfosFlow(intent.item.subjectId)
                         .first()
@@ -222,6 +261,7 @@ open class SearchViewModel(
             }
 
             is SearchPageIntent.SelectResult -> {
+                if (intent.item.subjectType != queryFlow.value.type) return
                 updateSearchPageState { state ->
                     state.copy(
                         selectedItemIndex = intent.index,
@@ -236,6 +276,7 @@ open class SearchViewModel(
             }
 
             is SearchPageIntent.OpenSubjectDetails -> {
+                if (intent.item.subjectType != queryFlow.value.type) return
                 Analytics.recordEvent(SubjectEnter) {
                     put("source", "search")
                     put("subject_id", intent.item.subjectId)
@@ -248,6 +289,7 @@ open class SearchViewModel(
                             title = intent.item.title,
                             originalTitle = intent.item.originalTitle,
                             imageUrl = intent.item.imageUrl,
+                            type = intent.item.subjectType,
                         ),
                     )
                 }
@@ -275,7 +317,12 @@ open class SearchViewModel(
 
     private fun updateQuery(query: SubjectSearchQuery, submit: Boolean) {
         val updatedQuery = query.normalized()
+        val typeChanged = updatedQuery.type != queryFlow.value.type
         updateQueryState(updatedQuery)
+        if (typeChanged || (!updatedQuery.shouldTriggerSearch() && updatedQuery.type == SubjectType.BOOK)) {
+            clearSearchResults()
+            updateSearchPageState { it.copy(hasActiveSearch = false, selectedItemIndex = -1) }
+        }
         if (updatedQuery.shouldTriggerSearch()) {
             if (submit) {
                 Analytics.recordEvent(SearchStart) {
@@ -331,11 +378,16 @@ open class SearchViewModel(
     }
 
     private fun clearSubjectDetails() {
+        _bookPreview.value = null
         currentPreviewingSubject = null
         subjectDetailsStateLoader.clear()
     }
 
     private fun viewSubjectDetails(previewItem: SubjectPreviewItemInfo) {
+        if (queryFlow.value.type == SubjectType.BOOK) {
+            _bookPreview.value = previewItem
+            return
+        }
         // load 自动取消在途任务, 不需要先 clear
         subjectDetailsStateLoader.load(
             previewItem.subjectId,
@@ -364,6 +416,7 @@ open class SearchViewModel(
 }
 
 private fun SubjectSearchQuery.shouldTriggerSearch(): Boolean {
+    if (type == SubjectType.BOOK) return keywords.isNotEmpty()
     return keywords.isNotEmpty() ||
             !tags.isNullOrEmpty() ||
             year != null ||

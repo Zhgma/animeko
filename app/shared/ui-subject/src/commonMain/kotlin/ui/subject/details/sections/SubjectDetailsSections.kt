@@ -263,6 +263,17 @@ fun SubjectInfoTable(
         }
         if (info.aliases.isNotEmpty()) add(stringResource(Lang.subject_details_aliases) to info.aliases.joinToString(" / "))
     }
+    SubjectInfoTable(rows, modifier, labelWidth, rowSpacing)
+}
+
+/** 作品信息的通用键值表，供动画、漫画等条目共用。 */
+@Composable
+fun SubjectInfoTable(
+    rows: List<Pair<String, String>>,
+    modifier: Modifier = Modifier,
+    labelWidth: Dp = 78.dp,
+    rowSpacing: Dp = 12.dp,
+) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(rowSpacing)) {
         rows.forEach { (label, value) ->
             Row(Modifier.fillMaxWidth()) {

@@ -20,6 +20,7 @@ import me.him188.ani.app.data.models.schedule.AnimeSeasonId
 import me.him188.ani.app.data.models.subject.CanonicalTagKind
 import me.him188.ani.app.domain.search.SearchSort
 import me.him188.ani.app.domain.search.SubjectSearchQuery
+import me.him188.ani.app.domain.search.SubjectType
 import me.him188.ani.app.ui.search.PagingSearchState
 import me.him188.ani.app.ui.search.SearchState
 import me.him188.ani.app.ui.search.TestSearchState
@@ -93,6 +94,7 @@ sealed interface SearchPageEffect {
         val title: String,
         val originalTitle: String,
         val imageUrl: String,
+        val type: SubjectType = SubjectType.ANIME,
     ) : SearchPageEffect
 }
 

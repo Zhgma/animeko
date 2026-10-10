@@ -74,11 +74,13 @@ import kotlin.math.roundToInt
 fun SubjectCollectionStatsRow(
     stats: SubjectCollectionStats,
     modifier: Modifier = Modifier,
+    doingLabel: String = stringResource(Lang.subject_details_stat_watching),
+    wishLabel: String = stringResource(Lang.subject_details_stat_wish),
 ) {
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         StatCell(stats.collect, stringResource(Lang.subject_details_stat_collected), Modifier.weight(1f))
-        StatCell(stats.doing, stringResource(Lang.subject_details_stat_watching), Modifier.weight(1f))
-        StatCell(stats.wish, stringResource(Lang.subject_details_stat_wish), Modifier.weight(1f))
+        StatCell(stats.doing, doingLabel, Modifier.weight(1f))
+        StatCell(stats.wish, wishLabel, Modifier.weight(1f))
     }
 }
 

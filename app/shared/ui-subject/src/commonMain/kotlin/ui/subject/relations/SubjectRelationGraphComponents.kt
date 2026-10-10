@@ -432,7 +432,7 @@ private fun BranchRow(
             Row {
                 Text(
                     listOfNotNull(
-                        branch.relation?.let { renderSubjectRelation(it) },
+                        branch.relationLabel ?: branch.relation?.let { renderSubjectRelation(it) },
                         renderYear(subject),
                     ).joinToString(" · "),
                     style = MaterialTheme.typography.labelSmall,

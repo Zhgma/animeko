@@ -18,6 +18,7 @@ import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
 import androidx.compose.material3.adaptive.navigation.BackNavigationBehavior
 import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -27,6 +28,11 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import me.him188.ani.app.navigation.SubjectDetailPlaceholder
+import me.him188.ani.app.navigation.LocalNavigator
+import me.him188.ani.app.navigation.NavRoutes
+import me.him188.ani.app.domain.search.SubjectType
+import me.him188.ani.app.data.repository.manga.MangaCollection
+import me.him188.ani.app.ui.manga.MangaDetailsRoute
 import me.him188.ani.app.ui.exploration.search.SearchPage
 import me.him188.ani.app.ui.exploration.search.SearchPageEffect
 import me.him188.ani.app.ui.exploration.search.SearchPageIntent
@@ -46,6 +52,7 @@ fun SearchScreen(
     modifier: Modifier = Modifier,
     windowInsets: WindowInsets = AniWindowInsets.forPageContent()
 ) {
+    val navigator = LocalNavigator.current
     val listDetailNavigator = rememberListDetailPaneScaffoldNavigator()
     val gridState = rememberLazyGridState()
     val coroutineScope = rememberCoroutineScope()
@@ -56,6 +63,10 @@ fun SearchScreen(
         vm.searchPageEffects.collectLatest { effect ->
             when (effect) {
                 is SearchPageEffect.NavigateToSubjectDetails -> {
+                    if (effect.type == SubjectType.BOOK) {
+                        navigator.navigate(NavRoutes.MangaDetail(effect.subjectId, effect.title, effect.originalTitle, effect.imageUrl))
+                        return@collectLatest
+                    }
                     onNavigateToSubjectDetails(
                         effect.subjectId,
                         SubjectDetailPlaceholder(
@@ -79,54 +90,70 @@ fun SearchScreen(
         onIntent = vm::onSearchPageIntent,
         suggestionsPager = vm::suggestionsPager,
         detailContent = {
-            val subjectDetailsState by vm.subjectDetailsStateLoader.state
-                .collectAsStateWithLifecycle()
-            val selfInfo by vm.selfInfoFlow.collectAsStateWithLifecycle()
+            if (searchPageState.query.type == SubjectType.BOOK) {
+                val book by vm.bookPreview.collectAsStateWithLifecycle()
+                book?.let { item ->
+                    key(item.subjectId) {
+                        MangaDetailsRoute(MangaCollection(item.subjectId, item.title, item.originalTitle, item.imageUrl,
+                            0, 0, 0, 0, 0, false), onBack = {
+                            vm.onSearchPageIntent(SearchPageIntent.ClearSelection)
+                            coroutineScope.launch { listDetailNavigator.navigateBack() }
+                        }, onReadChapter = { chapter ->
+                            navigator.navigate(NavRoutes.MangaDetail(item.subjectId, item.title, item.originalTitle, item.imageUrl,
+                                initialChapterId = chapter.id))
+                        })
+                    }
+                }
+            } else {
+                val subjectDetailsState by vm.subjectDetailsStateLoader.state
+                    .collectAsStateWithLifecycle()
+                val selfInfo by vm.selfInfoFlow.collectAsStateWithLifecycle()
 
-            SubjectDetailsScreen(
-                subjectDetailsState,
-                selfInfo,
-                onPlay = { episodeId ->
-                    val current = subjectDetailsState
-                    if (current != null) {
-                        onNavigateToEpisodeDetails(current.subjectId, episodeId)
-                    }
-                },
-                onLoadErrorRetry = { vm.reloadCurrentSubjectDetails() },
-                onClickTag = { tag ->
-                    coroutineScope.launch {
-                        if (listDetailNavigator.currentDestination?.pane == ListDetailPaneScaffoldRole.Detail) {
-                            listDetailNavigator.navigateBack(BackNavigationBehavior.PopUntilScaffoldValueChange)
+                SubjectDetailsScreen(
+                    subjectDetailsState,
+                    selfInfo,
+                    onPlay = { episodeId ->
+                        val current = subjectDetailsState
+                        if (current != null) {
+                            onNavigateToEpisodeDetails(current.subjectId, episodeId)
                         }
-                        vm.onSearchPageIntent(
-                            SearchPageIntent.UpdateQuery(
-                                searchPageState.query.copy(tags = listOf(tag.name)),
-                            ),
-                        )
-                        gridState.animateScrollToItem(0)
-                    }
-                },
-                onEpisodeCollectionUpdate = { request ->
-                    coroutineScope.launch {
-                        vm.setEpisodeCollectionType.invokeSafe(request)?.let {
-                            toast.showLoadError(it)
+                    },
+                    onLoadErrorRetry = { vm.reloadCurrentSubjectDetails() },
+                    onClickTag = { tag ->
+                        coroutineScope.launch {
+                            if (listDetailNavigator.currentDestination?.pane == ListDetailPaneScaffoldRole.Detail) {
+                                listDetailNavigator.navigateBack(BackNavigationBehavior.PopUntilScaffoldValueChange)
+                            }
+                            vm.onSearchPageIntent(
+                                SearchPageIntent.UpdateQuery(
+                                    searchPageState.query.copy(tags = listOf(tag.name)),
+                                ),
+                            )
+                            gridState.animateScrollToItem(0)
                         }
-                    }
-                },
-                windowInsets = paneContentWindowInsets.only(WindowInsetsSides.Top + WindowInsetsSides.Right),
-                navigationIcon = {
-                    // 只有在单面板模式下才显示返回按钮
-                    if (listDetailLayoutParameters.preferSinglePane) {
-                        BackNavigationIconButton(
-                            onNavigateBack = {
-                                coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
-                                    listDetailNavigator.navigateBack()
-                                }
-                            },
-                        )
-                    }
-                },
-            )
+                    },
+                    onEpisodeCollectionUpdate = { request ->
+                        coroutineScope.launch {
+                            vm.setEpisodeCollectionType.invokeSafe(request)?.let {
+                                toast.showLoadError(it)
+                            }
+                        }
+                    },
+                    windowInsets = paneContentWindowInsets.only(WindowInsetsSides.Top + WindowInsetsSides.Right),
+                    navigationIcon = {
+                        // 只有在单面板模式下才显示返回按钮
+                        if (listDetailLayoutParameters.preferSinglePane) {
+                            BackNavigationIconButton(
+                                onNavigateBack = {
+                                    coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
+                                        listDetailNavigator.navigateBack()
+                                    }
+                                },
+                            )
+                        }
+                    },
+                )
+            }
         },
         modifier.fillMaxSize(),
         gridState = gridState,

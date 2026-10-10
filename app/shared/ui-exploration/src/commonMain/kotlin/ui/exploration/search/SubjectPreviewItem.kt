@@ -30,6 +30,7 @@ import me.him188.ani.app.data.models.subject.SubjectInfo
 import me.him188.ani.app.data.models.subject.kind
 import me.him188.ani.app.data.models.subject.nameCnOrName
 import me.him188.ani.app.data.models.subject.nameOrNameCn
+import me.him188.ani.app.domain.search.SubjectType
 import me.him188.ani.app.data.network.LightRelatedCharacterInfo
 import me.him188.ani.app.data.network.LightRelatedPersonInfo
 import me.him188.ani.app.ui.foundation.LocalSubjectAppearanceSettings
@@ -65,6 +66,7 @@ class SubjectPreviewItemInfo(
     val hide: Boolean = false,
     /** 条目原名 (通常为日文), 供"显示原名"设置开启时使用; 默认与 [title] 相同. */
     val originalTitle: String = title,
+    val subjectType: SubjectType = SubjectType.ANIME,
 ) {
     companion object {
         /**

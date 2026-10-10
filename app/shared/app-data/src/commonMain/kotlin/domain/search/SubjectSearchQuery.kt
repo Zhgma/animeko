@@ -119,6 +119,7 @@ data class RatingRange(
 
 enum class SubjectType {
     ANIME,
+    BOOK,
 
     /*
     bangumi supports
@@ -132,3 +133,7 @@ enum class SubjectType {
             没有 `5`
      */
 }
+
+/** The keyword is shared across search types; type-specific filters start empty. */
+fun SubjectSearchQuery.withSearchType(type: SubjectType): SubjectSearchQuery =
+    if (type == this.type) this else SubjectSearchQuery(keywords = keywords, type = type)

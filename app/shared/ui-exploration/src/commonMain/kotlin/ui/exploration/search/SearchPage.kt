@@ -16,6 +16,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -60,6 +61,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -81,6 +84,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import me.him188.ani.app.data.repository.RepositoryNetworkException
 import me.him188.ani.app.domain.search.SearchSort
+import me.him188.ani.app.domain.search.SubjectType
+import me.him188.ani.app.domain.search.withSearchType
 import me.him188.ani.app.ui.adaptive.AdaptiveSearchBar
 import me.him188.ani.app.ui.adaptive.AniListDetailPaneScaffold
 import me.him188.ani.app.ui.adaptive.AniTopAppBar
@@ -99,6 +104,7 @@ import me.him188.ani.app.ui.lang.Lang
 import me.him188.ani.app.ui.lang.exploration_search
 import me.him188.ani.app.ui.lang.exploration_search_back_to_top
 import me.him188.ani.app.ui.lang.settings_mediasource_test_keyword
+import me.him188.ani.app.ui.lang.search_book_placeholder
 import me.him188.ani.app.ui.search.TestSearchState
 import me.him188.ani.app.ui.search.collectItemsWithLifecycle
 import me.him188.ani.utils.platform.annotations.TestOnly
@@ -126,6 +132,17 @@ fun SearchPage(
     var isSearchBarExpanded by rememberSaveable { mutableStateOf(false) }
     var layoutKind by rememberSaveable { mutableStateOf(SearchResultLayoutKind.COVER) }
     var editingQuery by rememberSaveable(state.query.keywords) { mutableStateOf(state.query.keywords) }
+    var previousSearchType by rememberSaveable { mutableStateOf(state.query.type) }
+
+    LaunchedEffect(state.query.type) {
+        if (previousSearchType != state.query.type) {
+            previousSearchType = state.query.type
+            gridState.scrollToItem(0)
+            if (navigator.currentDestination?.pane == ListDetailPaneScaffoldRole.Detail) {
+                navigator.navigateTo(ListDetailPaneScaffoldRole.List)
+            }
+        }
+    }
 
     LaunchedEffect(state.hasSelectedItem) {
         if (state.hasSelectedItem) {
@@ -153,7 +170,7 @@ fun SearchPage(
                 expanded = isSearchBarExpanded,
                 onExpandedChange = { isSearchBarExpanded = it },
                 modifier = Modifier.padding(bottom = 16.dp),
-                placeholder = { Text(keywordText) },
+                placeholder = { Text(if (state.query.type == SubjectType.BOOK) stringResource(Lang.search_book_placeholder) else keywordText) },
                 windowInsets = contentWindowInsets.only(WindowInsetsSides.Horizontal),
             )
         },
@@ -173,6 +190,9 @@ fun SearchPage(
                                 onSortChange = {
                                     onIntent(SearchPageIntent.ChangeSort(it))
                                 },
+                                sortOptions = if (state.query.type == SubjectType.BOOK) {
+                                    listOf(SearchSort.MATCH, SearchSort.COLLECTION, SearchSort.RANK)
+                                } else SearchSort.entries,
                             )
                         }
                     },
@@ -219,7 +239,7 @@ fun SearchPage(
                         onIntent(SearchPageIntent.Play(it))
                     },
                     headers = {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
+                        if (state.query.type == SubjectType.ANIME) item(span = { GridItemSpan(maxLineSpan) }) {
                             SearchFilterChipsRow(
                                 state = state.searchFilterState,
                                 leadingContent = {
@@ -365,6 +385,7 @@ private fun SearchPageSearchBar(
                 expanded = expanded,
                 onExpandedChange = onExpandedChange,
                 modifier = inputFieldModifier
+                    .testTag("subject-search-input")
                     .fillMaxWidth()
                     .onFocusChanged { focusState ->
                         if (!focusState.isFocused && expanded) {
@@ -382,7 +403,16 @@ private fun SearchPageSearchBar(
                         true
                     },
                 placeholder = placeholder,
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                leadingIcon = {
+                    Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Search, contentDescription = null)
+                        SearchSubjectTypeSelector(state.query.type) { type ->
+                            onExpandedChange(false)
+                            onIntent(SearchPageIntent.UpdateQuery(
+                                state.query.withSearchType(type).copy(keywords = editingQuery), submit = true))
+                        }
+                    }
+                },
                 trailingIcon = if (editingQuery.isNotEmpty() || expanded) {
                     {
                         IconButton(
@@ -414,9 +444,11 @@ private fun SearchPageSearchBar(
         } else {
             SuggestionSearchPreviewType.SUGGESTIONS
         }
-        val values = when (previewType) {
-            SuggestionSearchPreviewType.HISTORY -> state.searchHistoryPager
-            SuggestionSearchPreviewType.SUGGESTIONS -> suggestionsPager(debouncedEditingQuery)
+        val values = remember(previewType, state.query.type, debouncedEditingQuery, state.searchHistoryPager) {
+            when (previewType) {
+                SuggestionSearchPreviewType.HISTORY -> state.searchHistoryPager
+                SuggestionSearchPreviewType.SUGGESTIONS -> suggestionsPager(debouncedEditingQuery)
+            }
         }.collectAsLazyPagingItemsWithLifecycle()
 
         LazyColumn {

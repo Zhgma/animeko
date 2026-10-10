@@ -1,123 +1,140 @@
-/*
- * Copyright (C) 2024-2025 OpenAni and contributors.
- *
- * 此源代码的使用受 GNU AFFERO GENERAL PUBLIC LICENSE version 3 许可证的约束, 可以在以下链接找到该许可证.
- * Use of this source code is governed by the GNU AGPLv3 license, which can be found at the following link.
- *
- * https://github.com/open-ani/ani/blob/main/LICENSE
- */
-
+/* Copyright (C) 2026 OpenAni and contributors. SPDX-License-Identifier: AGPL-3.0-only */
 package me.him188.ani.app.ui.update
 
-import io.ktor.client.HttpClient
+import io.ktor.client.plugins.expectSuccess
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
-import io.ktor.http.appendPathSegments
-import kotlinx.coroutines.CancellationException
-import kotlinx.io.IOException
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import me.him188.ani.app.data.network.protocol.ReleaseClass
-import me.him188.ani.app.data.network.protocol.ReleaseUpdatesDetailedResponse
 import me.him188.ani.app.platform.currentAniBuildConfig
-import me.him188.ani.app.tools.TimeFormatter
-import me.him188.ani.utils.coroutines.withExceptionCollector
-import me.him188.ani.utils.ktor.getPlatformKtorEngine
-import me.him188.ani.utils.logging.error
-import me.him188.ani.utils.logging.info
-import me.him188.ani.utils.logging.logger
+import me.him188.ani.utils.ktor.ScopedHttpClient
+import me.him188.ani.utils.platform.Arch
+import me.him188.ani.utils.platform.Platform
 import me.him188.ani.utils.platform.currentPlatform
 
-class UpdateChecker {
-    /**
-     * 检查是否有更新的版本. 返回最新版本的信息, 或者 `null` 表示没有新版本.
-     */
+internal const val FORK_RELEASES_URL = "https://github.com/Zhgma/animeko/releases"
+
+/** Uses the configured application network client and the fork's published release assets. */
+class UpdateChecker(private val client: ScopedHttpClient) {
     suspend fun checkLatestVersion(
         releaseClass: ReleaseClass,
         currentVersion: String = currentAniBuildConfig.versionName,
     ): NewVersion? {
-        HttpClient(getPlatformKtorEngine()) {
-            expectSuccess = true
-        }.use { client ->
-            withExceptionCollector {
-                return kotlin.runCatching {
-                    client.getVersionFromAniServer("https://danmaku-global.myani.org/", currentVersion, releaseClass)
-                        .also {
-                            logger.info { "Got latest version from global server: ${it?.name}" }
-                        }
-                }.recoverCatching { exception ->
-                    collect(exception)
-                    client.getVersionFromAniServer("https://danmaku-cn.myani.org/", currentVersion, releaseClass).also {
-                        logger.info { "Got latest version from CN server: ${it?.name}" }
-                    }
-                }.onFailure { exception ->
-                    collect(exception)
-                    if (exception is CancellationException || exception is IOException) {
-                        throwLast()
-                    }
-                    val finalException = getLast()!!
-                    logger.error(finalException) { "Failed to get latest version" }
-                    throw finalException
-                }.getOrThrow()// should not throw, because of `onFailure`   
+        val releases = mutableListOf<ForkRelease>()
+        for (page in 1..5) {
+            val batch = client.use {
+                val response = get("https://api.github.com/repos/Zhgma/animeko/releases") {
+                    expectSuccess = true
+                    header("Accept", "application/vnd.github+json")
+                    header("X-GitHub-Api-Version", "2022-11-28")
+                    parameter("per_page", 100); parameter("page", page)
+                }
+                releaseJson.decodeFromString<List<ForkRelease>>(response.bodyAsText())
             }
+            releases.addAll(batch)
+            if (batch.size < 100) break
         }
+        return selectForkRelease(releases, currentVersion, releaseClass, currentPlatform(),
+            currentAniBuildConfig.isDebug, currentAniBuildConfig.distroChannel)
     }
+}
 
-    private suspend fun HttpClient.getVersionFromAniServer(
-        baseUrl: String,
-        currentVersion: String = currentAniBuildConfig.versionName,
-        releaseClass: ReleaseClass,
-    ): NewVersion? {
-//        val versions = get(baseUrl) {
-//            url {
-//                appendPathSegments("v1/updates/incremental")
-//            }
-//            val platform = currentPlatform
-//            parameter("clientVersion", currentAniBuildConfig.versionName)
-//            parameter("clientArch", platform.arch.displayName)
-//            parameter("releaseClass", "beta")
-//        }.bodyAsChannel().toInputStream().use {
-//            json.decodeFromStream(UpdatesIncrementalResponse.serializer(), it)
-//        }.versions
-//
-//        val newestVersion = versions.lastOrNull() ?: return null
-        val updates = get(baseUrl) {
-            url {
-                appendPathSegments("v1/updates/incremental/details")
+internal val releaseJson = Json { ignoreUnknownKeys = true }
+
+@Serializable
+internal data class ForkRelease(
+    @SerialName("tag_name") val tag: String,
+    val draft: Boolean = false,
+    val prerelease: Boolean = false,
+    val body: String? = null,
+    @SerialName("published_at") val publishedAt: String? = null,
+    val assets: List<ForkAsset> = emptyList(),
+)
+
+@Serializable
+internal data class ForkAsset(val name: String, @SerialName("browser_download_url") val url: String)
+
+internal fun selectForkRelease(releases: List<ForkRelease>, current: String, channel: ReleaseClass,
+    platform: Platform, debug: Boolean, distro: String): NewVersion? {
+    val installed = ForkVersion.parse(current) ?: return null
+    val eligible = releases.mapNotNull { release ->
+        val version = ForkVersion.parse(release.tag) ?: return@mapNotNull null
+        val releaseChannel = when {
+            !release.prerelease && version.pre.isEmpty() -> ReleaseClass.STABLE
+            version.pre.firstOrNull()?.startsWith("rc") == true -> ReleaseClass.RC
+            version.pre.firstOrNull()?.let { it.startsWith("alpha") || it.startsWith("dev") } == true -> ReleaseClass.ALPHA
+            else -> ReleaseClass.BETA
+        }
+        if (release.draft || version <= installed || releaseChannel.ordinal < channel.ordinal) return@mapNotNull null
+        val names = forkAssetNames(release.tag.removePrefix("v"), platform, debug, distro)
+        val asset = names.firstNotNullOfOrNull { name -> release.assets.firstOrNull { it.name == name &&
+            it.url.startsWith("$FORK_RELEASES_URL/download/${release.tag}/") } } ?: return@mapNotNull null
+        Triple(version, release, asset)
+    }.sortedByDescending { it.first }
+    val (_, latest, asset) = eligible.firstOrNull() ?: return null
+    return NewVersion(latest.tag.removePrefix("v"), eligible.take(10).map { (_, release, _) ->
+        Changelog(release.tag.removePrefix("v"), release.publishedAt.orEmpty(), release.body.orEmpty())
+    }, listOf(asset.url), latest.publishedAt.orEmpty(), "$FORK_RELEASES_URL/tag/${latest.tag}")
+}
+
+/** Release names match ci-helper; Android debug packages are explicitly separated by suffix. */
+internal fun forkAssetNames(version: String, platform: Platform, debug: Boolean, distro: String): List<String> {
+    val arch = when (platform.arch) {
+        Arch.X86_64 -> "x86_64"
+        Arch.AARCH64, Arch.ARMV8A -> "aarch64"
+        Arch.ARMV7A -> "armv7a"
+    }
+    return when (platform) {
+        is Platform.Android -> {
+            if (distro !in listOf("default", "tv")) return emptyList()
+            val abi = when (platform.arch) {
+                Arch.ARMV8A, Arch.AARCH64 -> "arm64-v8a"
+                Arch.ARMV7A -> "armeabi-v7a"
+                Arch.X86_64 -> "x86_64"
             }
-            val platform = currentPlatform()
-            parameter("clientVersion", currentAniBuildConfig.versionName)
-            parameter("clientPlatform", platform.name.lowercase())
-            parameter("clientArch", platform.arch.displayName)
-            parameter("releaseClass", releaseClass.name)
-        }.bodyAsText().let {
-            json.decodeFromString(ReleaseUpdatesDetailedResponse.serializer(), it)
-        }.updates
-
-        if (updates.isEmpty()) {
-            return null
+            val prefix = if (distro == "tv") "ani-tv" else "ani"
+            val suffix = if (debug) "-debug" else ""
+            listOf("$prefix-$version-$abi$suffix.apk", "$prefix-$version-universal$suffix.apk")
         }
-
-        return updates.last().let { latest ->
-            NewVersion(
-                name = latest.version,
-                changelogs = updates.asReversed().asSequence().take(10).filter { it.version != currentVersion }.map {
-                    Changelog(it.version, formatTime(it.publishTime), it.description)
-                }.toList(),
-                downloadUrlAlternatives = latest.downloadUrlAlternatives,
-                publishedAt = formatTime(latest.publishTime),
-            )
-        }
+        is Platform.Windows -> listOf("ani-$version-windows-$arch.zip")
+        is Platform.MacOS -> listOf("ani-$version-macos-$arch.${if (arch == "aarch64") "dmg" else "zip"}")
+        is Platform.Linux -> listOf("ani-$version-linux-$arch.appimage")
+        Platform.Ios -> emptyList()
     }
+}
 
-    private companion object {
-        private val logger = logger<UpdateChecker>()
-        private val json = Json {
-            ignoreUnknownKeys = true
+/** Numeric core and SemVer prerelease ordering prevent string-based version downgrades. */
+internal data class ForkVersion(val core: List<Int>, val pre: List<String>) : Comparable<ForkVersion> {
+    override fun compareTo(other: ForkVersion): Int {
+        core.zip(other.core).forEach { (a, b) -> if (a != b) return a.compareTo(b) }
+        if (pre.isEmpty() || other.pre.isEmpty()) return when {
+            pre.isEmpty() && other.pre.isEmpty() -> 0
+            pre.isEmpty() -> 1
+            else -> -1
         }
-
-        private fun formatTime(
-            seconds: Long,
-        ): String = kotlin.runCatching { TimeFormatter().format(seconds * 1000) }.getOrElse { seconds.toString() }
+        pre.zip(other.pre).forEach { (a, b) ->
+            val an = a.toLongOrNull(); val bn = b.toLongOrNull()
+            val comparison = when {
+                an != null && bn != null -> an.compareTo(bn)
+                an != null -> -1
+                bn != null -> 1
+                else -> a.compareTo(b)
+            }
+            if (comparison != 0) return comparison
+        }
+        return pre.size.compareTo(other.pre.size)
+    }
+    companion object {
+        fun parse(value: String): ForkVersion? {
+            val match = Regex("""^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$""").matchEntire(value) ?: return null
+            val core = (1..3).map { match.groupValues[it].toIntOrNull() ?: return null }
+            val pre = match.groupValues[4].takeIf { it.isNotEmpty() }?.split('.') ?: emptyList()
+            if (pre.any { it.isEmpty() }) return null
+            return ForkVersion(core, pre)
+        }
     }
 }

@@ -60,6 +60,8 @@ data class SubjectRelationGraphBranch(
      * 相对于所属主线条目的关系. `null` 表示其他类型.
      */
     val relation: SubjectRelation?,
+    /** Source label for relations outside the anime relation vocabulary. */
+    val relationLabel: String? = null,
 )
 
 @Immutable

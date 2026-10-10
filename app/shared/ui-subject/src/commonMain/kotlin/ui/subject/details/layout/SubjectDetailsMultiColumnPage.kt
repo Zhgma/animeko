@@ -298,7 +298,7 @@ internal fun SubjectDetailsMultiColumnPage(
  * 页内标题滚过顶栏后, 顶栏按 M3 规范渐显 [topBarTitle] 并加底色 (与手机版 SubjectDetailsLayout 行为一致).
  */
 @Composable
-private fun MultiColumnScaffold(
+internal fun MultiColumnScaffold(
     layoutParams: SubjectDetailsLayoutParams,
     modifier: Modifier = Modifier,
     showTopBar: Boolean = true,
@@ -604,8 +604,8 @@ private val RATING_HISTOGRAM_WIDTH = 274.dp
  * (复用手机版同款 [Lang.rating_self_score] 文案); 点击打开评分编辑.
  */
 @Composable
-private fun EditRatingButton(selfScore: Int, onClick: () -> Unit) {
-    TextButton(onClick) {
+internal fun EditRatingButton(selfScore: Int, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    TextButton(onClick, modifier, enabled = enabled) {
         Icon(
             Icons.Rounded.StarOutline,
             contentDescription = null,
@@ -633,7 +633,7 @@ private fun SubjectRelatedBlock(subjectId: Int, related: LazyPagingItems<Related
 }
 
 @Composable
-private fun RailCard(content: @Composable () -> Unit) {
+internal fun RailCard(content: @Composable () -> Unit) {
     Surface(
         Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
