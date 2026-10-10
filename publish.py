@@ -88,4 +88,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as error:
+        detail = str(error)
+        if isinstance(error, subprocess.CalledProcessError):
+            detail += "\n" + (error.stderr or error.stdout or "")
+        annotation = detail.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        print("::error::" + annotation, flush=True)
+        raise
