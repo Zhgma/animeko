@@ -58,6 +58,8 @@ Fork 版本从 `0.1.0` 开始，Android `versionCode` 从 `50407` 递增，支�
 
 本地发布使用不带 `v` 的标签（如 `0.1.0`），避免触发需要上游私有凭据的 `v*` 发布工作流。发布附件由本地签名构建上传，签名库和密码保存在仓库外并需要独立备份。Git 标签、应用显示版本和附件文件名的版本部分保持一致。
 
+HTTP User-Agent 的 `open-ani/ani` 产品版本对应上游代码基线 `4.9.0-dev`，用于上游接口兼容性判断；附加 `Animecomic/0.x.x` 产品版本与 fork 仓库地址标识本项目。合并上游时同步核对兼容版本。应用显示与 OTA 比较使用独立的 fork 版本，避免上游将 `0.x.x` 当作旧版 Animeko 而返回 426。
+
 更新检查使用应用配置的 `HttpClientProvider` 请求 `https://api.github.com/repos/Zhgma/animeko/releases`，按版本号、渠道、平台、架构与 Android 发行类型选择安装包。没有匹配 Release 时不提示更新，不回退到上游发行源。Release 详情链接也指向本仓库。版本标签使用 `vX.Y.Z` 或 `vX.Y.Z-beta.N` 等三段版本号；版本必须高于当前安装版本。草稿不参与更新，预发行版遵守设置中的更新渠道。
 
 正式安装包沿用 `ci-helper` 命名：

@@ -101,4 +101,9 @@ inline val currentAniBuildConfig: AniBuildConfig get() = currentAniBuildConfigIm
 fun getAniUserAgent(
     version: String = currentAniBuildConfig.versionName,
     platform: String = currentPlatform().nameAndArch,
-): String = "open-ani/ani/$version ($platform) (https://github.com/open-ani/ani)"
+): String = "open-ani/ani/$UPSTREAM_API_COMPATIBILITY_VERSION ($platform) " +
+    "(https://github.com/open-ani/ani) Animecomic/$version (https://github.com/Zhgma/animeko)"
+
+// Matches the upstream source baseline. Its API compatibility gate uses this product token;
+// the independent fork version belongs to the Animecomic token and the release updater.
+private const val UPSTREAM_API_COMPATIBILITY_VERSION = "4.9.0-dev"
