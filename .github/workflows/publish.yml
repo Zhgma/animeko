@@ -1,0 +1,26 @@
+name: Publish Animecomic signed APKs
+on:
+  push:
+    branches: [release-artifacts]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: publish-animecomic-release
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.repository == 'Zhgma/animeko' && github.ref == 'refs/heads/release-artifacts'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Verify packages, upload draft, verify downloads and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: python3 publish.py
