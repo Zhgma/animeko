@@ -24,6 +24,12 @@ class ForkUpdateTest {
         assertNull(ForkVersion.parse("main"))
         assertNull(selectForkRelease(listOf(release("4.9.0")), "4.9.0", ReleaseClass.BETA, android, false, "default"))
     }
+    @Test fun zeroMajorReleasesUpgradeWithinForkVersionSeries() {
+        val list = listOf(release("0.1.0"), release("0.1.1"), release("0.2.0", debug = true))
+        assertEquals("0.1.1", selectForkRelease(list, "0.1.0", ReleaseClass.STABLE, android, false, "default")?.name)
+        assertEquals("0.2.0", selectForkRelease(list, "0.1.0", ReleaseClass.STABLE, android, true, "default")?.name)
+        assertNull(selectForkRelease(list, "4.9.0-dev", ReleaseClass.STABLE, android, true, "default"))
+    }
     @Test fun selectsNewestCompatibleAssetAndHonorsChannelAndDrafts() {
         val list = listOf(release("5.0.0"), release("6.0.0", draft = true), release("5.1.0-beta.1", prerelease = true))
         assertEquals("5.0.0", selectForkRelease(list, "4.9.0", ReleaseClass.STABLE, android, false, "default")?.name)
