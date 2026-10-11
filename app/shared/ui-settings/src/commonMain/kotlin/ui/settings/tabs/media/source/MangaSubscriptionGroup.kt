@@ -37,14 +37,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import me.him188.ani.app.data.persistent.dataStores
 import me.him188.ani.app.data.repository.manga.MangaSourceSettings
 import me.him188.ani.app.data.repository.manga.MangaSourceSettingsStore
 import me.him188.ani.app.data.repository.manga.MangaSubscription
 import me.him188.ani.app.data.repository.manga.MangaSubscriptionRepository
-import me.him188.ani.app.domain.foundation.HttpClientProvider
-import me.him188.ani.app.domain.foundation.get
-import me.him188.ani.app.platform.LocalContext
 import me.him188.ani.app.tools.formatDateTime
 import me.him188.ani.app.ui.foundation.getClipEntryText
 import me.him188.ani.app.ui.foundation.setClipEntryText
@@ -53,10 +49,8 @@ import org.koin.mp.KoinPlatform
 
 @Composable
 internal fun SettingsScope.MangaSubscriptionGroup() {
-    val context = LocalContext.current
-    val provider = remember { KoinPlatform.getKoin().get<HttpClientProvider>() }
-    val store = remember(context) { MangaSourceSettingsStore(context.dataStores.preferencesStore) }
-    val repository = remember(store, provider) { MangaSubscriptionRepository(store, provider.get()) }
+    val store = remember { KoinPlatform.getKoin().get<MangaSourceSettingsStore>() }
+    val repository = remember { KoinPlatform.getKoin().get<MangaSubscriptionRepository>() }
     val settings by store.flow.collectAsStateWithLifecycle(initialValue = null)
     val current = settings
     if (current != null) MangaSubscriptionGroupContent(current,
@@ -91,7 +85,7 @@ internal fun SettingsScope.MangaSubscriptionGroupContent(
         }
     }
     Group(title = { Text("漫画源订阅") }, modifier = Modifier.testTag("manga-subscriptions"),
-        description = { Text("支持 Venera 源链接和 index.json。导入本版本已适配的来源；其他来源会提示暂不支持。") },
+        description = { Text("支持漫画 sub、Venera 源链接和 index.json。应用运行时每小时自动刷新；更新失败保留上次来源。") },
         actions = {
             IconButton({ editingId = null; error = null; showEditor = true }, enabled = !busy,
                 modifier = Modifier.testTag("manga-subscription-add")) { Icon(Icons.Rounded.Add, "新增漫画订阅") }

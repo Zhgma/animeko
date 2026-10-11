@@ -496,7 +496,7 @@ private fun renderSystemProxyPresentation(systemProxy: SystemProxyPresentation):
 
 
 @Composable
-private fun SettingsScope.CustomProxyConfig(
+internal fun SettingsScope.CustomProxyConfig(
     proxySettings: ProxySettings,
     proxySettingsState: SettingsState<ProxySettings>
 ) {

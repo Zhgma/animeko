@@ -89,60 +89,7 @@ import me.him188.ani.app.ui.mediafetch.MediaSourceResultPresentation
 import me.him188.ani.app.ui.settings.rendering.SmallMediaSourceIcon
 import org.jetbrains.compose.resources.stringResource
 
-/**
- * 紧凑列表两块面板共用的页面内底部面板: 自画 scrim (点击 = [onDismiss]) + 底部对齐、顶部圆角的 Surface, 铺在 [BtResourcesPage] 的根 Box 上, 不是 ModalBottomSheet.
- * ModalBottomSheet 在 Android 上是独立 window, 不继承全屏播放器已隐藏的系统栏, 放在全屏布局层里会把状态栏 / 导航栏拉回来;
- * 页面内叠层在全屏纯布局层、窄屏详情页的 ModalBottomSheet、桌面 Dialog 里行为一致, 也没有 sheet 叠 sheet 时返回键与 scrim 的归属问题.
- * 返回键由 [BtResourcesPage] 统一处理. [visible] 翻转为 false 时播放退出动画, 调用方在动画期间保持组合.
- * Surface 高度由 `weight(1f, fill = false)` 限制在顶部 56dp 留白之下, 内容用 verticalScroll 时有界.
- */
-@Composable
-private fun BtInlineSheet(
-    visible: Boolean,
-    onDismiss: () -> Unit,
-    sheetTestTag: String,
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    val scrimColor = BottomSheetDefaults.ScrimColor
-    AnimatedVisibility(visible, modifier, enter = fadeIn(), exit = fadeOut()) {
-        Box(Modifier.fillMaxSize()) {
-            Canvas(
-                Modifier.fillMaxSize().clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onDismiss,
-                ),
-            ) {
-                drawRect(color = scrimColor)
-            }
-            Column(Modifier.fillMaxSize().padding(top = 56.dp), verticalArrangement = Arrangement.Bottom) {
-                Surface(
-                    Modifier
-                        .fillMaxWidth()
-                        .weight(1f, fill = false)
-                        .animateEnterExit(enter = slideInVertically { it }, exit = slideOutVertically { it })
-                        // Surface 上的点击不落到 scrim
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = {},
-                        )
-                        .testTag(sheetTestTag),
-                    shape = BottomSheetDefaults.ExpandedShape,
-                    color = BottomSheetDefaults.ContainerColor,
-                ) {
-                    Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
-                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            BottomSheetDefaults.DragHandle()
-                        }
-                        content()
-                    }
-                }
-            }
-        }
-    }
-}
+
 
 /**
  * 手机的数据源面板: 首行「全部数据源 N 条」, 之后每个 BT 源一行 (图标 + 名称 + 状态 + 单选).
@@ -335,74 +282,7 @@ private fun BtSourceRow(
     )
 }
 
-/**
- * 面板行与菜单项共用的内容: 图标 + 名称 / 状态 + (重试) + 单选.
- * [enabled] 为 false 时灰显但仍可点击 (点击 = 重启该源).
- */
-@Composable
-private fun BtSourceItem(
-    icon: @Composable () -> Unit,
-    title: String,
-    status: (@Composable () -> Unit)?,
-    selected: Boolean,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    retry: (@Composable () -> Unit)?,
-    asMenuItem: Boolean,
-    modifier: Modifier,
-) {
-    val alpha = if (enabled) 1f else 0.38f
-    val text: @Composable () -> Unit = {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (status != null) {
-                CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant) {
-                    Box(Modifier.alpha(alpha)) {
-                        ProvideTextStyle(MaterialTheme.typography.bodySmall) {
-                            status()
-                        }
-                    }
-                }
-            }
-        }
-    }
-    val trailing: @Composable () -> Unit = {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            retry?.invoke()
-            RadioButton(selected = selected, onClick = null, enabled = enabled)
-        }
-    }
-    if (asMenuItem) {
-        DropdownMenuItem(
-            text = { Box(Modifier.alpha(alpha)) { text() } },
-            onClick = onClick,
-            modifier = modifier,
-            leadingIcon = { Box(Modifier.alpha(alpha)) { icon() } },
-            trailingIcon = trailing,
-        )
-    } else {
-        val interactionSource = remember { MutableInteractionSource() }
-        Row(
-            modifier
-                .fillMaxWidth()
-                .selectable(
-                    selected = selected,
-                    interactionSource = interactionSource,
-                    indication = LocalIndication.current,
-                    role = Role.RadioButton,
-                    onClick = onClick,
-                )
-                .height(56.dp)
-                .padding(horizontal = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(Modifier.alpha(alpha)) { icon() }
-            Box(Modifier.weight(1f).alpha(alpha)) { text() }
-            trailing()
-        }
-    }
-}
+
 
 /**
  * 手机的筛选面板: 分辨率 / 字幕 / 字幕组三组 FilterChip 单选, 每组首项「不限」= removePreference;
@@ -474,39 +354,6 @@ internal fun BtFilterSheet(
                 Modifier.fillMaxWidth().testTag(BtResourcesPageTestTags.FILTER_DONE),
             ) {
                 Text(stringResource(Lang.media_selector_bt_filter_done))
-            }
-        }
-    }
-}
-
-/**
- * 一组单选 chip.
- */
-@Composable
-private fun BtFilterGroup(
-    title: String,
-    values: List<String>,
-    selected: String?,
-    onSelect: (String?) -> Unit,
-    label: (String) -> String = { it },
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(title, style = MaterialTheme.typography.titleSmall)
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            FilterChip(
-                selected = selected == null,
-                onClick = { onSelect(null) },
-                label = { Text(stringResource(Lang.media_selector_bt_filter_any)) },
-            )
-            for (value in values) {
-                FilterChip(
-                    selected = value == selected,
-                    onClick = { onSelect(value) },
-                    label = { Text(label(value), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                )
             }
         }
     }

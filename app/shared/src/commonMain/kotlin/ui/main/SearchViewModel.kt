@@ -9,6 +9,7 @@
 
 package me.him188.ani.app.ui.main
 
+import me.him188.ani.app.data.repository.manga.MangaBangumiNetwork
 import androidx.compose.runtime.Stable
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
@@ -64,6 +65,7 @@ import me.him188.ani.utils.analytics.AnalyticsEvent.Companion.SearchStart
 import me.him188.ani.utils.analytics.AnalyticsEvent.Companion.SubjectEnter
 import me.him188.ani.utils.analytics.recordEvent
 import org.koin.core.component.KoinComponent
+import org.koin.core.component.get
 import org.koin.core.component.inject
 
 @Stable
@@ -81,7 +83,7 @@ open class SearchViewModel(
 
     private val httpClientProvider: HttpClientProvider by inject()
     private val sessionManager: SessionManager by inject()
-    private val bookSearchRepository by lazy { BangumiBookSearchRepository(httpClientProvider.get()) }
+    private val bookSearchRepository by lazy { BangumiBookSearchRepository(get<MangaBangumiNetwork>().http) }
     private val _bookPreview = MutableStateFlow<SubjectPreviewItemInfo?>(null)
     val bookPreview = _bookPreview.asStateFlow()
 

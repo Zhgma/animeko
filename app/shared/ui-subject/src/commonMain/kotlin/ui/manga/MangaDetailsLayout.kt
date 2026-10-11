@@ -134,6 +134,7 @@ internal fun MangaDetailsContent(
     }
     val loadState: @Composable () -> Unit = {
         if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (state.usingBangumiCache) Text("正在使用 Bangumi 缓存，可继续选源阅读", style = MaterialTheme.typography.bodySmall)
         state.error?.let { MangaInlineError(it, onRetry) }
     }
     val related: @Composable () -> Unit = {

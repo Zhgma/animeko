@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 OpenAni and contributors. SPDX-License-Identifier: AGPL-3.0-only */
 package me.him188.ani.app.ui.manga
 
+import me.him188.ani.app.data.repository.manga.MangaBangumiNetwork
 import me.him188.ani.app.data.repository.manga.MangaLibraryChanges
 import me.him188.ani.app.data.repository.manga.MangaLibraryRepository
 import me.him188.ani.app.data.repository.manga.MangaLibraryEntry
@@ -60,6 +61,7 @@ import org.koin.core.component.get
 
 data class MangaDetailsUiState(
     val subjectId: Int = 0,
+    val usingBangumiCache: Boolean = false,
     val library: MangaLibraryEntry? = null, val libraryLoaded: Boolean = false,
     val libraryWorking: Boolean = false, val libraryError: String? = null,
     val sourceSettings: MangaSourceSettings = MangaSourceSettings(),
@@ -85,12 +87,11 @@ data class MangaDetailsUiState(
 )
 
 class MangaDetailsViewModel(val manga: MangaCollection, context: Context) : AbstractViewModel(), KoinComponent, EditableRatingActions {
-    private val client = get<HttpClientProvider>().get()
-    private val detailsRepository = MangaDetailsRepository(client)
+    private val detailsRepository = MangaDetailsRepository(get<MangaBangumiNetwork>().http)
     private val webSessions = get<WebSessionManager>()
     private val sources = MangaSourceRepository(get<HttpClientProvider>().get(userAgent = ScopedHttpClientUserAgent.NONE), webSessions.cookieJar, get())
     private val sourceSettingsStore = MangaSourceSettingsStore(context.dataStores.preferencesStore)
-    private val libraryRepository = MangaLibraryRepository(client)
+    private val libraryRepository = MangaLibraryRepository(get<MangaBangumiNetwork>().http)
     private val libraryMutex = Mutex()
     private val commentPaging = MangaCommentPaging(manga.subjectId, detailsRepository, backgroundScope)
     val commentState get() = commentPaging.state
@@ -118,6 +119,11 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context) : Abst
     private var relationsJob: Job? = null
 
     init {
+        backgroundScope.launch {
+            get<MangaBangumiNetwork>().cache.usingCache.collect { cached ->
+                mutableState.update { it.copy(usingBangumiCache = cached) }
+            }
+        }
         backgroundScope.launch {
             offlineDownloads.state.collect { download -> mutableState.update {
                 it.copy(offline = download.entries, offlineWorking = download.working, offlineError = download.error)

@@ -17,7 +17,7 @@
 
 ## 数据与登录
 
-复用 `SessionManager.sessionFlow` 中的 Bangumi access token，以及应用的 `HttpClientProvider`。使用 Bangumi 官方 v0 API：
+复用 `SessionManager.sessionFlow` 中的 Bangumi access token，以及独立的 `MangaBangumiNetwork`。使用 Bangumi 官方 v0 API：
 
 1. `GET /v0/me` 取得当前 Bangumi 用户名。
 2. `GET /v0/users/{username}/collections?subject_type=1&type=...&limit=30&offset=...` 分页读取书籍收藏，包括当前账号有权访问的私密收藏。
@@ -27,6 +27,23 @@
 
 阅读进度取 `ep_status` 和 `vol_status`。总话数 / 总卷数未填写时显示 `—`。封面进入应用内漫画详情。应用内收藏菜单复用 `EditCollectionTypeDropDown`，使用“想读 / 在读 / 读过 / 搁置 / 抛弃”标签。`POST /v0/users/-/collections/{id}` 只写入 `type`；进度编辑通过 PATCH 只写入 `ep_status` / `vol_status`，保留评价、标签和隐私。成功后通过漫画独立的 revision 通知追漫列表刷新。未收藏时进度编辑禁用；授权与网络错误保留编辑内容并显示错误。当前 v0 接口没有删除收藏能力，菜单不提供无效的删除动作。
 
+### 网络与缓存
+
+设置 → 网络代理 → 漫画 Bangumi 代理支持直连、系统代理与自定义代理（含账号密码），默认直连。
+`MangaBangumiNetwork` 使用独立的 `DefaultHttpClientProvider`，只承载漫画的收藏、书籍搜索、详情、
+关联、评论、评分与话 / 卷进度请求；漫画订阅、站点目录和阅读图片继续使用原有客户端。
+代理配置持久保存并动态生效，测试连接同时检查 v0 元数据和 p1 评论，测试不读取缓存。
+
+`MangaBangumiCache` 持久保存成功读取的原始响应，以凭据 SHA-256 摘要分区，缓存键不保存 token。
+网络错误、429 或 5xx 可以回退同一分区的旧数据，取消操作、401/403 不回退；首次失败后同分区
+30 秒内优先使用缓存，避免逐个条目等待超时。单次网络请求最多 8 秒。下拉刷新和代理设置操作
+解除退避；列表与详情提示正在使用缓存。成功读取覆盖旧缓存，最多 400 个响应 / 400 万字符，
+超大响应不缓存。没有缓存的首次请求仍显示错误，不能生成不存在的收藏或章节。
+
+收藏列表、作品信息、关联、评论、搜索结果与个人评价可从缓存恢复；来源绑定和阅读位置使用独立的
+`MangaReadingStore`，因此 Bangumi 不可用时仍能继续选源和阅读。写入始终请求网络，失败不通知同步成功，
+成功后更新缓存中该作品的评价和进度；离线列表分组沿用上次完整读取的结果，联网刷新后反映分类变动。收藏和评价编辑保留原来的失败提示与重试入口，不建立自动提交队列。
+
 ## 详情、漫画源与阅读器
 
 详情页使用动画详情同一套 `SubjectDetailsLayoutParams.calculate`：小于 600dp 为单栏，600–1599dp 为双栏，1600dp 起为三栏，尺寸依据页面实际可用宽度。窄屏直接使用 `SubjectDetailsSingleColumnPage` 的封面、吸顶标签与嵌套滚动；双栏和三栏直接使用 `MultiColumnScaffold`，封面、阅读按钮及作品信息位于左侧，中间显示标题、简介和章节，三栏时评分与评论位于右侧 `RailCard`。评分摘要、直方图、收藏统计、标签、作品信息表和简介使用动画的共用组件。`SubjectInfo` 只用作窄屏页头的显示适配对象，不进入动画仓库或接口。
@@ -35,7 +52,7 @@
 
 章节列表通过显示适配使用 `PagedEpisodesGrid`，适配 ID 只用于界面索引，不写入番剧数据层；支持分页、分组、阅读进度和长按标记读过。详情与阅读器共用选源、章节和缓存动作。
 
-`MangaSourceRepository` 提供 Komiic、漫画柜、包子漫画、G站漫画和 MangaDex 的原生适配器，完整协议与可访问性说明见 [漫画来源与选源](manga-sources.md)。Komiic 与漫画柜的协议参考：
+`MangaSourceRepository` 提供 Komiic、漫画柜、包子漫画、G站漫画、漫画人和优酷漫画 的原生适配器，完整协议与可访问性说明见 [漫画来源与选源](manga-sources.md)。Komiic 与漫画柜的协议参考：
 
 - https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/komiic.js
 - https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manhuagui.js
@@ -121,5 +138,3 @@ Release 中上传对应安装包及可选同名 `.sha1`；Android 后续版本�
 阅读器整话预加载仍使用 `MangaReadAheadCache`。用户主动选择缓存的章节则由 `MangaOfflineDownloads` 管理，使用与应用下载管理器相同生命周期的协程，关闭详情页后继续下载。`MangaOfflineStore` 在应用数据目录下保存独立图片和原子替换的索引；选中的队列、已完成页及错误可跨重启保留。重启后未完成项目由用户继续 / 重试，不静默启动网络传输。已完成章节直接用本地图片阅读；支持批量选择、暂停、缺页续传及删除确认。离线文件不参与会话预读的淘汰。
 
 `MangaLibraryRepositoryTest` 验证收藏写入字段、失败不触发刷新、未收藏与授权错误的区别。`MangaOfflineStoreTest` 验证部分失败后恢复、重新打开索引后的离线阅读和删除。`MangaAlignmentTest` 验证收藏菜单、共享评价动作、来源管理、换源歧义与失败页不计为读完。接口写入使用 MockEngine 测试，不改动测试账号的真实收藏。
-
-测试版本使用 `0.x.x-beta.N` 标签和 `prerelease: true` 发布标记，Android versionCode 同样递增。发布器设置 `latest=false`，稳定版通道保留正式版本；测试版通道可选择 beta。普通 APK 和调试 APK 同时提供，保留各自签名和包名，OTA 按当前安装类型选择附件。

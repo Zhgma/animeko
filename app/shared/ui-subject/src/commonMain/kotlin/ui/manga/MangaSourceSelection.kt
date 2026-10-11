@@ -25,7 +25,7 @@ internal suspend fun findReadableMangaSource(
     chapters: suspend (MangaSourceBook) -> List<MangaChapter>,
     probe: suspend (MangaSourceBook, MangaChapter) -> Unit,
     progress: (MangaSource, MangaSourceSearchState) -> Unit,
-    sources: List<MangaSource> = MangaSource.entries,
+    sources: List<MangaSource> = MangaSource.available,
 ): ReadableManga? {
     val query = aliases.first()
     for (source in sources) {

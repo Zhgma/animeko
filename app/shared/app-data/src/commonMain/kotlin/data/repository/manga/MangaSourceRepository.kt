@@ -42,7 +42,12 @@ enum class MangaSource(val title: String, val subscriptionUrl: String, val home:
     MANHUAGUI("漫画柜", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manhuagui.js", "https://www.manhuagui.com"),
     BAOZI("包子漫画", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/baozi.js", "https://cn.bzmgcn.com"),
     GODA("G站漫画", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/goda.js", "https://godamh.com"),
-    MANGADEX("MangaDex", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manga_dex.js", "https://mangadex.org"),
+    MANHUAREN("漫画人", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manhuaren.js", "https://www.manhuaren.com"),
+    YKMH("优酷漫画", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/ykmh.js", "https://www.ykmh.net"),
+    // Kept for decoding saved offline records. No network adapter is registered.
+    MANGADEX("MangaDex", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manga_dex.js", "https://mangadex.org");
+
+    companion object { val available = entries.filter { it != MANGADEX } }
 }
 @Serializable
 data class MangaSourceBook(val source: MangaSource, val id: String, val title: String, val cover: String = "")

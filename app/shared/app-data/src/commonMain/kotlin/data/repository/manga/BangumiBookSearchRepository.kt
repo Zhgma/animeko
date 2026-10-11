@@ -6,14 +6,6 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
-import io.ktor.client.plugins.expectSuccess
-import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.parameter
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.Json
@@ -38,7 +30,8 @@ data class BangumiBookSearchItem(
 internal data class BangumiBookSearchPage(val items: List<BangumiBookSearchItem>, val nextOffset: Int?)
 
 /** Bangumi book search includes manga, novels and individual volumes, without touching anime caches. */
-class BangumiBookSearchRepository(private val client: ScopedHttpClient) {
+class BangumiBookSearchRepository(private val http: MangaBangumiHttp) {
+    constructor(client: ScopedHttpClient) : this(MangaBangumiHttp(client))
     suspend fun titleSuggestions(query: SubjectSearchQuery, token: String?): List<String> =
         searchPage(query, token, 0, 10).items.map { it.title }.distinct()
 
@@ -55,14 +48,8 @@ class BangumiBookSearchRepository(private val client: ScopedHttpClient) {
             catch (e: Exception) { LoadResult.Error(RepositoryException.wrapOrThrowCancellation(e)) }
         }
 
-    internal suspend fun searchPage(query: SubjectSearchQuery, token: String?, offset: Int, limit: Int): BangumiBookSearchPage = client.use {
-        val response = post("https://api.bgm.tv/v0/search/subjects") {
-            expectSuccess = true
-            if (!token.isNullOrBlank()) bearerAuth(token)
-            parameter("offset", offset)
-            parameter("limit", limit.coerceIn(1, 20))
-            contentType(ContentType.Application.Json)
-            setBody(buildJsonObject {
+    internal suspend fun searchPage(query: SubjectSearchQuery, token: String?, offset: Int, limit: Int): BangumiBookSearchPage {
+        val body = buildJsonObject {
                 put("keyword", query.keywords.trim())
                 put("sort", when (query.sort) {
                     SearchSort.MATCH -> "match"
@@ -74,9 +61,8 @@ class BangumiBookSearchRepository(private val client: ScopedHttpClient) {
                     put("type", buildJsonArray { add(JsonPrimitive(1)) })
                     query.nsfw?.let { put("nsfw", it) }
                 })
-            }.toString())
-        }
-        val root = Json.parseToJsonElement(response.bodyAsText()).jsonObject
+            }.toString()
+        val root = Json.parseToJsonElement(http.search(body, token, offset, limit.coerceIn(1, 20))).jsonObject
         val data = root.array("data")
         val items = data.map { it.jsonObject }.filter { it.number("type") == 1 }.map { book ->
             val rating = book.obj("rating")
@@ -88,6 +74,6 @@ class BangumiBookSearchRepository(private val client: ScopedHttpClient) {
         }
         // Advance by the raw response size so unexpected non-book results cannot truncate pagination.
         val next = offset + data.size
-        BangumiBookSearchPage(items, next.takeIf { data.isNotEmpty() && it < root.number("total") })
+        return BangumiBookSearchPage(items, next.takeIf { data.isNotEmpty() && it < root.number("total") })
     }
 }

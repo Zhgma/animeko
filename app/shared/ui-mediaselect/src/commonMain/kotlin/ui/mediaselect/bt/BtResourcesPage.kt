@@ -331,23 +331,6 @@ fun BtResourcesPage(
     }
 }
 
-object BtResourcesPageTestTags {
-    const val ROOT = "bt_page"
-    const val SEARCH_FIELD = "bt_search_field"
-    const val EPISODE_CHIP = "bt_episode_chip"
-    const val SOURCE_CHIP = "bt_source_chip"
-    const val FILTER_CHIP = "bt_filter_chip"
-    const val COMPACT_LIST = "bt_compact_list"
-    const val TABLE = "bt_table"
-    const val LOADING = "bt_loading"
-    fun row(mediaId: String) = "bt_row_$mediaId"
-    const val SHOW_EXCLUDED = "bt_show_excluded"
-    const val SOURCE_SHEET = "bt_source_sheet"
-    fun sourceItem(mediaSourceId: String) = "bt_source_item_$mediaSourceId"
-    const val FILTER_SHEET = "bt_filter_sheet"
-    const val FILTER_RESET = "bt_filter_reset"
-    const val FILTER_DONE = "bt_filter_done"
-}
 
 @OptIn(TestOnly::class)
 @PreviewLightDark

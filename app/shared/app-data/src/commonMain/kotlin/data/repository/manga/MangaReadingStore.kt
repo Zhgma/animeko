@@ -21,7 +21,7 @@ class MangaReadingStore(private val store: DataStore<Preferences>) {
     private val json = Json { ignoreUnknownKeys = true }
     suspend fun read(subjectId: Int): MangaReadingMemory? {
         val raw = store.data.first()[key(subjectId)] ?: return null
-        return runCatching { json.decodeFromString<MangaReadingMemory>(raw) }.getOrNull()
+        return runCatching { json.decodeFromString<MangaReadingMemory>(raw) }.getOrNull()?.takeIf { it.book.source in MangaSource.available }
     }
     suspend fun save(subjectId: Int, memory: MangaReadingMemory) {
         store.edit { it[key(subjectId)] = json.encodeToString(memory) }

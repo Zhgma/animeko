@@ -90,29 +90,6 @@ import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Instant
 
 /**
- * 表格列宽. 标题列占剩余宽度.
- */
-@Immutable
-internal data class BtTableColumns(
-    val check: Dp,
-    val alliance: Dp,
-    val resolution: Dp,
-    val subtitle: Dp,
-    val size: Dp,
-    val published: Dp,
-) {
-    companion object {
-        val Default = BtTableColumns(28.dp, 150.dp, 72.dp, 96.dp, 80.dp, 64.dp)
-        val Compact = BtTableColumns(28.dp, 130.dp, 64.dp, 84.dp, 76.dp, 56.dp)
-
-        /**
-         * 容器窄于此宽度时用 [Compact].
-         */
-        val CompactMaxWidth = 900.dp
-    }
-}
-
-/**
  * 行内标签的文案, 一次解析供列表复用.
  */
 @Immutable
@@ -183,334 +160,38 @@ internal fun rememberBtLabelStrings(): BtLabelStrings {
     )
 }
 
-private val TabularNumbers = TextStyle(fontFeatureSettings = "tnum")
+private fun BtRow.render(strings: BtLabelStrings, timeZone: TimeZone) = BtResourceRow(
+    id, media.originalTitle, media.properties.alliance, media.properties.resolution,
+    strings.subtitleCell(this), formatBtSize(media.properties.size), formatPublishedMMdd(media.publishedTime, timeZone),
+    strings.compactLabels(this), exclusion?.let(strings::exclusion), isSelected, isCached, strings.cached,
+)
 
-/**
- * 紧凑列表: 平铺行, 无卡片; 行内字幕组 / 完整标题 / 标签三行, 标题按宽度换行不截断 (资源的集号、版本、格式都只写在标题里). 选中行 primaryContainer 背景 + 前导 Check; 排除行降低不透明度.
- * 行之间有分隔线: 标题常换成两三行, 只靠留白时上一行的标签与下一行的字幕组贴在一起, 分不清哪里是一条资源的开始.
- * [excludedRows] 非空且未 [revealExcluded] 时列表末尾是「显示已被排除的 N 条资源」按钮, 展开后追加排除行.
- *
- * @param isLoading 两个列表都空时: true → 居中加载指示 (占位 presentation / BT 源仍在查询), false → 「没有资源」. 有行时忽略.
- */
 @Composable
 internal fun BtCompactList(
-    rows: List<BtRow>,
-    excludedRows: List<BtRow>,
-    revealExcluded: Boolean,
-    onReveal: () -> Unit,
-    onClick: (BtRow) -> Unit,
-    onLongClick: (BtRow) -> Unit,
-    timeZone: TimeZone,
-    modifier: Modifier = Modifier,
-    listState: LazyListState = rememberLazyListState(),
-    horizontalPadding: Dp = 20.dp,
-    isLoading: Boolean = false,
+    rows: List<BtRow>, excludedRows: List<BtRow>, revealExcluded: Boolean, onReveal: () -> Unit,
+    onClick: (BtRow) -> Unit, onLongClick: (BtRow) -> Unit, timeZone: TimeZone,
+    modifier: Modifier = Modifier, listState: LazyListState = rememberLazyListState(),
+    horizontalPadding: Dp = 20.dp, isLoading: Boolean = false,
 ) {
     val strings = rememberBtLabelStrings()
-    if (rows.isEmpty() && excludedRows.isEmpty()) {
-        if (isLoading) {
-            BtLoadingState(modifier.testTag(BtResourcesPageTestTags.COMPACT_LIST))
-        } else {
-            BtEmptyState(modifier.testTag(BtResourcesPageTestTags.COMPACT_LIST))
-        }
-        return
-    }
-    LazyColumn(modifier.testTag(BtResourcesPageTestTags.COMPACT_LIST), state = listState) {
-        itemsIndexed(rows, key = { _, row -> row.id }) { index, row ->
-            BtCompactRow(row, strings, timeZone, onClick, onLongClick, horizontalPadding, divider = index > 0)
-        }
-        excludedSection(excludedRows, revealExcluded, onReveal) { row ->
-            BtCompactRow(row, strings, timeZone, onClick, onLongClick, horizontalPadding, divider = true)
-        }
-    }
+    val originals = (rows + excludedRows).associateBy { it.id }
+    BtCompactListContent(rows.map { it.render(strings, timeZone) }, excludedRows.map { it.render(strings, timeZone) },
+        revealExcluded, onReveal, { originals[it.id]?.let(onClick) }, { originals[it.id]?.let(onLongClick) },
+        modifier, listState, horizontalPadding, isLoading)
 }
 
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun BtCompactRow(
-    row: BtRow,
-    strings: BtLabelStrings,
-    timeZone: TimeZone,
-    onClick: (BtRow) -> Unit,
-    onLongClick: (BtRow) -> Unit,
-    horizontalPadding: Dp,
-    divider: Boolean,
-) {
-    val background = if (row.isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-    val contentColor = if (row.isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-    val secondaryColor = if (row.isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-    Column {
-        if (divider) {
-            HorizontalDivider(Modifier.padding(horizontal = horizontalPadding), color = MaterialTheme.colorScheme.outlineVariant)
-        }
-        Row(
-            Modifier
-                .testTag(BtResourcesPageTestTags.row(row.id))
-                .fillMaxWidth()
-                .heightIn(min = 56.dp)
-                .background(background)
-                .combinedClickable(onClick = { onClick(row) }, onLongClick = { onLongClick(row) })
-                .alpha(if (row.isExcluded) 0.6f else 1f)
-                .padding(horizontal = horizontalPadding, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(Modifier.size(18.dp), contentAlignment = Alignment.Center) {
-                if (row.isSelected) {
-                    Icon(Icons.Rounded.Check, contentDescription = null, Modifier.size(18.dp), tint = contentColor)
-                }
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                val alliance = row.media.properties.alliance
-                if (alliance.isNotBlank()) {
-                    Text(
-                        alliance,
-                        color = contentColor,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                Text(
-                    row.media.originalTitle,
-                    color = contentColor,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    for (label in strings.compactLabels(row)) {
-                        Text(
-                            label,
-                            color = secondaryColor,
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Clip,
-                        )
-                    }
-                }
-            }
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    formatBtSize(row.media.properties.size),
-                    color = secondaryColor,
-                    style = MaterialTheme.typography.bodySmall.merge(TabularNumbers),
-                    maxLines = 1,
-                    softWrap = false,
-                )
-                Text(
-                    formatPublishedMMdd(row.media.publishedTime, timeZone),
-                    color = secondaryColor,
-                    style = MaterialTheme.typography.bodySmall.merge(TabularNumbers),
-                    maxLines = 1,
-                    softWrap = false,
-                )
-            }
-        }
-    }
-}
-
-/**
- * 表格: 表头 + 最小 40dp 的行. 列宽由 [columns] 给定, 标题列占剩余宽度且换行不截断, 其余列单行. 排除行 onSurfaceVariant, 标题前加原因标签.
- *
- * @param isLoading 同 [BtCompactList].
- */
 @Composable
 internal fun BtTable(
-    rows: List<BtRow>,
-    excludedRows: List<BtRow>,
-    revealExcluded: Boolean,
-    onReveal: () -> Unit,
-    onClick: (BtRow) -> Unit,
-    onLongClick: (BtRow) -> Unit,
-    timeZone: TimeZone,
-    modifier: Modifier = Modifier,
-    columns: BtTableColumns = BtTableColumns.Default,
-    listState: LazyListState = rememberLazyListState(),
-    horizontalPadding: Dp = 24.dp,
-    isLoading: Boolean = false,
+    rows: List<BtRow>, excludedRows: List<BtRow>, revealExcluded: Boolean, onReveal: () -> Unit,
+    onClick: (BtRow) -> Unit, onLongClick: (BtRow) -> Unit, timeZone: TimeZone,
+    modifier: Modifier = Modifier, columns: BtTableColumns = BtTableColumns.Default,
+    listState: LazyListState = rememberLazyListState(), horizontalPadding: Dp = 24.dp, isLoading: Boolean = false,
 ) {
     val strings = rememberBtLabelStrings()
-    Column(modifier.testTag(BtResourcesPageTestTags.TABLE)) {
-        BtTableHeader(columns, horizontalPadding)
-        if (rows.isEmpty() && excludedRows.isEmpty()) {
-            if (isLoading) {
-                BtLoadingState(Modifier.fillMaxWidth().weight(1f))
-            } else {
-                BtEmptyState(Modifier.fillMaxWidth().weight(1f))
-            }
-            return@Column
-        }
-        LazyColumn(Modifier.fillMaxWidth().weight(1f), state = listState) {
-            items(rows, key = { it.id }) { row ->
-                BtTableRow(row, columns, strings, timeZone, onClick, onLongClick, horizontalPadding)
-            }
-            excludedSection(excludedRows, revealExcluded, onReveal) { row ->
-                BtTableRow(row, columns, strings, timeZone, onClick, onLongClick, horizontalPadding)
-            }
-        }
-    }
-}
-
-@Composable
-private fun BtTableHeader(columns: BtTableColumns, horizontalPadding: Dp) {
-    CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceContainer)
-                .height(36.dp)
-                .padding(horizontal = horizontalPadding),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            val style = MaterialTheme.typography.labelSmall
-            Spacer(Modifier.width(columns.check))
-            Text(stringResource(Lang.media_selector_bt_col_alliance), Modifier.width(columns.alliance), style = style, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(stringResource(Lang.media_selector_bt_col_title), Modifier.weight(1f), style = style, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(stringResource(Lang.media_selector_bt_col_resolution), Modifier.width(columns.resolution), style = style, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(stringResource(Lang.media_selector_bt_col_subtitle), Modifier.width(columns.subtitle), style = style, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(
-                stringResource(Lang.media_selector_bt_col_size), Modifier.width(columns.size),
-                style = style, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End,
-            )
-            Text(
-                stringResource(Lang.media_selector_bt_col_published), Modifier.width(columns.published),
-                style = style, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End,
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun BtTableRow(
-    row: BtRow,
-    columns: BtTableColumns,
-    strings: BtLabelStrings,
-    timeZone: TimeZone,
-    onClick: (BtRow) -> Unit,
-    onLongClick: (BtRow) -> Unit,
-    horizontalPadding: Dp,
-) {
-    val background = if (row.isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-    val contentColor = when {
-        row.isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
-        row.isExcluded -> MaterialTheme.colorScheme.onSurfaceVariant
-        else -> MaterialTheme.colorScheme.onSurface
-    }
-    CompositionLocalProvider(LocalContentColor provides contentColor) {
-        Row(
-            Modifier
-                .testTag(BtResourcesPageTestTags.row(row.id))
-                .fillMaxWidth()
-                .heightIn(min = 40.dp)
-                .background(background)
-                .combinedClickable(onClick = { onClick(row) }, onLongClick = { onLongClick(row) })
-                .padding(horizontal = horizontalPadding, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            val style = MaterialTheme.typography.bodyMedium
-            Box(Modifier.width(columns.check), contentAlignment = Alignment.Center) {
-                if (row.isSelected) {
-                    Icon(Icons.Rounded.Check, contentDescription = null, Modifier.size(16.dp))
-                }
-            }
-            Text(
-                row.media.properties.alliance, Modifier.width(columns.alliance),
-                style = style, fontWeight = if (row.isSelected) FontWeight.Medium else null,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
-            Row(
-                Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (row.isCached) BtInlineLabel(strings.cached)
-                row.exclusion?.let { BtInlineLabel(strings.exclusion(it)) }
-                Text(row.media.originalTitle, style = style)
-            }
-            Text(
-                row.media.properties.resolution, Modifier.width(columns.resolution),
-                style = style, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                strings.subtitleCell(row), Modifier.width(columns.subtitle),
-                style = style, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                formatBtSize(row.media.properties.size), Modifier.width(columns.size),
-                style = style.merge(TabularNumbers), maxLines = 1, textAlign = TextAlign.End,
-            )
-            Text(
-                formatPublishedMMdd(row.media.publishedTime, timeZone), Modifier.width(columns.published),
-                style = style.merge(TabularNumbers), maxLines = 1, textAlign = TextAlign.End,
-            )
-        }
-    }
-}
-
-/**
- * 标题列开头的小标签 (已缓存 / 排除原因).
- */
-@Composable
-private fun RowScope.BtInlineLabel(text: String) {
-    Surface(
-        shape = RoundedCornerShape(4.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-    ) {
-        Text(
-            text,
-            Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
-            style = MaterialTheme.typography.labelSmall,
-            maxLines = 1,
-            softWrap = false,
-        )
-    }
-}
-
-private fun LazyListScope.excludedSection(
-    excludedRows: List<BtRow>,
-    revealExcluded: Boolean,
-    onReveal: () -> Unit,
-    row: @Composable (BtRow) -> Unit,
-) {
-    if (excludedRows.isEmpty()) return
-    if (!revealExcluded) {
-        item(key = "show_excluded") {
-            Box(Modifier.fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
-                TextButton(onClick = onReveal, Modifier.testTag(BtResourcesPageTestTags.SHOW_EXCLUDED)) {
-                    Text(stringResource(Lang.media_selector_bt_show_excluded, excludedRows.size))
-                }
-            }
-        }
-    } else {
-        items(excludedRows, key = { it.id }) { row(it) }
-    }
-}
-
-@Composable
-private fun BtEmptyState(modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-        Text(
-            stringResource(Lang.media_selector_bt_empty),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-    }
-}
-
-/**
- * 列表为空但查询尚未结束: 与手动查找页同一加载指示, 不显示「没有资源」.
- */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun BtLoadingState(modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-        LoadingIndicator(Modifier.testTag(BtResourcesPageTestTags.LOADING))
-    }
+    val originals = (rows + excludedRows).associateBy { it.id }
+    BtTableContent(rows.map { it.render(strings, timeZone) }, excludedRows.map { it.render(strings, timeZone) },
+        revealExcluded, onReveal, { originals[it.id]?.let(onClick) }, { originals[it.id]?.let(onLongClick) },
+        modifier, columns, listState, horizontalPadding, isLoading)
 }
 
 private val MMdd = LocalDateTime.Format {

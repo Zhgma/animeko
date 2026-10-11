@@ -32,13 +32,35 @@ class MangaSubscriptionTest {
     }
 
     @Test
+    fun removesRetiredSourceAndAddsNewBuiltinsOnceWithoutResettingCustomSubscriptions() = runTest {
+        val data = preferences()
+        data.edit { it[stringPreferencesKey("manga.sources.settings")] = """{
+            "order":["MANGADEX","GODA"],"disabled":["GODA"],"subscriptions":[
+              {"id":"builtin-MANGADEX","name":"MangaDex","url":"https://example.test/dex.js","sources":["MANGADEX"]},
+              {"id":"custom","name":"My source","url":"https://example.test/goda.js","sources":["GODA"]}
+            ]}""" }
+        val store = MangaSourceSettingsStore(data)
+        val migrated = store.read()
+        assertFalse(MangaSource.MANGADEX in migrated.all)
+        assertEquals(setOf(MangaSource.MANHUAREN), migrated.enabled.toSet())
+        assertTrue(MangaSource.YKMH in migrated.subscriptions.flatMap { it.sources })
+        assertTrue(migrated.subscriptions.any { it.id == "custom" })
+        assertTrue(MangaSource.GODA in migrated.disabled)
+        assertTrue(migrated.subscriptions.any { it.url == MangaSubscription.REPOSITORY_URL })
+        store.save(migrated.copy(subscriptions = migrated.subscriptions.filter { it.id != MangaSubscription.REPOSITORY_ID }))
+        assertFalse(store.read().subscriptions.any { it.id == MangaSubscription.REPOSITORY_ID })
+        store.save(MangaSourceSettings(subscriptions = emptyList()))
+        assertTrue(store.read().all.isEmpty())
+    }
+
+    @Test
     fun readsIndexAndSingleSourceContentRatherThanTrustingTheFilename() {
         val index = MangaSubscriptionParser.parse("""[
             {"key":"Komiic","fileName":"komiic.js"}, {"key":"ManHuaGui"},
             {"key":"copy_manga"}, {"key":"Komiic"}, {"key":"manga_dex"}]
         """)
-        assertEquals(listOf(MangaSource.KOMIIC, MangaSource.MANHUAGUI, MangaSource.MANGADEX), index.sources)
-        assertEquals(listOf("copy_manga"), index.unsupported)
+        assertEquals(listOf(MangaSource.KOMIIC, MangaSource.MANHUAGUI), index.sources)
+        assertEquals(listOf("copy_manga", "manga_dex"), index.unsupported)
         assertEquals(listOf(MangaSource.GODA), MangaSubscriptionParser.parse("""
             class GoDa extends ComicSource {
                 key = 'goda';
@@ -58,9 +80,10 @@ class MangaSubscriptionTest {
         val data = preferences()
         data.edit { it[stringPreferencesKey("manga.sources.settings")] = """{"order":["GODA","KOMIIC"],"disabled":["BAOZI"]}""" }
         val migrated = MangaSourceSettingsStore(data).read()
-        assertEquals(5, migrated.subscriptions.size)
+        assertEquals(MangaSubscription.REPOSITORY_URL, migrated.subscriptions.single().url)
         assertEquals(MangaSource.GODA, migrated.enabled.first())
         assertFalse(MangaSource.BAOZI in migrated.enabled)
+        assertFalse(MangaSource.YKMH in migrated.enabled)
     }
 
     @Test
@@ -142,6 +165,7 @@ class MangaSubscriptionTest {
         } finally { client.close() }
         val cancelled = HttpClient(MockEngine { throw CancellationException("cancel") })
         try {
+            store.save(MangaSourceSettings(subscriptions = listOf(original)))
             assertFailsWith<CancellationException> { MangaSubscriptionRepository(store, cancelled.asScopedHttpClient()).refresh(original) }
         } finally { cancelled.close() }
     }

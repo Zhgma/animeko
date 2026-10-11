@@ -40,7 +40,7 @@ internal fun MangaSourcePanel(
         state.sourceSettings.enabled.map { ManualBrowseSource(it.name, it.name,
             MediaSourceInfo(displayName = it.title, websiteUrl = it.home, iconUrl = "${it.home}/favicon.ico")) }
     }
-    val booksBySource = MangaSource.entries.associateWith { candidate ->
+    val booksBySource = MangaSource.available.associateWith { candidate ->
         state.sourceSearches[candidate]?.books ?: if (candidate == state.source) state.results else emptyList()
     }
     val rows = state.sourceSettings.enabled.map { candidate ->

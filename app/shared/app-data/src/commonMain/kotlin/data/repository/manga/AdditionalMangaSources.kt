@@ -8,6 +8,7 @@ import io.ktor.http.encodeURLPathPart
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.io.encoding.Base64
@@ -17,19 +18,23 @@ internal class AdditionalMangaSources(private val get: suspend (String) -> Strin
     private suspend fun json(url: String) = Json.parseToJsonElement(get(url)).jsonObject
 
     suspend fun search(source: MangaSource, keyword: String): List<MangaSourceBook> = when (source) {
-        MangaSource.MANGADEX -> json("$DEX/manga?title=${keyword.encodeURLParameter()}&limit=30&includes%5B%5D=cover_art")
-            .array("data").map { item ->
-                val book = item.jsonObject
-                val attrs = book.obj("attributes")
-                val titles = attrs.obj("title")
-                val title = listOf("zh", "zh-hk", "en", "ja-ro", "ja").firstNotNullOfOrNull {
-                    titles[it]?.jsonPrimitive?.content
-                } ?: titles.values.firstOrNull()?.jsonPrimitive?.content.orEmpty()
-                val cover = book.array("relationships").firstOrNull { it.jsonObject.text("type") == "cover_art" }
-                    ?.jsonObject?.obj("attributes")?.text("fileName")
-                MangaSourceBook(source, book.text("id"), title,
-                    cover?.let { "https://uploads.mangadex.org/covers/${book.text("id")}/$it.256.jpg" }.orEmpty())
-            }
+        MangaSource.MANHUAREN -> {
+            val doc = Ksoup.parse(get("${source.home}/search?title=${keyword.encodeURLParameter()}&language=1&page=1"), source.home)
+            doc.select(".book-list > li").mapNotNull { item ->
+                val link = item.selectFirst(".book-list-info > a") ?: return@mapNotNull null
+                val id = link.attr("href").removePrefix("/manhua-").trim('/')
+                if (!Regex("[a-zA-Z0-9_-]+").matches(id)) null else MangaSourceBook(source, id,
+                    item.selectFirst(".book-list-info-title")?.text().orEmpty(),
+                    item.selectFirst(".book-list-cover-img")?.absUrl("src").orEmpty())
+            }.distinctBy { it.id }
+        }
+        MangaSource.YKMH -> {
+            val doc = Ksoup.parse(get("${source.home}/search/?keywords=${keyword.encodeURLParameter()}"), source.home)
+            doc.select(".list-comic a.image-link").map { link ->
+                MangaSourceBook(source, Url(link.absUrl("href")).encodedPath.removePrefix("/manhua/").trim('/'),
+                    link.attr("title"), link.selectFirst("img")?.absUrl("src").orEmpty())
+            }.distinctBy { it.id }
+        }
         MangaSource.BAOZI, MangaSource.GODA -> {
             val path = if (source == MangaSource.BAOZI) "/search?q=${keyword.encodeURLParameter()}"
                 else "/s/${keyword.encodeURLPathPart()}?page=1"
@@ -51,7 +56,8 @@ internal class AdditionalMangaSources(private val get: suspend (String) -> Strin
         val (source, prefix) = when (url.host) {
             "cn.bzmgcn.com", "www.baozimh.com", "cn.baozimhcn.com" -> MangaSource.BAOZI to "/comic/"
             "godamh.com" -> MangaSource.GODA to "/manga/"
-            "mangadex.org" -> MangaSource.MANGADEX to "/title/"
+            "www.manhuaren.com" -> MangaSource.MANHUAREN to "/manhua-"
+            "www.ykmh.net", "m.ykmh.net" -> MangaSource.YKMH to "/manhua/"
             else -> return null
         }
         if (!url.encodedPath.startsWith(prefix)) return null
@@ -80,28 +86,20 @@ internal class AdditionalMangaSources(private val get: suspend (String) -> Strin
                 chapter("$id@${c.text("id")}", c.obj("attributes").text("title"))
             }
         }
-        MangaSource.MANGADEX -> {
-            val result = mutableListOf<MangaChapter>()
-            var offset = 0
-            do {
-                val page = json("$DEX/manga/${book.id}/feed?limit=500&offset=$offset&order%5Bchapter%5D=asc&order%5BupdatedAt%5D=asc")
-                val rows = page.array("data")
-                for (row in rows) {
-                    val c = row.jsonObject
-                    val a = c.obj("attributes")
-                    if (a.number("pages") <= 0 || a.text("externalUrl").let { it.isNotEmpty() && it != "null" }) continue
-                    val lang = when (val language = a.text("translatedLanguage")) {
-                        "zh" -> "简中"; "zh-hk" -> "繁中"; "en" -> "英语"; "ja" -> "日语"; else -> language
-                    }
-                    val team = c.array("relationships").filter { it.jsonObject.text("type") == "scanlation_group" }
-                        .joinToString("+") { it.jsonObject.text("id").take(8) }.ifBlank { "个人" }
-                    val number = a.text("chapter").toDoubleOrNull()
-                    result += MangaChapter(c.text("id"), "${a.text("chapter").takeUnless { it == "null" }.orEmpty()} ${a.text("title").takeUnless { it == "null" }.orEmpty()}".trim().ifBlank { "短篇" },
-                        number, "$lang · $team", a.number("pages"))
-                }
-                offset += rows.size
-            } while (rows.isNotEmpty() && offset < page.number("total"))
-            result
+        MangaSource.MANHUAREN -> {
+            val doc = Ksoup.parse(get("${book.source.home}/manhua-${book.id}/"))
+            doc.select("a.chapteritem").mapNotNull { link ->
+                val id = Regex("/m([0-9]+)/?").matchEntire(link.attr("href"))?.groupValues?.get(1)
+                id?.let { chapter(it, link.text()) }
+            }
+        }
+        MangaSource.YKMH -> {
+            val doc = Ksoup.parse(get("https://m.ykmh.net/manhua/${book.id}/"))
+            doc.select("a[href]").mapNotNull { link ->
+                val path = link.attr("href").removePrefix("https://m.ykmh.net").removePrefix(book.source.home)
+                if (!Regex("/manhua/${Regex.escape(book.id)}/[0-9]+\\.html").matches(path)) null
+                else chapter(path.substringAfterLast('/').removeSuffix(".html"), link.text())
+            }
         }
         else -> error("不支持的来源")
     }.distinctBy { it.id }.sortedWith(compareBy<MangaChapter> { it.group }.thenBy { it.number ?: Double.MAX_VALUE })
@@ -125,12 +123,22 @@ internal class AdditionalMangaSources(private val get: suspend (String) -> Strin
                 MangaPage(if (path.startsWith("https://")) path else "https://c-nd3-1.6wm.top/$path".replace("top//", "top/"), "${book.source.home}/")
             }
         }
-        MangaSource.MANGADEX -> {
-            val root = json("$DEX/at-home/server/${chapter.id}")
-            val data = root.obj("chapter")
-            val base = root.text("baseUrl")
-            require(base.startsWith("https://")) { "MangaDex 未返回图片服务器" }
-            data.array("data").map { MangaPage("$base/data/${data.text("hash")}/${it.jsonPrimitive.content}", "${book.source.home}/") }
+        MangaSource.MANHUAREN -> {
+            val url = "${book.source.home}/m${chapter.id}/"
+            unpackManhuarenImages(get(url)).map { MangaPage(it, url) }
+        }
+        MangaSource.YKMH -> {
+            val home = "https://m.ykmh.net"
+            val html = get("$home/manhua/${book.id}/${chapter.id}.html")
+            val raw = Regex("var\\s+chapterImages\\s*=\\s*(\\[.*?]);").find(html)?.groupValues?.get(1)
+                ?: error("优酷漫画未返回章节图片，可能需要登录或该章节不可用")
+            val config = get("$home/js/config.js")
+            val domain = Regex("\"domain\"\\s*:\\s*\\[\"(https://[^\"]+)\"").find(config)?.groupValues?.get(1)
+                ?: error("优酷漫画图片服务器配置格式有变")
+            Json.parseToJsonElement(raw).jsonArray.map {
+                val path = it.jsonPrimitive.content
+                MangaPage(if (path.startsWith("https://")) path else domain.trimEnd('/') + "/" + path.trimStart('/'), "$home/")
+            }
         }
         else -> error("不支持的来源")
     }
@@ -140,8 +148,38 @@ internal class AdditionalMangaSources(private val get: suspend (String) -> Strin
         if (title.contains("卷")) "单行本" else if (title.contains("番外")) "番外" else "章节")
 
     companion object {
-        private const val DEX = "https://api.mangadex.org"
         private const val GODA = "https://v2.apikk.top/api/v2"
+
+        /** Decodes only the bounded literal dictionary and URL array; never evaluates JavaScript. */
+        internal fun unpackManhuarenImages(html: String): List<String> {
+            require(html.length <= 2_000_000)
+            val match = Regex("""\}\('(.+?)',(\d+),(\d+),'(.*?)'\.split""", RegexOption.DOT_MATCHES_ALL).find(html)
+                ?: error("漫画人未返回可阅读图片，该章节可能需要付费或已失效")
+            val radix = match.groupValues[2].toInt()
+            require(radix in 2..62)
+            val words = match.groupValues[4].split('|')
+            require(words.size <= 50_000)
+            val alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            var outputSize = match.groupValues[1].length
+            val unpacked = Regex("\\b[a-zA-Z0-9_]+\\b").replace(match.groupValues[1]) { token ->
+                var index = 0L
+                for (ch in token.value) {
+                    val digit = alphabet.indexOf(ch)
+                    if (digit < 0 || digit >= radix) return@replace token.value
+                    index = index * radix + digit
+                    if (index > words.lastIndex) return@replace token.value
+                }
+                val replacement = words[index.toInt()].ifBlank { token.value }
+                outputSize += replacement.length - token.value.length
+                require(outputSize <= 8_000_000) { "漫画人章节数据过大" }
+                replacement
+            }
+            val array = Regex("\\[(.*?)]", RegexOption.DOT_MATCHES_ALL).find(unpacked)?.groupValues?.get(1)
+                ?: error("漫画人章节格式有变")
+            return array.split(',').map { it.trim().removePrefix("\\'").removeSuffix("\\'")
+                .removeSurrounding("'").removeSurrounding("\"").replace("\\/", "/") }
+                .also { urls -> require(urls.isNotEmpty() && urls.size <= 2_000 && urls.all { it.startsWith("https://") }) }
+        }
 
         /** Bounded decoding of the catalog's encoded JSON; no JavaScript execution. */
         internal fun decodeGodaImages(input: String): JsonArray {

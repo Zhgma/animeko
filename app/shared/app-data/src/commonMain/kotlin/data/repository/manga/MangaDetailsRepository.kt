@@ -1,21 +1,13 @@
 /* Copyright (C) 2026 OpenAni and contributors. SPDX-License-Identifier: AGPL-3.0-only */
 package me.him188.ani.app.data.repository.manga
 
-import io.ktor.client.plugins.expectSuccess
-import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.patch
-import io.ktor.client.request.setBody
 import io.ktor.client.request.get
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
+import io.ktor.http.HttpMethod
 import io.ktor.http.encodeURLPathPart
 import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import me.him188.ani.app.data.models.subject.SelfRatingInfo
-import io.ktor.client.request.parameter
-import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -39,16 +31,10 @@ data class MangaRelation(val id: Int, val type: Int, val title: String, val orig
     val cover: String, val relation: String)
 
 /** Public metadata and comments are independent of the anime server and its collection cache. */
-class MangaDetailsRepository(private val client: ScopedHttpClient) {
+class MangaDetailsRepository(private val http: MangaBangumiHttp) {
+    constructor(client: ScopedHttpClient) : this(MangaBangumiHttp(client))
     suspend fun details(id: Int, token: String?): MangaDetails {
-        val root = client.use {
-            val response = get("https://api.bgm.tv/v0/subjects/$id") {
-                expectSuccess = false
-                if (!token.isNullOrBlank()) bearerAuth(token)
-            }
-            check(response.status.value in 200..299) { "Bangumi HTTP ${response.status.value}" }
-            Json.parseToJsonElement(response.bodyAsText()).jsonObject
-        }
+        val root = Json.parseToJsonElement(http.get("https://api.bgm.tv/v0/subjects/$id", token).requireSuccess()).jsonObject
         check(root.number("type") == 1) { "该条目不是书籍" }
         val rating = root.obj("rating")
         val counts = rating.obj("count")
@@ -66,24 +52,12 @@ class MangaDetailsRepository(private val client: ScopedHttpClient) {
         )
     }
 
-    suspend fun comments(id: Int, offset: Int): MangaComments = client.use {
-        // Bangumi's public v0 API has no comment endpoint. p1 is isolated here as it may change.
-        val response = get("https://next.bgm.tv/p1/subjects/$id/comments") {
-            expectSuccess = false
-            parameter("limit", 20)
-            parameter("offset", offset)
-        }
-        check(response.status.value in 200..299) { "评论 HTTP ${response.status.value}" }
-        parseMangaComments(response.bodyAsText())
-    }
+    suspend fun comments(id: Int, offset: Int): MangaComments = parseMangaComments(
+        http.get("https://next.bgm.tv/p1/subjects/$id/comments", parameters = mapOf("limit" to 20, "offset" to offset)).requireSuccess())
 
-    suspend fun relations(id: Int, token: String?): List<MangaRelation> = client.use {
-        val response = get("https://api.bgm.tv/v0/subjects/$id/subjects") {
-            expectSuccess = false
-            if (!token.isNullOrBlank()) bearerAuth(token)
-        }
-        check(response.status.value in 200..299) { "关联作品 HTTP ${response.status.value}" }
-        Json.parseToJsonElement(response.bodyAsText()).jsonArray.map { item ->
+    suspend fun relations(id: Int, token: String?): List<MangaRelation> {
+        val response = http.get("https://api.bgm.tv/v0/subjects/$id/subjects", token).requireSuccess()
+        return Json.parseToJsonElement(response).jsonArray.map { item ->
             val value = item.jsonObject
             MangaRelation(value.number("id"), value.number("type"), value.text("name_cn").ifBlank { value.text("name") },
                 value.text("name"), value.obj("images").text("common"), value.text("relation"))
@@ -91,31 +65,23 @@ class MangaDetailsRepository(private val client: ScopedHttpClient) {
     }
 
     /** Null means an authenticated account has not collected this subject. */
-    suspend fun selfRating(id: Int, token: String): SelfRatingInfo? = client.use {
-        val me = get("https://api.bgm.tv/v0/me") { bearerAuth(token); expectSuccess = true }
-        val username = Json.parseToJsonElement(me.bodyAsText()).jsonObject.text("username")
+    suspend fun selfRating(id: Int, token: String): SelfRatingInfo? {
+        val me = http.get("https://api.bgm.tv/v0/me", token).requireSuccess()
+        val username = Json.parseToJsonElement(me).jsonObject.text("username")
         check(username.isNotBlank()) { "Bangumi 用户信息为空" }
-        val response = get("https://api.bgm.tv/v0/users/${username.encodeURLPathPart()}/collections/$id") {
-            bearerAuth(token); expectSuccess = false
-        }
-        if (response.status.value == 404) return@use null
-        check(response.status.value in 200..299) { "评价 HTTP ${response.status.value}" }
-        val root = Json.parseToJsonElement(response.bodyAsText()).jsonObject
-        SelfRatingInfo(root.number("rate"), root.text("comment"), root.array("tags").map { (it as JsonPrimitive).content },
+        val response = http.get("https://api.bgm.tv/v0/users/${username.encodeURLPathPart()}/collections/$id", token)
+        if (response.status == 404) return null
+        val root = Json.parseToJsonElement(response.requireSuccess()).jsonObject
+        return SelfRatingInfo(root.number("rate"), root.text("comment"), root.array("tags").map { (it as JsonPrimitive).content },
             (root["private"] as? JsonPrimitive)?.booleanOrNull ?: false)
     }
 
     /** PATCH touches only the rating fields; collection status, progress and tags stay on Bangumi. */
-    suspend fun rate(id: Int, token: String, rating: SelfRatingInfo) = client.use {
+    suspend fun rate(id: Int, token: String, rating: SelfRatingInfo) {
         require(rating.score in 0..10)
-        val response = patch("https://api.bgm.tv/v0/users/-/collections/$id") {
-            bearerAuth(token); expectSuccess = false
-            contentType(ContentType.Application.Json)
-            setBody(buildJsonObject {
-                put("rate", rating.score); put("comment", rating.comment.orEmpty()); put("private", rating.isPrivate)
-            }.toString())
-        }
-        check(response.status.value in 200..299) { "提交评价 HTTP ${response.status.value}" }
+        http.write(HttpMethod.Patch, "https://api.bgm.tv/v0/users/-/collections/$id", token, buildJsonObject {
+            put("rate", rating.score); put("comment", rating.comment.orEmpty()); put("private", rating.isPrivate)
+        }.toString())
     }
 
     private fun flatten(value: JsonElement?): String = when (value) {

@@ -37,3 +37,4 @@ enum class SettingsTab {
         val Default = APPEARANCE
     }
 }
+

@@ -40,7 +40,7 @@ class MangaLibraryRepositoryTest {
         val client = HttpClient(MockEngine { respond("{}", HttpStatusCode.Unauthorized) })
         val revision = MangaLibraryChanges.revision.value
         try {
-            assertFailsWith<IllegalStateException> { MangaLibraryRepository(client.asScopedHttpClient()).setType(1, "expired", MangaCollectionType.DONE) }
+            assertFailsWith<MangaAuthorizationException> { MangaLibraryRepository(client.asScopedHttpClient()).setType(1, "expired", MangaCollectionType.DONE) }
             assertEquals(revision, MangaLibraryChanges.revision.value)
         } finally { client.close() }
     }

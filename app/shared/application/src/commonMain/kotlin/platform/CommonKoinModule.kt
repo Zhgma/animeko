@@ -9,6 +9,9 @@
 
 package me.him188.ani.app.platform
 
+import me.him188.ani.app.data.repository.manga.MangaBangumiNetwork
+import me.him188.ani.app.data.repository.manga.MangaSourceSettingsStore
+import me.him188.ani.app.data.repository.manga.MangaSubscriptionRepository
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -179,6 +182,9 @@ private fun KoinApplication.otherModules(
             coroutineScope,
         )
     }
+    single { MangaBangumiNetwork(getContext().dataStores.preferencesStore, coroutineScope) }
+    single { MangaSourceSettingsStore(getContext().dataStores.preferencesStore) }
+    single { MangaSubscriptionRepository(get(), get<HttpClientProvider>().get()) }
     single<HttpClientProvider> {
         val sessionManager by inject<SessionManager>()
         DefaultHttpClientProvider(
@@ -494,6 +500,7 @@ fun KoinApplication.startCommonKoinModule(
     // Start the proxy provider very soon (before initialization of any other components)
     runBlocking {
         koin.get<SessionManager>().clearSessionIfAccessTokenExpired()
+        koin.get<MangaBangumiNetwork>().start()
         // We have to block here to read the saved proxy settings
         when (val proxyProvider = koin.get<HttpClientProvider>()) {
             // compile-safe type cast
@@ -544,6 +551,10 @@ fun KoinApplication.startCommonKoinModule(
             val nextDelay = subscriptionUpdater.updateAllOutdated()
             delay(nextDelay.coerceAtLeast(10.minutes))
         }
+    }
+
+    coroutineScope.launch {
+        koin.get<MangaSubscriptionRepository>().runAutoRefresh()
     }
 
     coroutineScope.launch {

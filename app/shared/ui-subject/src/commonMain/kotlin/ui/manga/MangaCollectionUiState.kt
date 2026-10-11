@@ -20,3 +20,4 @@ data class MangaCollectionUiState(
 internal fun MangaCollectionUiState.page(type: MangaCollectionType) = pages[type] ?: MangaCollectionPageState(
     loading = !needsLogin,
 )
+

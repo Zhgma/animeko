@@ -18,6 +18,13 @@ import kotlin.test.assertTrue
 
 class MangaAdditionalSourcesTest {
     @Test
+    fun manhuarenDecodesOnlyImageLiterals() {
+        val html = """eval(function(p,a,c,k,e,d){}('0 1=["2://3/4.5"];',6,6,'var|newImgs|https|images.test|page|jpg'.split('|'),0,{}))"""
+        assertEquals(listOf("https://images.test/page.jpg"), AdditionalMangaSources.unpackManhuarenImages(html))
+        assertFailsWith<IllegalStateException> { AdditionalMangaSources.unpackManhuarenImages("<script>loadPaidChapter()</script>") }
+    }
+
+    @Test
     fun retriesServerErrorsButDoesNotRetryQuotasOrAcceptChallengeHtml() = runTest {
         var attempts = 0
         val client = HttpClient(MockEngine {
@@ -40,22 +47,17 @@ class MangaAdditionalSourcesTest {
     }
 
     @Test
-    fun mangaDexLoadsEveryFeedPageAndSeparatesTranslationsAndTeams() = runTest {
-        val requested = mutableListOf<String>()
-        val adapter = AdditionalMangaSources { url ->
-            requested += url
-            when {
-                url.contains("at-home") -> """{"baseUrl":"https://images.test","chapter":{"hash":"h","data":["1.jpg","2.jpg"]}}"""
-                url.contains("offset=0") -> """{"total":2,"data":[{"id":"c1","attributes":{"pages":2,"chapter":"1","title":"One","translatedLanguage":"zh"},"relationships":[{"type":"scanlation_group","id":"team-one"}]}]}"""
-                else -> """{"total":2,"data":[{"id":"c2","attributes":{"pages":2,"chapter":"1","title":"One","translatedLanguage":"en"},"relationships":[{"type":"scanlation_group","id":"team-two"}]}]}"""
-            }
-        }
-        val book = MangaSourceBook(MangaSource.MANGADEX, "book", "Test")
-        val chapters = adapter.chapters(book)
-        assertEquals(2, chapters.size)
-        assertEquals(2, chapters.map { it.group }.distinct().size)
-        assertTrue(requested.any { it.contains("offset=1") })
-        assertEquals("https://images.test/data/h/2.jpg", adapter.pages(book, chapters.first()).last().url)
+    fun ykmhUsesPublishedImageHostAndIgnoresNonChapterLinks() = runTest {
+        val adapter = AdditionalMangaSources { url -> when {
+            url.endsWith("config.js") -> """resHost: [{"domain":["https://img.test"]}]"""
+            url.endsWith("7.html") -> """var chapterImages = ["/1.jpg","/2.jpg"];"""
+            else -> """<a href="/manhua/test/7.html">第7话</a><a href="/manhua/test/7.html">第7话</a><a href="/ad.html">广告</a>"""
+        } }
+        val book = MangaSourceBook(MangaSource.YKMH, "test", "Test")
+        val chapter = adapter.chapters(book).single()
+        assertEquals("7", chapter.id)
+        assertEquals(listOf("https://img.test/1.jpg", "https://img.test/2.jpg"), adapter.pages(book, chapter).map { it.url })
+        assertNull(adapter.bookFromUrl("https://mangadex.org/title/abc-def/a-title"))
     }
 
     @Test
@@ -69,7 +71,7 @@ class MangaAdditionalSourcesTest {
         assertEquals("7", chapter.id)
         assertEquals("https://images.test/2.webp", adapter.pages(book, chapter).single().url)
         assertNull(adapter.bookFromUrl("https://godamh.com.evil.test/manga/test"))
-        assertEquals(MangaSource.MANGADEX, adapter.bookFromUrl("https://mangadex.org/title/abc-def/a-title")?.source)
+        assertNull(adapter.bookFromUrl("https://mangadex.org/title/abc-def/a-title"))
     }
 
     @Test

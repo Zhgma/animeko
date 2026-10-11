@@ -5,6 +5,9 @@
 
 package me.him188.ani.app.ui.manga
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Composable
@@ -29,9 +32,10 @@ fun MangaCollectionPage(
 ) {
     val vm = viewModel { MangaCollectionViewModel() }
     val state by vm.state.collectAsStateWithLifecycle()
+    val usingCache by vm.usingCache.collectAsStateWithLifecycle()
     val navigator = LocalNavigator.current
     MangaCollectionContent(
-        state, selfInfo, title, vm::select, vm::refresh, onClickLogin,
+        state, selfInfo, { Column { title(); if (usingCache) Text("正在使用 Bangumi 缓存，可继续选源阅读", style = MaterialTheme.typography.labelSmall) } }, vm::select, vm::refresh, onClickLogin,
         onOpen = { navigator.navigate(NavRoutes.MangaDetail(it.subjectId, it.title, it.originalTitle, it.coverUrl, it.chaptersRead, it.volumesRead)) },
         modifier = modifier,
         windowInsets = windowInsets,

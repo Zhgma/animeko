@@ -5,6 +5,7 @@
 
 package me.him188.ani.app.ui.manga
 
+import me.him188.ani.app.data.repository.manga.MangaBangumiNetwork
 import me.him188.ani.app.data.repository.manga.MangaLibraryChanges
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -25,13 +26,14 @@ import org.koin.core.component.get
 
 class MangaCollectionViewModel : AbstractViewModel(), KoinComponent {
     private val sessionManager = get<SessionManager>()
-    private val repository = BangumiMangaRepository(get<HttpClientProvider>().get())
+    private val repository = BangumiMangaRepository(get<MangaBangumiNetwork>().http)
     private val revision = MutableStateFlow(0)
     private val controller = MangaCollectionController(
         load = { token, type, onPage -> repository.loadCollections(token, type, onPage) },
         isAuthorizationError = { it is MangaAuthorizationException },
     )
     val state = controller.state
+    val usingCache = get<MangaBangumiNetwork>().cache.usingCache
 
     init {
         backgroundScope.launch {
@@ -43,5 +45,5 @@ class MangaCollectionViewModel : AbstractViewModel(), KoinComponent {
     }
 
     fun select(type: MangaCollectionType) { controller.select(type) }
-    fun refresh() { revision.update { it + 1 } }
+    fun refresh() { backgroundScope.launch { get<MangaBangumiNetwork>().cache.retry(); revision.update { it + 1 } } }
 }

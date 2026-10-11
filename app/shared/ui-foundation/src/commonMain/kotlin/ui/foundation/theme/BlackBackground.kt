@@ -22,3 +22,4 @@ fun modifyColorSchemeForBlackBackground(
         )
     } else colorScheme
 }
+
