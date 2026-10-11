@@ -27,8 +27,10 @@ def run(*args, check=True):
 def validate():
     meta = json.loads((ROOT / "release.json").read_text(encoding="utf-8"))
     version = meta["version"]
-    require(re.fullmatch(r"0\.\d+\.\d+", version), "Expected fork 0.x.x version")
+    require(re.fullmatch(r"0\.\d+\.\d+(?:-(?:alpha|beta|rc)\.[1-9]\d*)?", version), "Expected fork 0.x.x version")
     require(meta["tag"] == version, "Tag/version mismatch")
+    require(isinstance(meta.get("prerelease", False), bool), "Invalid prerelease flag")
+    require(meta.get("prerelease", False) == ("-" in version), "Version/channel mismatch")
     require(re.fullmatch(r"[0-9a-f]{40}", meta["sourceCommit"]), "Invalid source commit")
     sdk = Path(os.environ.get("ANDROID_HOME", os.environ.get("ANDROID_SDK_ROOT", "")))
     suffix = ".bat" if os.name == "nt" else ""
@@ -69,21 +71,23 @@ def main():
         return
     require(os.environ.get("GH_REPO") == "Zhgma/animeko", "Unexpected repository")
     tag = meta["tag"]
+    prerelease = meta.get("prerelease", False)
     target = run("gh", "api", f"repos/Zhgma/animeko/git/ref/tags/{tag}", "--jq", ".object.sha").stdout.strip()
     require(target == meta["sourceCommit"], "Release tag must point at the source commit")
     existing = run("gh", "release", "view", tag, "--json", "isDraft,isPrerelease", check=False)
     if existing.returncode == 0:
         state = json.loads(existing.stdout)
         if not state["isDraft"]:
-            require(not state["isPrerelease"], "Unexpected prerelease")
+            require(state["isPrerelease"] == prerelease, "Unexpected release channel")
             verify_uploaded(tag, files)
             print("Published release already matches; left unchanged")
             return
     else:
-        run("gh", "release", "create", tag, "--verify-tag", "--draft", "--title", f"Animecomic {tag}", "--notes-file", str(ROOT / "release-notes.md"))
+        run("gh", "release", "create", tag, "--verify-tag", "--draft", "--title", f"Animecomic {tag}", "--notes-file", str(ROOT / "release-notes.md"), *( ["--prerelease"] if prerelease else []))
     run("gh", "release", "upload", tag, *(str(p) for p in files), "--clobber")
     verify_uploaded(tag, files)
-    run("gh", "release", "edit", tag, "--draft=false", "--latest")
+    run("gh", "release", "edit", tag, "--draft=false",
+        "--prerelease=" + str(prerelease).lower(), "--latest=" + str(not prerelease).lower())
     print(f"Published https://github.com/Zhgma/animeko/releases/tag/{tag}")
 
 

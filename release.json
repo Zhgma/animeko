@@ -1,32 +1,33 @@
 {
-  "version": "0.1.0",
-  "versionCode": 50407,
-  "tag": "0.1.0",
-  "sourceCommit": "6f0c8fb9e70917120ad0c7be3788db4baac484d3",
+  "version": "0.2.0-beta.1",
+  "versionCode": 50408,
+  "tag": "0.2.0-beta.1",
+  "prerelease": true,
+  "sourceCommit": "84e3e47962c0e4c7ef2434c40c57d4ed24b7f40c",
   "assets": {
-    "ani-0.1.0-arm64-v8a-debug.apk": {
-      "sha256": "3cb3d950de3732623570054ebb55d197f44b33a71c6a2ad227056551d5bdcaf0",
-      "size": 76408747,
-      "package": "me.him188.ani.debug2",
-      "certificateSha256": "1b16438397d9a608fcf829ebae10a2cbd477f6c5fddae554004397d838bcee94"
-    },
-    "ani-0.1.0-arm64-v8a-debug.apk.sha1": {
-      "sha256": "75d99d8956db89e8d61bfcad4b8651656790a5842ab39166235e07b9dc0c18d7",
-      "size": 40
-    },
-    "ani-0.1.0-arm64-v8a.apk": {
-      "sha256": "364a303ecc34f7b47708991b241b6abb9ea3029943ed2dc173ae38bec4ee2937",
-      "size": 37805852,
+    "ani-0.2.0-beta.1-arm64-v8a.apk": {
+      "sha256": "c0b5c00a7b3904699c5f4dd799505db920d11e02f7a16cf34b70409a11a037b1",
+      "size": 38073602,
       "package": "me.him188.ani",
       "certificateSha256": "0e9cd761d18f282964ed79b7ec06e1ee5f6be84e84d065e8766151291915365a"
     },
-    "ani-0.1.0-arm64-v8a.apk.sha1": {
-      "sha256": "51cf93b049304c00f9b570f4c0db1e7756cf611ad5d13c3a12c8e7afd973f912",
+    "ani-0.2.0-beta.1-arm64-v8a-debug.apk": {
+      "sha256": "31ce6bcdc06e1bff9893b7b2bfef3259c788c6832053db1fa32ee7a53bbb2f62",
+      "size": 76914058,
+      "package": "me.him188.ani.debug2",
+      "certificateSha256": "1b16438397d9a608fcf829ebae10a2cbd477f6c5fddae554004397d838bcee94"
+    },
+    "ani-0.2.0-beta.1-arm64-v8a-debug.apk.sha1": {
+      "sha256": "ac2dc2905dca76fa8964bcc3170c291ceb20352418354ac016671c51fa9f55ab",
+      "size": 40
+    },
+    "ani-0.2.0-beta.1-arm64-v8a.apk.sha1": {
+      "sha256": "6a4e9360c784fe3f0e5418a18efb60a7dbeb12e0b4438b26249950336b8873ee",
       "size": 40
     },
     "SHA256SUMS.txt": {
-      "sha256": "ba8ca6c91ffe0f1b38d7d0c0686f1d34083193daf1d46ec465bbb482ac3a8220",
-      "size": 186
+      "sha256": "e94baf27ebf4a57b4917867a21d9dcafa80aba671aeea03c9e7d49cb8e042dfc",
+      "size": 200
     }
   }
 }

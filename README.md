@@ -10,3 +10,6 @@ GitHub Actions verifies APK versions and certificates, uploads a draft, download
 hash-checks every asset, and publishes the release. Existing public release bytes are immutable.
 
 Signing keystores, passwords, personal tokens, build logs and device screenshots do not belong here.
+
+Testing versions use `0.x.x-beta.N` with `prerelease: true` in release.json.
+They are published with `latest=false`; stable versions keep the Latest designation.
