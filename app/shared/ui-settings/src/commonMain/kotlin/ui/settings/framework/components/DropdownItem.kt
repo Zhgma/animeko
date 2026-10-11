@@ -37,11 +37,9 @@ fun <T> SettingsScope.DropdownItem(
 ) {
     var showDropdown by rememberSaveable { mutableStateOf(false) }
 
-    val selectedState by remember {
-        derivedStateOf { selected() }
-    }
+    val selectedState = selected()
     TextItem(
-        modifier = modifier.clickable(onClick = { showDropdown = true }),
+        modifier = modifier.clickable(enabled = enabled, onClick = { showDropdown = true }),
         description = description,
         icon = icon,
         action = {
@@ -49,7 +47,7 @@ fun <T> SettingsScope.DropdownItem(
                 exposedItemText(selectedState)
             }
             DropdownMenu(
-                expanded = showDropdown,
+                expanded = showDropdown && enabled,
                 onDismissRequest = { showDropdown = false },
             ) {
                 values().forEach { value ->

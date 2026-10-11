@@ -27,9 +27,7 @@ import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import me.him188.ani.app.ui.foundation.ProvideCompositionLocalsForPreview
 import me.him188.ani.app.ui.foundation.ifThen
 
 /**
@@ -76,29 +74,4 @@ fun SelectableDropdownMenuItem(
         contentPadding,
         interactionSource,
     )
-}
-
-@Composable
-@Preview
-private fun PreviewSelectableDropdownMenuItem() {
-    ProvideCompositionLocalsForPreview {
-        Surface {
-            Column {
-                SelectableDropdownMenuItem(
-                    selected = true,
-                    text = { Text("Hello") },
-                    {},
-                )
-
-                Spacer(Modifier.height(16.dp))
-
-                SelectableDropdownMenuItem(
-                    selected = false,
-                    text = { Text("Hello") },
-                    {},
-                )
-
-            }
-        }
-    }
 }

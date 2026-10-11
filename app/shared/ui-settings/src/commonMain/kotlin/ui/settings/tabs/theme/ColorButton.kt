@@ -39,11 +39,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.materialkolor.hct.Hct
 import com.materialkolor.ktx.toHct
-import me.him188.ani.app.ui.foundation.ProvideCompositionLocalsForPreview
 import me.him188.ani.app.ui.foundation.theme.AniThemeDefaults
 import me.him188.ani.app.ui.theme.themeColorOptions
 
@@ -114,23 +112,6 @@ fun ColorButton(
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                 }
-            }
-        }
-    }
-}
-
-@Preview
-@Composable
-fun PreviewColorButton() {
-    ProvideCompositionLocalsForPreview {
-        FlowRow {
-            var currentColor by remember { mutableStateOf(AniThemeDefaults.themeColorOptions[0]) }
-            AniThemeDefaults.themeColorOptions.forEach {
-                ColorButton(
-                    onClick = { currentColor = it },
-                    baseColor = it,
-                    selected = currentColor == it,
-                )
             }
         }
     }

@@ -13,6 +13,7 @@ import kotlinx.serialization.json.Json
 data class MangaReadingMemory(
     val book: MangaSourceBook, val chapterId: String? = null, val page: Int = 0,
     val rightToLeft: Boolean = true, val firstPageSingle: Boolean = false,
+    val sourcePinned: Boolean = true,
 )
 
 /** Namespaced local source bindings and page positions; never modifies Bangumi reading progress. */

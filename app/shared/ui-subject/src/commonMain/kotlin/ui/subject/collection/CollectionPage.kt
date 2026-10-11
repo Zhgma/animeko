@@ -156,16 +156,6 @@ import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Clock
 
 
-// 有顺序, https://github.com/Him188/ani/issues/73
-@Stable
-val COLLECTION_TABS_SORTED = listOf(
-    UnifiedCollectionType.DROPPED,
-    UnifiedCollectionType.WISH,
-    UnifiedCollectionType.DOING,
-    UnifiedCollectionType.ON_HOLD,
-    UnifiedCollectionType.DONE,
-)
-
 @Stable
 class UserCollectionsState(
     private val startSearch: (filterQuery: CollectionsFilterQuery) -> Flow<PagingData<SubjectCollectionInfo>>,
@@ -258,7 +248,7 @@ fun CollectionPage(
         TrackingCollectionTabs(mangaSelected) { mangaSelected = it }
     }
     if (mangaSelected) {
-        MangaCollectionPage(selfInfo, onClickLogin, onClickSettings, trackingTitle, modifier, windowInsets)
+        MangaCollectionPage(selfInfo, onClickLogin, trackingTitle, modifier, windowInsets)
         return
     }
     val scope = rememberCoroutineScope()
@@ -318,37 +308,7 @@ fun CollectionPage(
                 },
                 Modifier.padding(horizontal = currentWindowAdaptiveInfo1().windowSizeClass.paneHorizontalPadding),
                 { type ->
-                    val size = state.collectionCounts
-                    if (size == null) {
-                        Text(
-                            text = type.displayText(),
-                            Modifier.width(IntrinsicSize.Max),
-                            softWrap = false,
-                        )
-                    } else {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = type.displayText(),
-                                softWrap = false,
-                            )
-                            Badge(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                contentColor = MaterialTheme.colorScheme.onSurface,
-                            ) {
-                                Text(
-                                    text = size.getCount(type).toString(),
-                                    modifier = Modifier
-                                        .padding(horizontal = 2.dp)
-                                        .wrapContentSize(align = Alignment.Center),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    textAlign = TextAlign.Center,
-                                )
-                            }
-                        }
-                    }
+                    CollectionTypeTabLabel(type.displayText(), state.collectionCounts?.getCount(type))
                 },
                 scrollState = state.tabRowScrollState,
             )
@@ -421,100 +381,6 @@ fun CollectionPage(
 }
 
 /**
- * @param filters see [CollectionPageFilters]
- */
-@Composable
-private fun CollectionPageLayout(
-    title: @Composable () -> Unit,
-    settingsIcon: @Composable () -> Unit,
-    actions: @Composable RowScope.() -> Unit,
-    avatar: @Composable (recommendedSize: DpSize) -> Unit,
-    filters: @Composable CollectionPageFilters.() -> Unit,
-    isRefreshing: () -> Boolean,
-    onRefresh: () -> Unit,
-    modifier: Modifier = Modifier,
-    windowInsets: WindowInsets = AniWindowInsets.forPageContent(),
-    content: @Composable (nestedScrollConnection: NestedScrollConnection?, contentPadding: PaddingValues) -> Unit,
-) {
-    val isHeightAtLeastMedium = currentWindowAdaptiveInfo1().windowSizeClass.isHeightAtLeastMedium
-    val scrollBehavior = if (LocalPlatform.current.hasScrollingBug() || isHeightAtLeastMedium) {
-        null // Can't use PinnedBehavior, because we have a TabRow in this page, which does not sync color
-    } else {
-        // 在紧凑高度时收起 Top bar
-        TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    }
-    val frostedGlassActive = isAppChromeFrostedGlassActive()
-    val appBarColors = AniThemeDefaults.topAppBarColors()
-    Scaffold(
-        modifier,
-        topBar = {
-            // 整个 topBar (app bar + tab row) 作为一个毛玻璃面板; 不启用时用不透明背景遮住下方滚动的内容.
-            Column(
-                modifier = Modifier.fillMaxWidth()
-                    .appChromeFrostedGlass(
-                        enabled = frostedGlassActive,
-                        containerColor = appBarColors.containerColor,
-                    )
-                    .ifThen(!frostedGlassActive) { background(appBarColors.containerColor) },
-            ) {
-                AniTopAppBar(
-                    title = title,
-                    modifier = Modifier,
-                    actions = {
-                        actions()
-
-                        if (LocalPlatform.current.isDesktop()) {
-                            // PC 无法下拉刷新
-                            IconButton(
-                                {
-                                    onRefresh()
-                                },
-                                enabled = !isRefreshing(),
-                            ) {
-                                Icon(Icons.Rounded.Refresh, null)
-                            }
-                        }
-
-                        settingsIcon()
-                    },
-                    avatar = avatar,
-                    colors = if (frostedGlassActive) {
-                        appBarColors.copy(
-                            containerColor = Color.Transparent,
-                            scrolledContainerColor = Color.Transparent,
-                        )
-                    } else {
-                        appBarColors
-                    },
-                    windowInsets = AniWindowInsets.forTopAppBarWithoutDesktopTitle(),
-                    scrollBehavior = scrollBehavior,
-                    enableFrostedGlass = false, // 由上面的 Column 统一应用
-                )
-
-                filters(CollectionPageFilters)
-            }
-        },
-        contentWindowInsets = windowInsets.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),
-        containerColor = AniThemeDefaults.pageContentBackgroundColor,
-    ) { topBarPaddings ->
-        Box(
-            // 毛玻璃 app chrome 的模糊来源. 内容通过 contentPadding 延伸到 chrome 下方.
-            Modifier.appChromeHazeSource(backgroundColor = AniThemeDefaults.pageContentBackgroundColor)
-                .fillMaxSize(),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .wrapContentWidth()
-                    .widthIn(max = 1300.dp),
-            ) {
-                content(scrollBehavior?.nestedScrollConnection, topBarPaddings)
-            }
-        }
-    }
-}
-
-/**
  * 使用 [HorizontalPager] 支持左右滑动切换标签.
  *
  * 是否能滑动取决于有没有触摸, 而不是平台: 之前桌面端整个走另一条分支, 连 [HorizontalPager]
@@ -533,12 +399,7 @@ private fun CollectionPageColumnLayout(
         }
     }
 
-    HorizontalPager(
-        state = state.pagerState,
-        modifier = modifier.touchHorizontalScrollOnly(),
-        beyondViewportPageCount = 1,
-        pageSpacing = 0.dp,
-    ) { pageIndex ->
+    CollectionPager(state.pagerState, modifier) { pageIndex ->
         val items = state
             .getCollectionLazyPagingItems(pageIndex)
             .collectWithLifecycle()
@@ -547,73 +408,6 @@ private fun CollectionPageColumnLayout(
             content(items, pageIndex)
         }
     }
-}
-
-@Stable
-object CollectionPageFilters {
-    @Composable
-    fun CollectionTypeFilterButtons(
-        pagerState: PagerState,
-        modifier: Modifier = Modifier,
-        itemLabel: @Composable (UnifiedCollectionType) -> Unit = { type ->
-            Text(type.displayText(), softWrap = false)
-        },
-    ) {
-        val uiScope = rememberCoroutineScope()
-        SingleChoiceSegmentedButtonRow(modifier) {
-            COLLECTION_TABS_SORTED.forEachIndexed { index, type ->
-                SegmentedButton(
-                    selected = pagerState.currentPage == index,
-                    onClick = { uiScope.launch { pagerState.scrollToPage(index) } },
-                    shape = SegmentedButtonDefaults.itemShape(index, COLLECTION_TABS_SORTED.size),
-                    Modifier.wrapContentWidth(),
-                ) {
-                    itemLabel(type)
-                }
-            }
-        }
-    }
-
-    @Composable
-    fun CollectionTypeScrollableTabRow(
-        selectedIndex: Int,
-        onSelect: (Int) -> Unit,
-        modifier: Modifier = Modifier,
-        itemLabel: @Composable (UnifiedCollectionType) -> Unit = { type ->
-            Text(type.displayText(), softWrap = false)
-        },
-        scrollState: ScrollState = rememberScrollState(),
-    ) {
-        val widths = remember { mutableStateListOf(*COLLECTION_TABS_SORTED.map { 24.dp }.toTypedArray()) }
-        SecondaryScrollableTabRow(
-            selectedTabIndex = selectedIndex,
-            indicator = @Composable {
-                TabRowDefaults.PrimaryIndicator(
-                    Modifier.tabIndicatorOffset(selectedIndex, matchContentSize = false),
-                    width = widths[selectedIndex],
-                )
-            },
-            containerColor = Color.Unspecified,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            divider = {},
-            modifier = modifier.fillMaxWidth(),
-            scrollState = scrollState,
-        ) {
-            COLLECTION_TABS_SORTED.forEachIndexed { index, collectionType ->
-                Tab(
-                    selected = selectedIndex == index,
-                    onClick = { onSelect(index) },
-                    text = {
-                        val density = LocalDensity.current
-                        Box(Modifier.onPlaced { widths[index] = with(density) { it.size.width.toDp() } }) {
-                            itemLabel(collectionType)
-                        }
-                    },
-                )
-            }
-        }
-    }
-
 }
 
 @Composable
@@ -708,20 +502,6 @@ private fun SubjectCollectionItem(
         modifier = modifier,
     )
 }
-
-@Composable
-@Stable
-private fun UnifiedCollectionType.displayText(): String {
-    return when (this) {
-        UnifiedCollectionType.WISH -> stringResource(Lang.subject_collection_wish)
-        UnifiedCollectionType.DOING -> stringResource(Lang.subject_collection_doing)
-        UnifiedCollectionType.DONE -> stringResource(Lang.subject_collection_done)
-        UnifiedCollectionType.ON_HOLD -> stringResource(Lang.subject_collection_on_hold)
-        UnifiedCollectionType.DROPPED -> stringResource(Lang.subject_collection_dropped)
-        UnifiedCollectionType.NOT_COLLECTED -> stringResource(Lang.subject_collection_uncollected)
-    }
-}
-
 
 @Composable
 private fun GuestTips(

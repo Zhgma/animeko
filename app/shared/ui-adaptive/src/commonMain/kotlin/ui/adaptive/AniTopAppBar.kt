@@ -49,14 +49,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.tooling.preview.PreviewScreenSizes
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import me.him188.ani.app.ui.foundation.LocalPlatform
-import me.him188.ani.app.ui.foundation.ProvideCompositionLocalsForPreview
 import me.him188.ani.app.ui.foundation.ifThen
 import me.him188.ani.app.ui.foundation.interaction.WindowDragArea
 import me.him188.ani.app.ui.foundation.layout.AniWindowInsets
@@ -69,13 +67,9 @@ import me.him188.ani.app.ui.foundation.layout.isWidthAtLeastMedium
 import me.him188.ani.app.ui.foundation.layout.paddingIfNotEmpty
 import me.him188.ani.app.ui.foundation.layout.paneHorizontalPadding
 import me.him188.ani.app.ui.foundation.rememberCurrentTopAppBarContainerColor
-import me.him188.ani.app.ui.foundation.session.SelfAvatar
 import me.him188.ani.app.ui.foundation.theme.AniThemeDefaults
 import me.him188.ani.app.ui.foundation.theme.appChromeFrostedGlass
 import me.him188.ani.app.ui.foundation.theme.isAppChromeFrostedGlassActive
-import me.him188.ani.app.ui.foundation.widgets.BackNavigationIconButton
-import me.him188.ani.app.ui.user.TestSelfInfoUiState
-import me.him188.ani.utils.platform.annotations.TestOnly
 import me.him188.ani.utils.platform.isDesktop
 
 /**
@@ -342,38 +336,4 @@ private fun calculateSearchBarSize(
         windowSizeClass.isWidthAtLeastMedium && maxWidth >= 240.dp -> SearchBarSize.MEDIUM
         else -> SearchBarSize.ICON_BUTTON
     }
-}
-
-@OptIn(TestOnly::class)
-@Composable
-@PreviewScreenSizes
-private fun PreviewAniTopAppBar() = ProvideCompositionLocalsForPreview {
-    val scope = rememberCoroutineScope()
-    AniTopAppBar(
-        title = { Text("MyTitle") },
-        navigationIcon = { BackNavigationIconButton({}) },
-        actions = {
-            IconButton({}) {
-                Icon(Icons.Rounded.Settings, null)
-            }
-        },
-        avatar = { recommendedSize ->
-            SelfAvatar(
-                TestSelfInfoUiState,
-                size = recommendedSize,
-                onClick = { },
-            )
-        },
-        searchIconButton = {
-            IconButton({}) {
-                Icon(Icons.Rounded.Search, null)
-            }
-        },
-        searchBar = {
-            IconButton({}) {
-                Icon(Icons.Rounded.Search, null)
-            }
-        },
-        windowInsets = WindowInsets.Zero,
-    )
 }

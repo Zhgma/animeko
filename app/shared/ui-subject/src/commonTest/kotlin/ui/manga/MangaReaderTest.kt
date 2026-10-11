@@ -2,6 +2,8 @@
 package me.him188.ani.app.ui.manga
 
 import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -15,12 +17,15 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.semantics.SemanticsProperties
 import me.him188.ani.app.data.repository.manga.MangaCollection
 import me.him188.ani.app.data.repository.manga.MangaChapter
 import me.him188.ani.app.data.repository.manga.MangaPage
+import me.him188.ani.app.data.repository.manga.MangaDetails
+import me.him188.ani.app.data.models.subject.RatingInfo
 import me.him188.ani.app.ui.foundation.ProvideCompositionLocalsForPreview
 import me.him188.ani.app.ui.framework.runAniComposeUiTest
 import me.him188.ani.utils.platform.annotations.TestOnly
@@ -36,6 +41,49 @@ import kotlin.test.assertTrue
 
 @OptIn(TestOnly::class)
 class MangaReaderTest {
+    @Test
+    fun portraitDetailsCollapseReaderAndExpandOnlyAfterReturningToTop() = runAniComposeUiTest {
+        val chapter = MangaChapter("one", "第 1 话", 1.0, "章节")
+        var fullscreen by mutableStateOf(false)
+        setContent {
+            ProvideCompositionLocalsForPreview {
+                MangaReaderScreen(MangaDetailsUiState(loading = false, chapter = chapter,
+                    chapters = listOf(chapter), pages = List(20) { MangaPage("page-$it", "") },
+                    details = MangaDetails("Test manga", "Original", "", "Summary", RatingInfo.Empty,
+                        List(40) { "Field $it" to "Value $it" }, emptyList(), emptyMap(), emptyList())),
+                    {}, {}, { _, _ -> }, { error("Test image unavailable") }, { _, _ -> },
+                    Modifier.requiredSize(380.dp, 800.dp), fullscreen = fullscreen, onFullscreen = { fullscreen = it })
+            }
+        }
+        fun readerHeight() = onNodeWithTag("manga-reading-pane").fetchSemanticsNode().boundsInRoot.height
+        val initialHeight = readerHeight()
+        val screenHeight = onNodeWithTag("manga-reader").fetchSemanticsNode().boundsInRoot.height
+        assertEquals(screenHeight * 0.7f, initialHeight, 1f)
+        onNodeWithTag("manga-reader-scroll").performTouchInput { swipeUp(durationMillis = 1000) }
+        assertEquals(initialHeight, readerHeight())
+        onNodeWithTag("manga-reader-details-scroll").performTouchInput { swipeUp(durationMillis = 1000) }
+        val partialHeight = readerHeight()
+        assertTrue(partialHeight in 1f..<initialHeight)
+        repeat(4) { onNodeWithTag("manga-reader-details-scroll").performTouchInput { swipeUp(durationMillis = 1000) } }
+        assertEquals(0f, readerHeight(), 1f)
+        // A short reverse drag within the long information list must scroll details first.
+        onNodeWithTag("manga-reader-details-scroll").performTouchInput {
+            swipeDown(startY = centerY, endY = centerY + 40, durationMillis = 1000)
+        }
+        assertEquals(0f, readerHeight(), 1f)
+        repeat(12) { onNodeWithTag("manga-reader-details-scroll").performTouchInput { swipeDown(durationMillis = 1000) } }
+        assertEquals(initialHeight, readerHeight(), 1f)
+        onNodeWithTag("manga-reader-details-scroll").performTouchInput { swipeUp(durationMillis = 1000) }
+        val beforeFullscreen = readerHeight()
+        runOnIdle { fullscreen = true }
+        assertEquals(screenHeight, readerHeight(), 1f)
+        runOnIdle { fullscreen = false }
+        assertEquals(beforeFullscreen, readerHeight(), 1f)
+        onNodeWithTag("manga-reader-comments-tab").performClick()
+        repeat(4) { onNodeWithTag("manga-reader-details-scroll").performTouchInput { swipeDown(durationMillis = 1000) } }
+        assertEquals(initialHeight, readerHeight(), 1f)
+    }
+
     @Test
     fun localPageFileDecodesThroughSharedImageLoader() = runAniComposeUiTest {
         val file = SystemPaths.createTempFile("manga 中文 test", ".png")
@@ -181,21 +229,25 @@ class MangaReaderTest {
     @Test
     fun detailsHaveInternalChaptersCommentsAndBack() = runAniComposeUiTest {
         var backCount = 0
+        var sourceCount = 0
+        var ratingCount = 0
         setContent {
             ProvideCompositionLocalsForPreview {
-                MangaDetailsContent(MangaCollection(1, "Test manga", "Original", "", 12, 2, 0, 0, 0, false),
-                    MangaDetailsUiState(loading = false), "Test manga", onBack = { backCount++ }, onRetry = {},
-                    onComments = {}, onSearch = { _, _ -> }, onBook = {}, onChapter = {})
+                CompositionLocalProvider(LocalMangaActions provides MangaPageActions(
+                    showSources = { sourceCount++ }, writeReview = { ratingCount++ })) {
+                    MangaDetailsContent(MangaCollection(1, "Test manga", "Original", "", 12, 2, 0, 0, 0, false),
+                        MangaDetailsUiState(loading = false), "Test manga", onBack = { backCount++ }, onRetry = {},
+                        onComments = {}, onSearch = { _, _ -> }, onBook = {}, onChapter = {})
+                }
             }
         }
-        onNodeWithTag("manga-start-reading").performClick()
-        onNodeWithTag("manga-source-query").assertExists()
-        onNodeWithTag("manga-close-chapters").performClick()
-        onNodeWithTag("manga-all-comments").performScrollTo().performClick()
-        assertTrue(onAllNodesWithText("暂无评论").fetchSemanticsNodes().isNotEmpty())
-        onNodeWithTag("manga-close-comments").performClick()
         onNodeWithTag("manga-details-back").performClick()
-        runOnIdle { assertEquals(1, backCount) }
+        assertEquals(1, backCount)
+        onNodeWithTag("manga-start-reading").performClick()
+        assertEquals(1, sourceCount)
+        onNodeWithTag("manga-all-comments").performScrollTo().performClick()
+        onNodeWithText("写评价").performClick()
+        assertEquals(1, ratingCount)
     }
 
     @Test

@@ -111,67 +111,7 @@ internal fun RatingScoreText(
     )
 }
 
-@Composable
-fun FiveRatingStars(
-    score: Int, // range 0..10
-    starSize: Dp = 22.dp,
-    color: Color = MaterialTheme.colorScheme.primary,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier,
-        horizontalArrangement = Arrangement.spacedBy((-1).dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        CompositionLocalProvider(LocalContentColor provides color) {
-            Icon(
-                when {
-                    score >= 2 -> Icons.Rounded.Star
-                    score == 1 -> Icons.AutoMirrored.Rounded.StarHalf
-                    else -> Icons.Rounded.StarOutline
-                },
-                contentDescription = null,
-                Modifier.size(starSize),
-            )
-            Icon(
-                when {
-                    score >= 4 -> Icons.Rounded.Star
-                    score == 3 -> Icons.AutoMirrored.Rounded.StarHalf
-                    else -> Icons.Rounded.StarOutline
-                },
-                contentDescription = null,
-                Modifier.size(starSize),
-            )
-            Icon(
-                when {
-                    score >= 6 -> Icons.Rounded.Star
-                    score == 5 -> Icons.AutoMirrored.Rounded.StarHalf
-                    else -> Icons.Rounded.StarOutline
-                },
-                contentDescription = null,
-                Modifier.size(starSize),
-            )
-            Icon(
-                when {
-                    score >= 8 -> Icons.Rounded.Star
-                    score == 7 -> Icons.AutoMirrored.Rounded.StarHalf
-                    else -> Icons.Rounded.StarOutline
-                },
-                contentDescription = null,
-                Modifier.size(starSize),
-            )
-            Icon(
-                when {
-                    score >= 10 -> Icons.Rounded.Star
-                    score == 9 -> Icons.AutoMirrored.Rounded.StarHalf
-                    else -> Icons.Rounded.StarOutline
-                },
-                contentDescription = null,
-                Modifier.size(starSize),
-            )
-        }
-    }
-}
+
 
 
 @OptIn(TestOnly::class)

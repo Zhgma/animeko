@@ -11,12 +11,12 @@
 
 package me.him188.ani.app.ui.exploration.search
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -32,7 +32,6 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,7 +39,6 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -54,16 +52,11 @@ import androidx.compose.material3.adaptive.navigation.ThreePaneScaffoldNavigator
 import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalFocusManager
@@ -92,7 +85,6 @@ import me.him188.ani.app.ui.adaptive.AniTopAppBar
 import me.him188.ani.app.ui.adaptive.PaneScope
 import me.him188.ani.app.ui.foundation.LocalPlatform
 import me.him188.ani.app.ui.foundation.ProvideCompositionLocalsForPreview
-import me.him188.ani.app.ui.foundation.interaction.onEnterKeyEvent
 import me.him188.ani.app.ui.foundation.layout.AniWindowInsets
 import me.him188.ani.app.ui.foundation.layout.currentWindowAdaptiveInfo1
 import me.him188.ani.app.ui.foundation.layout.paneVerticalPadding
@@ -368,70 +360,27 @@ private fun SearchPageSearchBar(
 
     AdaptiveSearchBar(
         inputField = {
-            SearchBarDefaults.InputField(
+            SubjectSearchInput(
                 query = editingQuery,
-                onQueryChange = {
-                    onEditingQueryChange(it.trim('\n'))
-                },
+                onQueryChange = onEditingQueryChange,
                 onSearch = {
                     onExpandedChange(false)
-                    onIntent(
-                        SearchPageIntent.UpdateQuery(
-                            state.query.copy(keywords = editingQuery),
-                            submit = true,
-                        ),
-                    )
+                    onIntent(SearchPageIntent.UpdateQuery(state.query.copy(keywords = editingQuery), submit = true))
+                },
+                type = state.query.type,
+                onTypeChange = { type ->
+                    onExpandedChange(false)
+                    onIntent(SearchPageIntent.UpdateQuery(state.query.withSearchType(type).copy(keywords = editingQuery), submit = true))
+                },
+                onClear = {
+                    onExpandedChange(false)
+                    onEditingQueryChange("")
+                    onIntent(SearchPageIntent.UpdateQuery(state.query.copy(keywords = "")))
                 },
                 expanded = expanded,
                 onExpandedChange = onExpandedChange,
-                modifier = inputFieldModifier
-                    .testTag("subject-search-input")
-                    .fillMaxWidth()
-                    .onFocusChanged { focusState ->
-                        if (!focusState.isFocused && expanded) {
-                            onExpandedChange(false)
-                        }
-                    }
-                    .onEnterKeyEvent {
-                        onExpandedChange(false)
-                        onIntent(
-                            SearchPageIntent.UpdateQuery(
-                                state.query.copy(keywords = editingQuery),
-                                submit = true,
-                            ),
-                        )
-                        true
-                    },
+                modifier = inputFieldModifier,
                 placeholder = placeholder,
-                leadingIcon = {
-                    Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Search, contentDescription = null)
-                        SearchSubjectTypeSelector(state.query.type) { type ->
-                            onExpandedChange(false)
-                            onIntent(SearchPageIntent.UpdateQuery(
-                                state.query.withSearchType(type).copy(keywords = editingQuery), submit = true))
-                        }
-                    }
-                },
-                trailingIcon = if (editingQuery.isNotEmpty() || expanded) {
-                    {
-                        IconButton(
-                            onClick = {
-                                onExpandedChange(false)
-                                onEditingQueryChange("")
-                                onIntent(
-                                    SearchPageIntent.UpdateQuery(
-                                        state.query.copy(keywords = ""),
-                                    ),
-                                )
-                            },
-                        ) {
-                            Icon(Icons.Default.Close, contentDescription = null)
-                        }
-                    }
-                } else {
-                    null
-                },
             )
         },
         expanded = expanded,
@@ -554,7 +503,7 @@ internal fun SearchPageListDetailScaffold(
                 floatingActionButton = { navigateToTopButton() },
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
             ) { _ ->
-                Column(
+                SearchPageColumn(
                     modifier = Modifier
                         .paneContentPadding()
                         .paneWindowInsetsPadding()

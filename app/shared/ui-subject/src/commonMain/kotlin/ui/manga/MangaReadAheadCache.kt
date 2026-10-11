@@ -17,6 +17,7 @@ import kotlinx.coroutines.sync.withLock
 import me.him188.ani.app.data.repository.manga.MangaChapter
 import me.him188.ani.app.data.repository.manga.MangaPage
 import me.him188.ani.app.data.repository.manga.MangaSourceBook
+import me.him188.ani.app.data.repository.manga.MangaSourceAccessException
 
 data class MangaDownloadProgress(
     val title: String, val completed: Int = 0, val total: Int = 0, val error: String? = null,
@@ -39,22 +40,30 @@ internal class MangaReadAheadCache(
     private val images = mutableMapOf<MangaPage, String>()
 
     private fun key(book: MangaSourceBook, chapter: MangaChapter) = "${book.source}:${book.id}:${chapter.id}"
+    // MangaGui's e/m query parameters authorize an immutable page; refreshed signatures share downloaded files.
+    private fun imageKey(page: MangaPage) = if (page.url.startsWith("https://us.hamreus.com/"))
+        page.copy(url = page.url.substringBefore('?')) else page
 
     suspend fun pages(book: MangaSourceBook, chapter: MangaChapter): List<MangaPage> = catalogMutex.withLock {
         catalogs.getOrPut(key(book, chapter)) { fetchPages(book, chapter) }
     }
 
+    suspend fun invalidateCatalogs(book: MangaSourceBook) = catalogMutex.withLock {
+        catalogs.keys.removeAll { it.startsWith("${book.source}:${book.id}:") }
+    }
+
     suspend fun image(page: MangaPage): String {
+        val key = imageKey(page)
         val task = imageMutex.withLock {
-            images[page]?.let { return it }
-            pending.getOrPut(page) {
+            images[key]?.let { return it }
+            pending.getOrPut(key) {
                 downloadsScope.async {
                     try {
                         val uri = downloadSlots.withPermit { fetchImage(page) }
-                        imageMutex.withLock { images[page] = uri }
+                        imageMutex.withLock { images[key] = uri }
                         uri
                     } finally {
-                        withContext(NonCancellable) { imageMutex.withLock { pending.remove(page) } }
+                        withContext(NonCancellable) { imageMutex.withLock { pending.remove(key) } }
                     }
                 }
             }
@@ -78,12 +87,19 @@ internal class MangaReadAheadCache(
             var failure: String? = null
             try {
                 val pages = pages(book, chapter)
-                retained.addAll(pages)
+                retained.addAll(pages.map(::imageKey))
                 total = pages.size
                 onProgress(index, MangaDownloadProgress(chapter.title, 0, total))
                 for (page in pages) {
                     try { image(page); completed++ }
                     catch (e: CancellationException) { throw e }
+                    catch (e: MangaSourceAccessException) {
+                        onProgress(index, MangaDownloadProgress(chapter.title, completed, total, e.message))
+                        chapters.drop(index + 1).forEachIndexed { remaining, next ->
+                            onProgress(index + remaining + 1, MangaDownloadProgress(next.title, error = e.message))
+                        }
+                        return
+                    }
                     catch (e: Exception) { failure = e.message ?: "图片下载失败" }
                     onProgress(index, MangaDownloadProgress(chapter.title, completed, total, failure))
                 }

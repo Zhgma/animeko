@@ -14,7 +14,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import me.him188.ani.app.ui.settings.SettingsTab
 
 
@@ -84,23 +83,6 @@ fun SettingsScope.SwitchItem(
             checked,
             onCheckedChange = onCheckedChange,
             enabled = enabled,
-        )
-    }
-}
-
-@Preview
-@Composable
-private fun PreviewPreferenceScope() {
-    SettingsTab {
-        SwitchItem(
-            checked = true,
-            onCheckedChange = {},
-            title = {
-                Text("Test")
-            },
-            description = {
-                Text(text = "Test description")
-            },
         )
     }
 }

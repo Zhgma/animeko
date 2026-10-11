@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -22,13 +21,11 @@ import me.him188.ani.app.navigation.NavRoutes
 import me.him188.ani.app.ui.rating.EditableRatingDialogsHost
 import me.him188.ani.app.ui.subject.relations.SubjectRelationGraphScreen
 import me.him188.ani.app.ui.subject.relations.SubjectRelationGraphUiState
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
@@ -39,6 +36,8 @@ import kotlinx.coroutines.launch
 import me.him188.ani.app.ui.foundation.layout.LocalPlatformWindow
 import me.him188.ani.app.ui.foundation.layout.setRequestFullScreen
 import me.him188.ani.app.ui.foundation.layout.setSystemBarVisible
+import androidx.compose.runtime.CompositionLocalProvider
+import me.him188.ani.app.ui.mediaselect.common.MediaSelectorDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -56,7 +55,6 @@ import me.him188.ani.app.data.repository.manga.MangaCollection
 import me.him188.ani.app.data.repository.manga.MangaSource
 import me.him188.ani.app.data.repository.manga.MangaSourceBook
 import me.him188.ani.app.platform.LocalContext
-import me.him188.ani.app.ui.foundation.AsyncImage
 import me.him188.ani.app.ui.foundation.navigation.BackHandler
 import me.him188.ani.app.ui.subject.details.sections.SectionHeader
 
@@ -106,7 +104,18 @@ fun MangaDetailsRoute(manga: MangaCollection, onBack: () -> Unit, modifier: Modi
             }
         }
     }
+    var sourceOpen by rememberSaveable { mutableStateOf(false) }
+    var cacheOpen by rememberSaveable { mutableStateOf(false) }
+    var chaptersOpen by rememberSaveable { mutableStateOf(false) }
+    val actions = MangaPageActions(vm.commentState, vm::setCollection, vm::setProgress, vm::markChapterRead,
+        vm::requestEditRating, { sourceOpen = true }, { chaptersOpen = true }, { cacheOpen = true }, vm::saveSourceSettings, vm::solveCaptcha)
+    CompositionLocalProvider(LocalMangaActions provides actions) {
     EditableRatingDialogsHost(state.rating, vm)
+    state.libraryError?.let { message ->
+        AlertDialog(onDismissRequest = vm::dismissLibraryError, title = { Text("收藏与进度") }, text = { Text(message) },
+            confirmButton = { TextButton({ vm.dismissLibraryError(); vm.loadLibrary() }) { Text("重试加载") } },
+            dismissButton = { TextButton(vm::dismissLibraryError) { Text("关闭") } })
+    }
     state.ratingError?.let { message ->
         AlertDialog(onDismissRequest = vm::dismissRatingError, title = { Text("评价") }, text = { Text(message) },
             confirmButton = { TextButton(vm::dismissRatingError) { Text("关闭") } })
@@ -126,12 +135,23 @@ fun MangaDetailsRoute(manga: MangaCollection, onBack: () -> Unit, modifier: Modi
     } else if (state.chapter != null) {
         MangaReaderScreen(state, onBack = { if (fullscreen) fullscreen = false else closeReader() }, onChapter = vm::openChapter,
             onPage = vm::rememberPage, loadImage = vm::image, onReaderLayout = vm::rememberReaderLayout, modifier = modifier,
-            fullscreen = fullscreen, onFullscreen = { fullscreen = it }, onComments = vm::loadComments, onRetryDownloads = vm::prefetchChapters, ratingActions = vm,
+            fullscreen = fullscreen, onFullscreen = { fullscreen = it }, onComments = vm::loadComments, onRetryDownloads = vm::retryDownloads, ratingActions = vm,
             onRelations = { fullscreen = false; showRelations = true }, onRetryRelations = vm::loadRelations, onRelatedSubject = openRelated)
     } else {
         MangaDetailsContent(manga, state, vm.defaultKeyword(), onBack, vm::loadDetails, vm::loadComments,
             vm::search, vm::selectBook, onReadChapter ?: vm::openChapter, modifier, vm,
-            onRelations = { showRelations = true }, onRetryRelations = vm::loadRelations, onRelatedSubject = openRelated)
+            onRelations = { showRelations = true }, onRetryRelations = vm::loadRelations, onRelatedSubject = openRelated, onAutoSelect = vm::autoSelectSource)
+    }
+    if (sourceOpen) MangaSourcesDialog(state, vm.defaultKeyword(), { sourceOpen = false }, vm::search,
+        { vm.selectBook(it); sourceOpen = false }, { vm.autoSelectSource() })
+    if (chaptersOpen) MediaSelectorDialog({ chaptersOpen = false }) { _ ->
+        LazyColumn(contentPadding = PaddingValues(24.dp)) {
+            item { TextButton({ chaptersOpen = false }) { Text("关闭目录") } }
+            item { MangaChapterGrid(state, { chaptersOpen = false; (onReadChapter ?: vm::openChapter)(it) }, rows = 5) }
+        }
+    }
+    if (cacheOpen) MangaCacheDialog(state, { cacheOpen = false }, { vm.cacheChapters(it) }, vm::cancelOffline,
+        { vm.cacheChapters(listOf(it.chapter), it.book) }, vm::openOffline, vm::deleteOffline)
     }
 }
 
@@ -140,12 +160,14 @@ internal fun MangaChapterList(
     state: MangaDetailsUiState, initialKeyword: String,
     onSearch: (MangaSource, String) -> Unit, onBook: (MangaSourceBook) -> Unit,
     onChapter: (MangaChapter) -> Unit, onSubscriptions: () -> Unit,
+    onAutoSelect: () -> Unit = {},
 ) {
     var keyword by rememberSaveable { mutableStateOf(initialKeyword) }
     var changeSource by rememberSaveable { mutableStateOf(false) }
     var descending by rememberSaveable { mutableStateOf(true) }
     var group by rememberSaveable { mutableStateOf("章节") }
-    val chapters = state.chapters.filter { it.group == group }.let { if (descending) it.reversed() else it }
+    val selectedGroup = group.takeIf { selected -> state.chapters.any { it.group == selected } } ?: state.chapters.firstOrNull()?.group.orEmpty()
+    val chapters = state.chapters.filter { it.group == selectedGroup }.let { if (descending) it.reversed() else it }
     LazyColumn(Modifier.testTag("manga-chapters"), contentPadding = PaddingValues(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             SectionHeader(state.book?.let { "${it.source.title} · ${it.title}" } ?: "选择漫画源") {
@@ -153,39 +175,24 @@ internal fun MangaChapterList(
                 TextButton({ changeSource = !changeSource }) { Text(if (changeSource) "收起" else "切换来源") }
             }
         }
-        if (state.book == null || changeSource) {
+        if (state.book == null || changeSource || state.autoSelecting) {
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    MangaSource.entries.forEach { source ->
-                        FilterChip(state.source == source, { onSearch(source, keyword) }, label = { Text(source.title) }, modifier = Modifier.testTag("manga-source-${source.name}"))
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(keyword, { keyword = it }, Modifier.weight(1f).testTag("manga-source-query"), label = { Text("作品名称或作品链接") }, singleLine = true)
-                    Button({ onSearch(state.source, keyword) }, enabled = keyword.isNotBlank() && !state.searching) { Text("搜索") }
-                }
+                MangaSourcePanel(state, keyword, { keyword = it }, onSearch,
+                    { onBook(it); changeSource = false }, onAutoSelect)
             }
-            if (state.searching) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
-            items(state.results, key = { "${it.source}:${it.id}" }) { book ->
-                Card({ onBook(book); changeSource = false }, Modifier.fillMaxWidth().testTag("manga-source-book-${book.id}")) {
-                    Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        if (book.cover.isNotBlank()) AsyncImage(book.cover, null, Modifier.size(40.dp, 56.dp))
-                        Column { Text(book.title); Text("${book.source.title} · 点击载入章节", style = MaterialTheme.typography.bodySmall) }
-                    }
-                }
-            }
-            if (!state.searching && state.results.isEmpty() && state.sourceError == null) item { Text("未找到匹配作品，请尝试别名或粘贴作品链接。") }
         }
-        state.sourceError?.let { error -> item { MangaInlineError(error) { state.book?.let(onBook) ?: onSearch(state.source, keyword) } } }
+        state.sourceError?.let { error -> item { MangaInlineError(error) {
+            if (state.memory?.sourcePinned == true) state.book?.let(onBook) else onAutoSelect()
+        } } }
         if (state.chaptersLoading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
         if (state.chapters.isNotEmpty()) {
             item {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     state.chapters.map { it.group }.distinct().forEach { name ->
-                        FilterChip(group == name, { group = name }, label = { Text(name) })
+                        FilterChip(selectedGroup == name, { group = name }, label = { Text(name) })
                     }
                     TextButton({ descending = !descending }) { Text(if (descending) "最新在前" else "最早在前") }
-                    Text("${chapters.size} ${if (group == "单行本") "卷" else "话"}", Modifier.padding(12.dp))
+                    Text("${chapters.size} ${if (selectedGroup == "单行本") "卷" else "话"}", Modifier.padding(12.dp))
                 }
             }
             items(chapters, key = { it.id }) { chapter ->

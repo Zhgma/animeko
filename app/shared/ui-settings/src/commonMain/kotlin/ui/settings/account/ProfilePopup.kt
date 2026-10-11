@@ -89,62 +89,7 @@ fun ProfilePopup(
         )
     }
 
-    if (windowSizeClass.isWidthAtLeastMedium) {
-        val density = LocalDensity.current
-        Popup(
-            alignment = Alignment.TopEnd,
-            offset = with(density) {
-                IntOffset(0, 32.dp.roundToPx())
-            },
-            properties = PopupProperties(),
-            onDismissRequest = onDismissRequest,
-        ) {
-            // 模拟点击外面关闭 popup, 否则事件会被广播到下层
-            Box(
-                Modifier.fillMaxSize()
-                    .clickable(interactionSource = null, indication = null, onClick = onDismissRequest)
-                    .background(Color.Black.copy(alpha = 0.32f)),
-                contentAlignment = Alignment.TopEnd,
-            ) {
-
-                // 实际内容
-                Surface(
-                    modifier = Modifier
-                        .windowInsetsPadding(AniWindowInsets.safeDrawing)
-                        .padding(horizontal = 24.dp)
-                        .widthIn(max = 360.dp)
-                        .clickable(interactionSource = null, indication = null, onClick = {}), // 避免触发 onDismissRequest
-                    shape = MaterialTheme.shapes.extraLarge,
-                    color = BottomSheetDefaults.ContainerColor,
-                    contentColor = contentColorFor(BottomSheetDefaults.ContainerColor),
-                    tonalElevation = 0.dp,
-                ) {
-                    content()
-                }
-            }
-        }
-
-//                IconButton(
-//                    onDismiss,
-//                    Modifier.align(Alignment.TopEnd)
-//                        .padding(horizontal = 24.dp)
-//                        .padding(top = 24.dp),
-//                ) {
-//                    Icon(Icons.Default.Close, contentDescription = "关闭")
-//                }
-    } else {
-        BasicAlertDialog(onDismissRequest) {
-            Surface(
-                modifier = Modifier,
-                shape = MaterialTheme.shapes.extraLarge,
-                color = BottomSheetDefaults.ContainerColor,
-                contentColor = contentColorFor(BottomSheetDefaults.ContainerColor),
-                tonalElevation = 0.dp,
-            ) {
-                content()
-            }
-        }
-    }
+    ProfilePopupContainer(onDismissRequest, windowSizeClass, content)
 
     if (showLogoutDialog) {
         val asyncHandler = rememberAsyncHandler()
@@ -159,27 +104,4 @@ fun ProfilePopup(
             confirmEnabled = !asyncHandler.isWorking,
         )
     }
-}
-
-@Composable
-fun AccountLogoutDialog(
-    onConfirm: () -> Unit,
-    onCancel: () -> Unit,
-    confirmEnabled: Boolean = true,
-) {
-    AlertDialog(
-        onCancel,
-        icon = { Icon(Icons.AutoMirrored.Outlined.Logout, null) },
-        text = { Text(stringResource(Lang.settings_account_popup_logout_confirm)) },
-        confirmButton = {
-            TextButton(onConfirm, enabled = confirmEnabled) {
-                Text(stringResource(Lang.settings_account_popup_logout_button), color = MaterialTheme.colorScheme.error)
-            }
-        },
-        dismissButton = {
-            TextButton(onCancel) {
-                Text(stringResource(Lang.settings_account_popup_cancel))
-            }
-        },
-    )
 }

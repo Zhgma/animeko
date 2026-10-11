@@ -24,6 +24,7 @@ kotlin {
         namespace = "me.him188.ani.app.data"
     }
     sourceSets.commonMain.dependencies {
+        implementation(libs.ksoup)
         implementation(projects.app.shared.appPlatform)
         implementation(projects.app.shared.appLang)
         implementation(projects.utils.intellijAnnotations)

@@ -23,6 +23,7 @@ kotlin {
         api(projects.app.shared.uiAdaptive)
         api(projects.app.shared.uiComment)
         implementation(projects.app.shared.videoPlayer)
+        implementation(projects.app.shared.uiMediaselect)
         implementation(libs.compose.components.resources)
         implementation(projects.app.shared.placeholder)
     }

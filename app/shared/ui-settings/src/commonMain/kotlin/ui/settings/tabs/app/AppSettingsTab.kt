@@ -232,133 +232,11 @@ fun SettingsScope.WatchTogetherGroup(state: SettingsState<WatchTogetherSettings>
 }
 
 @Composable
-fun SettingsScope.AppearanceGroup(
-    state: SettingsState<UISettings>,
-) {
+fun SettingsScope.AppearanceGroup(state: SettingsState<UISettings>) {
     val uiSettings by state
-
-    LanguageSettingsPlatform(state)
-
-    DropdownItem(
-        selected = { uiSettings.mainSceneInitialPage },
-        values = { MainScreenPage.visibleEntries },
-        itemText = { Text(it.getText()) },
-        onSelect = {
-            state.update(uiSettings.copy(mainSceneInitialPage = it))
-        },
-        itemIcon = { Icon(it.getIcon(), null) },
-        title = { Text(stringResource(Lang.settings_app_initial_page)) },
-        description = { Text(stringResource(Lang.settings_app_initial_page_description)) },
-    )
-    if (LocalPlatform.current.isDesktop()) {
-        DropdownItem(
-            selected = { uiSettings.desktopCloseBehavior },
-            values = { listOf(DesktopCloseBehavior.EXIT, DesktopCloseBehavior.MINIMIZE) },
-            itemText = {
-                Text(it.renderText())
-            },
-            exposedItemText = {
-                Text(it.renderText())
-            },
-            onSelect = {
-                state.update(uiSettings.copy(desktopCloseBehavior = it))
-            },
-            title = { Text(stringResource(Lang.settings_app_close_behavior)) },
-        )
-    }
-
-    Group(title = { Text(stringResource(Lang.settings_app_search)) }, useThinHeader = true) {
-        SwitchItem(
-            checked = uiSettings.searchSettings.ignoreDoneAndDroppedSubjects,
-            onCheckedChange = {
-                state.update(
-                    uiSettings.copy(
-                        searchSettings = uiSettings.searchSettings.copy(
-                            ignoreDoneAndDroppedSubjects = !uiSettings.searchSettings.ignoreDoneAndDroppedSubjects,
-                        ),
-                    ),
-                )
-            },
-            title = { Text(stringResource(Lang.settings_app_not_show_done_and_dropped_subjects)) },
-        )
-        DropdownItem(
-            selected = { uiSettings.searchSettings.nsfwMode },
-            values = { NsfwMode.entries },
-            itemText = {
-                when (it) {
-                    NsfwMode.HIDE -> Text(stringResource(Lang.settings_app_nsfw_hide))
-                    NsfwMode.BLUR -> Text(stringResource(Lang.settings_app_nsfw_blur))
-                    NsfwMode.DISPLAY -> Text(stringResource(Lang.settings_app_nsfw_display))
-                }
-            },
-            onSelect = {
-                state.update(
-                    uiSettings.copy(
-                        searchSettings = uiSettings.searchSettings.copy(nsfwMode = it),
-                    ),
-                )
-            },
-            title = { Text(stringResource(Lang.settings_app_nsfw_content)) },
-        )
-    }
-
-    Group(title = { Text(stringResource(Lang.settings_app_my_collections)) }, useThinHeader = true) {
-        SwitchItem(
-            checked = uiSettings.myCollections.enableListAnimation1,
-            onCheckedChange = {
-                state.update(
-                    uiSettings.copy(
-                        myCollections = uiSettings.myCollections.copy(
-                            enableListAnimation1 = !uiSettings.myCollections.enableListAnimation1,
-                        ),
-                    ),
-                )
-            },
-            title = { Text(stringResource(Lang.settings_app_list_animation)) },
-            description = { Text(stringResource(Lang.settings_app_list_animation_description)) },
-        )
-    }
-
-    Group(title = { Text(stringResource(Lang.settings_app_episode_playback)) }, useThinHeader = true) {
-        val episode by remember { derivedStateOf { uiSettings.episodeProgress } }
-        SwitchItem(
-            checked = episode.theme == EpisodeListProgressTheme.LIGHT_UP,
-            onCheckedChange = {
-                state.update(
-                    uiSettings.copy(
-                        episodeProgress = episode.copy(
-                            theme = if (it) EpisodeListProgressTheme.LIGHT_UP else EpisodeListProgressTheme.ACTION,
-                        ),
-                    ),
-                )
-            },
-            title = { Text(stringResource(Lang.settings_app_light_up_mode)) },
-            description = { Text(stringResource(Lang.settings_app_light_up_mode_description)) },
-        )
-        SwitchItem(
-            checked = episode.showEpisodeImages,
-            onCheckedChange = {
-                state.update(uiSettings.copy(episodeProgress = episode.copy(showEpisodeImages = it)))
-            },
-            title = { Text(stringResource(Lang.settings_app_episode_images)) },
-            description = { Text(stringResource(Lang.settings_app_episode_images_description)) },
-        )
-    }
-
-    Group(title = { Text(stringResource(Lang.settings_app_subject_title)) }, useThinHeader = true) {
-        SwitchItem(
-            checked = uiSettings.subjectAppearance.useOriginalTitle,
-            onCheckedChange = {
-                state.update(
-                    uiSettings.copy(
-                        subjectAppearance = uiSettings.subjectAppearance.copy(useOriginalTitle = it),
-                    ),
-                )
-            },
-            title = { Text(stringResource(Lang.settings_app_use_original_title)) },
-            description = { Text(stringResource(Lang.settings_app_use_original_title_description)) },
-        )
-    }
+    AppearanceGroupContent(uiSettings, { state.update(it) },
+        showDesktopCloseBehavior = LocalPlatform.current.isDesktop(),
+        languageSettings = { LanguageSettingsPlatform(state) })
 }
 
 @Stable
@@ -385,7 +263,7 @@ fun SettingsScope.SoftwareUpdateGroup(
         RowButtonItem(
             onClick = {
                 uriHandler.openUri(
-                    "https://github.com/Zhgma/animeko/releases/tag/v${currentAniBuildConfig.versionName}",
+                    "https://github.com/Zhgma/animeko/releases/tag/${currentAniBuildConfig.versionName}",
                 )
             },
             icon = { Icon(Icons.Rounded.ArrowOutward, null) },
@@ -866,13 +744,6 @@ internal expect fun SettingsScope.LanguageSettingsPlatform(
 @Composable
 internal expect fun SettingsScope.AppSettingsTabPlatform()
 
-@Composable
-private fun DesktopCloseBehavior.renderText(): String {
-    return when (this) {
-        DesktopCloseBehavior.EXIT -> stringResource(Lang.settings_app_close_behavior_exit)
-        DesktopCloseBehavior.MINIMIZE -> stringResource(Lang.settings_app_close_behavior_minimize_to_tray)
-    }
-}
 
 @Composable
 internal expect fun SettingsScope.PlayerGroupPlatform(

@@ -224,25 +224,6 @@ object EasingDurations {
     const val standardAccelerate = 200
 }
 
-fun modifyColorSchemeForBlackBackground(
-    colorScheme: ColorScheme,
-    isDark: Boolean,
-    useBlackBackground: Boolean,
-): ColorScheme {
-    return if (isDark && useBlackBackground) {
-        colorScheme.copy(
-            background = Color.Black,
-            onBackground = Color.White,
-
-            surface = Color.Black,
-            onSurface = Color.White,
-            surfaceContainerLowest = Color.Black,
-
-            surfaceVariant = Color.Black,
-            onSurfaceVariant = Color.White,
-        )
-    } else colorScheme
-}
 
 @Composable
 fun animateColorScheme(

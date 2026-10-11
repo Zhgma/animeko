@@ -11,7 +11,6 @@ package me.him188.ani.app.domain.session.auth
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import me.him188.ani.app.data.repository.RepositoryException
@@ -26,7 +25,6 @@ import me.him188.ani.utils.logging.logger
 import me.him188.ani.utils.logging.warn
 import me.him188.ani.utils.platform.Uuid
 import kotlin.random.Random
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * Access OAuthClient oAuth
@@ -66,13 +64,7 @@ class OAuthConfigurator(
 
             onOpenUrl(externalUrl)
 
-            var oAuthResult: OAuthResult? = null
-            while (oAuthResult == null) {
-                delay(1.seconds)
-                oAuthResult = client.getResult(requestId)
-                // 日志里已经有 HTTP 日志了, 可以看到 425, 不需要这个
-//                logger.info { "Check oauth result of request id $requestId: ${oAuthResult != null}" }
-            }
+            val oAuthResult = awaitOAuthResult { client.getResult(requestId) }
 
             _state.value = State.Success(requestId, oAuthResult)
             logger.info {

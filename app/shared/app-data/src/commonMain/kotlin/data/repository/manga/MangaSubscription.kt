@@ -1,0 +1,138 @@
+/* Copyright (C) 2026 OpenAni and contributors. SPDX-License-Identifier: AGPL-3.0-only */
+package me.him188.ani.app.data.repository.manga
+
+import io.ktor.client.plugins.expectSuccess
+import io.ktor.client.plugins.timeout
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.Url
+import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import me.him188.ani.utils.ktor.ScopedHttpClient
+import me.him188.ani.utils.platform.Uuid
+import kotlin.time.Clock
+
+@Serializable
+data class MangaSubscription(
+    val id: String,
+    val name: String,
+    val url: String,
+    val enabled: Boolean = true,
+    val sources: List<MangaSource> = emptyList(),
+    val unsupported: List<String> = emptyList(),
+    val updatedAt: Long? = null,
+    val error: String? = null,
+) {
+    companion object {
+        fun defaults() = MangaSource.entries.map {
+            MangaSubscription("builtin-${it.name}", it.title, it.subscriptionUrl, sources = listOf(it))
+        }
+    }
+}
+
+data class MangaSubscriptionContents(val sources: List<MangaSource>, val unsupported: List<String>)
+
+/** Imports source identities; site protocols are implemented by the native adapters. */
+object MangaSubscriptionParser {
+    fun validateUrl(value: String): String {
+        val text = value.trim()
+        val url = runCatching { Url(text) }.getOrNull()
+        require(Regex("^https?://", RegexOption.IGNORE_CASE).containsMatchIn(text) &&
+            text.none { it == '\r' || it == '\n' } &&
+            url != null && url.protocol.name in setOf("https", "http") && url.host.isNotBlank() &&
+            url.user.isNullOrEmpty() && url.password.isNullOrEmpty() && url.fragment.isEmpty()) {
+            "请输入有效的 HTTP 或 HTTPS 订阅链接（不含账号密码或片段）"
+        }
+        return url.toString()
+    }
+
+    fun parse(text: String): MangaSubscriptionContents {
+        require(text.length <= 2 * 1024 * 1024) { "订阅文件超过 2 MB" }
+        val trimmed = text.trim().removePrefix("\uFEFF").trim()
+        val keys = if (trimmed.startsWith("[")) {
+            val array = runCatching { Json.parseToJsonElement(trimmed) as? JsonArray }.getOrNull()
+                ?: error("订阅索引 JSON 格式不正确")
+            require(array.size <= 500) { "订阅索引条目过多" }
+            array.map { entry ->
+                val item = entry as? JsonObject ?: error("订阅条目格式不正确")
+                val key = (item["key"] as? JsonPrimitive)?.content
+                require(!key.isNullOrBlank()) { "订阅条目缺少 key" }
+                key
+            }
+        } else {
+            require(Regex("class\\s+\\w+\\s+extends\\s+ComicSource\\s*\\{").containsMatchIn(trimmed)) {
+                "不支持此订阅格式，请使用 Venera 的 index.json 或单个漫画源 .js 链接"
+            }
+            val key = Regex("(?m)^\\s*key\\s*=\\s*[\"']([^\"'\\r\\n]+)[\"']\\s*;?\\s*$")
+                .find(trimmed)?.groupValues?.get(1) ?: error("漫画源脚本缺少可识别的 key")
+            listOf(key)
+        }
+        fun adapter(key: String) = when (key.lowercase()) {
+            "komiic" -> MangaSource.KOMIIC
+            "manhuagui" -> MangaSource.MANHUAGUI
+            "baozi" -> MangaSource.BAOZI
+            "goda" -> MangaSource.GODA
+            "manga_dex" -> MangaSource.MANGADEX
+            else -> null
+        }
+        val sources = keys.mapNotNull(::adapter).distinct()
+        require(sources.isNotEmpty()) { "订阅中没有本版本支持的漫画源；目前支持 Komiic、漫画柜、包子漫画、G站漫画和 MangaDex" }
+        return MangaSubscriptionContents(sources, keys.filter { adapter(it) == null }.distinct())
+    }
+}
+
+class MangaSubscriptionRepository(
+    private val store: MangaSourceSettingsStore,
+    private val client: ScopedHttpClient,
+) {
+    private suspend fun fetch(url: String): MangaSubscriptionContents = client.use {
+        val response = get(url) {
+            expectSuccess = false
+            timeout { requestTimeoutMillis = 20_000 }
+        }
+        check(response.status.value in 200..299) { "订阅下载失败：HTTP ${response.status.value}" }
+        MangaSubscriptionParser.parse(response.bodyAsText())
+    }
+
+    /** A failed edit preserves both the URL and the previously imported sources. */
+    suspend fun save(id: String?, name: String, rawUrl: String) {
+        require(name.isNotBlank()) { "请输入订阅名称" }
+        val url = MangaSubscriptionParser.validateUrl(rawUrl)
+        require(store.read().subscriptions.none { it.id != id && it.url == url }) { "此订阅链接已存在" }
+        val contents = fetch(url)
+        store.update { current ->
+            require(current.subscriptions.none { it.id != id && it.url == url }) { "此订阅链接已存在" }
+            val old = id?.let { target -> current.subscriptions.find { it.id == target } ?: error("此订阅已被删除") }
+            val saved = MangaSubscription(old?.id ?: Uuid.randomString(), name.trim(), url, old?.enabled ?: true,
+                contents.sources, contents.unsupported, Clock.System.now().toEpochMilliseconds())
+            current.copy(subscriptions = if (old == null) current.subscriptions + saved
+                else current.subscriptions.map { if (it.id == id) saved else it })
+        }
+    }
+
+    suspend fun refresh(subscription: MangaSubscription) {
+        val refreshed = try {
+            val contents = fetch(MangaSubscriptionParser.validateUrl(subscription.url))
+            subscription.copy(sources = contents.sources, unsupported = contents.unsupported,
+                updatedAt = Clock.System.now().toEpochMilliseconds(), error = null)
+        } catch (e: CancellationException) { throw e }
+        catch (e: Exception) { subscription.copy(error = e.message ?: "订阅更新失败") }
+        store.update { current -> current.copy(subscriptions = current.subscriptions.map {
+            // In-flight refreshes cannot overwrite an edit, deletion, or enable switch.
+            if (it.id == subscription.id && it.url == subscription.url) it.copy(sources = refreshed.sources,
+                unsupported = refreshed.unsupported, updatedAt = refreshed.updatedAt, error = refreshed.error) else it
+        }) }
+    }
+
+    suspend fun setEnabled(id: String, enabled: Boolean) = store.update { current ->
+        current.copy(subscriptions = current.subscriptions.map { if (it.id == id) it.copy(enabled = enabled) else it })
+    }
+
+    suspend fun delete(id: String) = store.update { current ->
+        current.copy(subscriptions = current.subscriptions.filterNot { it.id == id })
+    }
+}

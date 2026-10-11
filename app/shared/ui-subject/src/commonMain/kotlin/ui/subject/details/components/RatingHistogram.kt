@@ -58,54 +58,10 @@ fun RatingHistogram(
     barSpacing: Dp = 6.dp,
     labelStyle: TextStyle = MaterialTheme.typography.labelSmall,
 ) {
-    val counts = remember(ratingInfo) { IntArray(10) { ratingInfo.count.get(it + 1) } }
-    val max = remember(counts) { counts.maxOrNull() ?: 0 }
-    val shape = remember(barCornerRadius) { RoundedCornerShape(barCornerRadius) }
-
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(
-            Modifier.fillMaxWidth().height(barHeight),
-            horizontalArrangement = Arrangement.spacedBy(barSpacing),
-            verticalAlignment = Alignment.Bottom,
-        ) {
-            for (score in 1..10) {
-                val count = counts[score - 1]
-                // 归一化到 [MIN_VISIBLE_FRACTION, 1]; 有人评分时至少留一点可见高度.
-                val hasVotes = max > 0 && count > 0
-                val fraction = if (hasVotes) {
-                    (count.toFloat() / max).coerceIn(MIN_VISIBLE_FRACTION, 1f)
-                } else {
-                    MIN_VISIBLE_FRACTION
-                }
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .fillMaxHeight(fraction)
-                        .clip(shape)
-                        .background(if (hasVotes) barColor else trackColor),
-                )
-            }
-        }
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(barSpacing),
-        ) {
-            for (score in 1..10) {
-                Text(
-                    score.toString(),
-                    Modifier.weight(1f),
-                    color = labelColor,
-                    style = labelStyle,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    softWrap = false,
-                )
-            }
-        }
-    }
+    RatingHistogramValues(List(10) { ratingInfo.count.get(it + 1) }, modifier, barColor, trackColor, labelColor, barHeight, barCornerRadius, barSpacing, labelStyle)
 }
 
-private const val MIN_VISIBLE_FRACTION = 0.06f
+
 
 @PreviewLightDark
 @Composable

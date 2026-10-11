@@ -61,36 +61,8 @@ fun SelfAvatar(
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    val signInText = stringResource(Lang.login_sign_in)
-
-    @Composable
-    fun AvatarSurface(content: @Composable () -> Unit) = if (onClick == null) {
-        Surface(modifier, shape = CircleShape, content = content)
-    } else {
-        Surface(onClick, modifier, shape = CircleShape, content = content)
-    }
-
-    if (state.isLoading) {
-        AvatarSurface {
-            // 加载中时展示 placeholder
-            AvatarImage(
-                url = state.selfInfo?.avatarUrl,
-                Modifier.size(size).clip(CircleShape).placeholder(state.selfInfo == null),
-            )
-        }
-    } else {
-        if (state.isSessionValid == false || state.selfInfo == null) {
-            TextButton(onClick ?: {}, modifier = modifier) {
-                Text(signInText)
-            }
-        } else {
-            AvatarSurface {
-                AvatarImage(
-                    url = state.selfInfo.avatarUrl,
-                    modifier = Modifier.size(size).clip(CircleShape),
-                )
-            }
-        }
+    SelfAvatarContent(state.isLoading, state.isSessionValid != false && state.selfInfo != null, size, onClick, modifier) { imageModifier ->
+        AvatarImage(state.selfInfo?.avatarUrl, imageModifier.placeholder(state.isLoading && state.selfInfo == null))
     }
 }
 

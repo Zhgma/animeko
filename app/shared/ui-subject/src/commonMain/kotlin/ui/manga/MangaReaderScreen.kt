@@ -36,6 +36,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -56,6 +57,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import me.him188.ani.app.ui.mediaselect.common.MediaSelectorDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -83,6 +85,10 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
@@ -112,8 +118,10 @@ internal fun MangaReaderScreen(
     onRelations: () -> Unit = {}, onRetryRelations: () -> Unit = {}, onRelatedSubject: (Int) -> Unit = {},
 ) {
     val chapter = state.chapter ?: return
+    val actions = LocalMangaActions.current
     var showChapters by remember { mutableStateOf(false) }
     var detailsTab by rememberSaveable { mutableIntStateOf(0) }
+    var readerHeightFraction by rememberSaveable { mutableFloatStateOf(1f) }
     val siblings = state.chapters.filter { it.group == chapter.group }
     val currentIndex = siblings.indexOfFirst { it.id == chapter.id }
     BoxWithConstraints(modifier.fillMaxSize().testTag("manga-reader")) {
@@ -124,11 +132,34 @@ internal fun MangaReaderScreen(
             expanded -> EpisodeScreenLayoutMode.WIDE
             else -> EpisodeScreenLayoutMode.COMPACT
         }
+        val collapsible = mode == EpisodeScreenLayoutMode.COMPACT && !landscape
+        val expandedReaderHeight = maxHeight * 0.7f
+        val expandedReaderHeightPx = with(LocalDensity.current) { expandedReaderHeight.toPx() }
+        // Only the details list dispatches to this connection. Reading gestures stay independent.
+        val detailsScroll = remember(collapsible, expandedReaderHeightPx) {
+            object : NestedScrollConnection {
+                fun resize(delta: Float): Offset {
+                    if (!collapsible || expandedReaderHeightPx <= 0f) return Offset.Zero
+                    val previous = readerHeightFraction * expandedReaderHeightPx
+                    val next = (previous + delta).coerceIn(0f, expandedReaderHeightPx)
+                    readerHeightFraction = next / expandedReaderHeightPx
+                    return Offset(0f, next - previous)
+                }
+
+                override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset =
+                    if (available.y < 0f) resize(available.y) else Offset.Zero
+
+                override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset =
+                    if (available.y > 0f) resize(available.y) else Offset.Zero
+            }
+        }
         EpisodeScreenLayout(mode, video = {
             AniTheme(darkModeOverride = DarkMode.DARK) {
-                Box(Modifier.then(if (mode == EpisodeScreenLayoutMode.COMPACT)
-                    Modifier.fillMaxWidth().aspectRatio(16f / 9f) else Modifier.fillMaxSize())
-                    .background(Color(0xff101014)).testTag("manga-reading-pane")) {
+                Box(Modifier.then(when {
+                    collapsible -> Modifier.fillMaxWidth().height(expandedReaderHeight * readerHeightFraction)
+                    mode == EpisodeScreenLayoutMode.COMPACT -> Modifier.fillMaxWidth().aspectRatio(16f / 9f)
+                    else -> Modifier.fillMaxSize()
+                }).clipToBounds().background(Color(0xff101014)).testTag("manga-reading-pane")) {
                     if (state.pages.isNotEmpty()) key(chapter.id, state.pages) {
                         MangaReaderPages(state.pages, state.initialPage,
                             onPage = { onPage(chapter.id, it) }, loadImage = loadImage,
@@ -139,7 +170,8 @@ internal fun MangaReaderScreen(
                             onReaderLayout = onReaderLayout, modifier = Modifier.fillMaxSize(),
                             title = "${state.book?.title.orEmpty()} · ${chapter.title}", onBack = onBack,
                             fullscreen = fullscreen, onFullscreen = onFullscreen,
-                            onChapters = { showChapters = true }, spreadOverride = landscape)
+                            onChapters = { showChapters = true }, onSources = actions.showSources,
+                            onReadCompleted = { actions.markRead(chapter) }, spreadOverride = landscape)
                     } else {
                         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
                             if (state.pagesLoading) CircularProgressIndicator()
@@ -150,38 +182,44 @@ internal fun MangaReaderScreen(
                 }
             }
         }, secondary = {
-            MangaReaderDetails(state, onComments, { showChapters = true }, onBack, onRetryDownloads, detailsTab, { detailsTab = it }, ratingActions, onRelations, onRetryRelations, onRelatedSubject)
+            MangaReaderDetails(state, onComments, { showChapters = true }, onBack, onRetryDownloads, detailsTab, { detailsTab = it }, ratingActions, onRelations, onRetryRelations, onRelatedSubject,
+                scrollModifier = Modifier.nestedScroll(detailsScroll), pullToRefreshEnabled = !collapsible || readerHeightFraction >= 1f)
         }, modifier = Modifier.fillMaxSize().testTag("manga-player-layout-$mode"))
     }
-    if (showChapters) AlertDialog(onDismissRequest = { showChapters = false }, title = { Text("章节目录") },
-        text = {
-            LazyColumn { items(siblings, key = { it.id }) { item ->
-                TextButton({ showChapters = false; onChapter(item) }, Modifier.fillMaxWidth()) {
-                    Text(item.title, color = if (item.id == chapter.id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-                }
-            } }
-        }, confirmButton = { TextButton({ showChapters = false }) { Text("关闭") } })
+    if (showChapters) MediaSelectorDialog({ showChapters = false }) { _ ->
+        LazyColumn(contentPadding = PaddingValues(24.dp)) {
+            item { TextButton({ showChapters = false }) { Text("关闭目录") } }
+            item { MangaChapterGrid(state, { showChapters = false; onChapter(it) }, rows = 5) }
+        }
+    }
 }
 
 @Composable
 private fun MangaReaderDetails(state: MangaDetailsUiState, onComments: () -> Unit,
     onChapters: () -> Unit, onBack: () -> Unit, onRetryDownloads: () -> Unit, tab: Int, onTab: (Int) -> Unit,
     ratingActions: EditableRatingActions, onRelations: () -> Unit, onRetryRelations: () -> Unit, onRelatedSubject: (Int) -> Unit,
+    scrollModifier: Modifier = Modifier, pullToRefreshEnabled: Boolean = true,
 ) {
+    val actions = LocalMangaActions.current
     Surface(Modifier.fillMaxSize().testTag("manga-reader-details")) {
         Column(Modifier.windowInsetsPadding(WindowInsets.safeDrawing)) {
             SecondaryTabRow(tab) {
                 Tab(tab == 0, { onTab(0) }, text = { Text("详情") }, modifier = Modifier.testTag("manga-reader-details-tab"))
-                Tab(tab == 1, { onTab(1) }, text = { Text("评论 (${state.commentsTotal})") }, modifier = Modifier.testTag("manga-reader-comments-tab"))
+                Tab(tab == 1, { onTab(1) }, text = { Text("评论 (${actions.comments?.count ?: state.commentsTotal})") }, modifier = Modifier.testTag("manga-reader-comments-tab"))
             }
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            if (tab == 1) MangaReviewFeed(state, Modifier.then(scrollModifier).testTag("manga-reader-details-scroll"), pullToRefreshEnabled)
+            else LazyColumn(Modifier.fillMaxSize().then(scrollModifier).testTag("manga-reader-details-scroll"),
+                contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 if (tab == 0) {
                     item { Text(state.details?.title ?: state.book?.title.orEmpty(), style = MaterialTheme.typography.titleLarge) }
                     item { Text("${state.chapter?.title.orEmpty()} · ${state.book?.source?.title.orEmpty()}") }
                     item { Row {
                         TextButton(onChapters) { Text("章节目录") }
                         TextButton(onBack) { Text("作品详情") }
+                        TextButton(actions.showSources, Modifier.testTag("manga-reader-source")) { Text("数据源") }
+                        TextButton(actions.showCache) { Text("缓存") }
                     } }
+                    item { MangaLibraryControls(state) }
                     item {
                         Column(Modifier.testTag("manga-download-status"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             state.downloads.forEachIndexed { index, download ->
@@ -201,7 +239,7 @@ private fun MangaReaderDetails(state: MangaDetailsUiState, onComments: () -> Uni
                         item { SubjectSummarySection(details.summary.ifBlank { "暂无简介" }) }
                         item { SubjectInfoTable(details.info) }
                     }
-                } else item { MangaComments(state, onComments) }
+                }
             }
         }
     }
@@ -224,7 +262,8 @@ internal fun MangaReaderPages(
     initialRightToLeft: Boolean = true, initialFirstPageSingle: Boolean = false,
     onReaderLayout: (Boolean, Boolean) -> Unit = { _, _ -> },
     spreadOverride: Boolean? = null,
-    title: String = "", onBack: () -> Unit = {}, onChapters: () -> Unit = {},
+    title: String = "", onBack: () -> Unit = {}, onChapters: () -> Unit = {}, onSources: () -> Unit = {},
+    onReadCompleted: () -> Unit = {},
     fullscreen: Boolean = false, onFullscreen: (Boolean) -> Unit = {},
 ) {
     if (pages.isEmpty()) return
@@ -232,6 +271,8 @@ internal fun MangaReaderPages(
     var firstPageSingle by rememberSaveable { mutableStateOf(initialFirstPageSingle) }
     var currentPage by rememberSaveable { mutableIntStateOf(initialPage.coerceIn(pages.indices)) }
     var slider by remember { mutableStateOf<Float?>(null) }
+    var decodedPages by remember(pages) { mutableStateOf(emptySet<Int>()) }
+    val currentReadCompleted by rememberUpdatedState(onReadCompleted)
     val controller = remember(fullscreen) { PlayerControllerState() }
     var showSettings by remember { mutableStateOf(false) }
     var interaction by remember { mutableIntStateOf(0) }
@@ -255,6 +296,12 @@ internal fun MangaReaderPages(
                 onPage(currentPage)
             }
         }
+        LaunchedEffect(currentRow, rows, decodedPages) {
+            if (currentRow == rows.lastIndex && rows.last().all { it in decodedPages }) {
+                delay(2000)
+                currentReadCompleted()
+            }
+        }
         LaunchedEffect(Unit) { focusRequester.requestFocus() }
         fun move(delta: Int) { interaction++; scope.launch { listState.animateScrollToItem((currentRow + delta).coerceIn(rows.indices)) } }
         Box(Modifier.fillMaxSize().focusRequester(focusRequester).onPreviewKeyEvent {
@@ -275,6 +322,7 @@ internal fun MangaReaderPages(
                     Text(title, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.titleSmall)
                     TextButton(onChapters) { Text("目录") }
+                    TextButton(onSources, Modifier.testTag("manga-reader-source-overlay")) { Text("数据源") }
                     IconButton({ showSettings = true }, Modifier.testTag("manga-reader-settings")) { Icon(Icons.Rounded.Settings, "阅读设置") }
                     IconButton({ onFullscreen(!fullscreen) }, Modifier.testTag("manga-reader-fullscreen")) {
                         Icon(if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen, if (fullscreen) "退出全屏" else "全屏")
@@ -293,7 +341,7 @@ internal fun MangaReaderPages(
                         if (spread && row.size == 1 && rightToLeft) Spacer(Modifier.weight(1f))
                         visualOrder.forEach { index ->
                             MangaReaderImage(pages[index], index + 1, currentRow == rowIndex, loadImage,
-                                Modifier.weight(1f).testTag("manga-reader-page-slot-${index + 1}"), onTap = toggleControls)
+                                Modifier.weight(1f).testTag("manga-reader-page-slot-${index + 1}"), onTap = toggleControls, onDecoded = { decodedPages = decodedPages + index })
                         }
                         if (spread && row.size == 1 && !rightToLeft) Spacer(Modifier.weight(1f))
                     }
@@ -331,7 +379,7 @@ internal fun MangaReaderPages(
 
 @Composable
 private fun MangaReaderImage(page: MangaPage, number: Int, active: Boolean,
-    loadImage: suspend (MangaPage) -> String, modifier: Modifier = Modifier, onTap: () -> Unit = {},
+    loadImage: suspend (MangaPage) -> String, modifier: Modifier = Modifier, onTap: () -> Unit = {}, onDecoded: () -> Unit = {},
 ) {
     val currentOnTap by rememberUpdatedState(onTap)
     var uri by remember(page) { mutableStateOf<String?>(null) }
@@ -364,7 +412,7 @@ private fun MangaReaderImage(page: MangaPage, number: Int, active: Boolean,
                     )
                 }, canPan = { scale > 1f })
                 .graphicsLayer { scaleX = scale; scaleY = scale; translationX = offset.x; translationY = offset.y },
-                contentScale = ContentScale.Fit, onSuccess = { loaded = true; if (it.width > 0 && it.height > 0) aspect = it.width.toFloat() / it.height },
+                contentScale = ContentScale.Fit, onSuccess = { loaded = true; onDecoded(); if (it.width > 0 && it.height > 0) aspect = it.width.toFloat() / it.height },
                 onError = { error = "图片解码失败，请重试" })
         }
         if (error != null) Surface(Modifier.padding(24.dp), shape = MaterialTheme.shapes.medium) {

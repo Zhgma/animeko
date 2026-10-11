@@ -32,11 +32,9 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import me.him188.ani.app.ui.foundation.ProvideCompositionLocalsForPreview
 import me.him188.ani.app.ui.foundation.theme.appColorScheme
 
 @Composable
@@ -215,27 +213,5 @@ private object BottomRightDiagonalShape : Shape {
                 close()
             },
         )
-    }
-}
-
-@Preview
-@Composable
-fun PreviewThemePreviewPanel() {
-    ProvideCompositionLocalsForPreview {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ThemePreviewPanel(
-                colorScheme = appColorScheme(isDark = false),
-                modifier = Modifier.size(96.dp, 146.dp),
-            )
-            ThemePreviewPanel(
-                colorScheme = appColorScheme(isDark = true),
-                modifier = Modifier.size(96.dp, 146.dp),
-            )
-            DiagonalMixedThemePreviewPanel(
-                leftTopColorScheme = appColorScheme(isDark = false),
-                rightBottomColorScheme = appColorScheme(isDark = true),
-                modifier = Modifier.size(96.dp, 146.dp),
-            )
-        }
     }
 }

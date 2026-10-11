@@ -9,9 +9,10 @@
 
 package me.him188.ani.app.ui.settings
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -31,24 +32,7 @@ import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AccountCircle
-import androidx.compose.material.icons.outlined.Feedback
-import androidx.compose.material.icons.outlined.FilterList
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material.icons.outlined.Public
-import androidx.compose.material.icons.outlined.Science
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.SettingsApplications
-import androidx.compose.material.icons.outlined.SmartDisplay
-import androidx.compose.material.icons.outlined.Storage
-import androidx.compose.material.icons.outlined.Subscriptions
-import androidx.compose.material.icons.outlined.Update
-import androidx.compose.material.icons.outlined.VpnKey
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.PermanentDrawerSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -65,7 +49,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -74,13 +57,11 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -129,33 +110,13 @@ import me.him188.ani.app.ui.lang.settings
 import me.him188.ani.app.ui.lang.settings_account_bangumi_sync_title
 import me.him188.ani.app.ui.lang.settings_account_github_title
 import me.him188.ani.app.ui.lang.settings_acknowledgements_oss_licenses
-import me.him188.ani.app.ui.lang.settings_category_app_ui
-import me.him188.ani.app.ui.lang.settings_category_data_playback
-import me.him188.ani.app.ui.lang.settings_category_network_storage
-import me.him188.ani.app.ui.lang.settings_category_others
 import me.him188.ani.app.ui.lang.settings_debug_dev_builds
 import me.him188.ani.app.ui.lang.settings_debug_mode_enabled
-import me.him188.ani.app.ui.lang.settings_tab_about
-import me.him188.ani.app.ui.lang.settings_tab_account
-import me.him188.ani.app.ui.lang.settings_tab_appearance
-import me.him188.ani.app.ui.lang.settings_tab_bt
-import me.him188.ani.app.ui.lang.settings_tab_danmaku
-import me.him188.ani.app.ui.lang.settings_tab_debug
-import me.him188.ani.app.ui.lang.settings_tab_log
-import me.him188.ani.app.ui.lang.settings_tab_media_selector
-import me.him188.ani.app.ui.lang.settings_tab_media_source
-import me.him188.ani.app.ui.lang.settings_tab_player
-import me.him188.ani.app.ui.lang.settings_tab_proxy
-import me.him188.ani.app.ui.lang.settings_tab_settings_backup
-import me.him188.ani.app.ui.lang.settings_tab_storage
-import me.him188.ani.app.ui.lang.settings_tab_theme
-import me.him188.ani.app.ui.lang.settings_tab_update
 import me.him188.ani.app.ui.settings.account.BangumiSyncTab
 import me.him188.ani.app.ui.settings.account.GithubAccountTab
 import me.him188.ani.app.ui.settings.account.ProfileGroup
 import me.him188.ani.app.ui.settings.account.SelfInfoBanner
 import me.him188.ani.app.ui.settings.framework.components.SettingsScope
-import me.him188.ani.app.ui.settings.rendering.P2p
 import me.him188.ani.app.ui.settings.tabs.AniHelperDestination
 import me.him188.ani.app.ui.settings.tabs.DebugTab
 import me.him188.ani.app.ui.settings.tabs.about.AboutTab
@@ -177,6 +138,7 @@ import me.him188.ani.app.ui.settings.tabs.media.TorrentEngineGroup
 import me.him188.ani.app.ui.settings.tabs.media.source.MediaSourceGroup
 import me.him188.ani.app.ui.settings.tabs.media.source.MediaSourceSelectionActions
 import me.him188.ani.app.ui.settings.tabs.media.source.MediaSourceSubscriptionGroup
+import me.him188.ani.app.ui.settings.tabs.media.source.MangaSubscriptionGroup
 import me.him188.ani.app.ui.settings.tabs.media.source.rememberMediaSourceSelectionState
 import me.him188.ani.app.ui.settings.tabs.network.ConfigureProxyGroup
 import me.him188.ani.app.ui.settings.tabs.network.ServerSelectionGroup
@@ -185,11 +147,6 @@ import me.him188.ani.app.ui.update.devbuild.DevBuildsTab
 import me.him188.ani.utils.platform.hasScrollingBug
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
-
-/**
- * @see getName 查看名称
- */
-typealias SettingsTab = me.him188.ani.app.navigation.SettingsTab
 
 @Composable
 fun SettingsScreen(
@@ -278,30 +235,7 @@ fun SettingsScreen(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
             )
 
-            Title(stringResource(Lang.settings_category_app_ui))
-            Item(SettingsTab.APPEARANCE)
-            Item(SettingsTab.THEME)
-
-            Title(stringResource(Lang.settings_category_data_playback))
-            Item(SettingsTab.PLAYER)
-            Item(SettingsTab.MEDIA_SOURCE)
-            Item(SettingsTab.MEDIA_SELECTOR)
-
-            Title(stringResource(Lang.settings_category_network_storage))
-            Item(SettingsTab.SERVER)
-            Item(SettingsTab.PROXY)
-            Item(SettingsTab.BT)
-//            Item(SettingsTab.CACHE)
-            Item(SettingsTab.STORAGE)
-
-            Title(stringResource(Lang.settings_category_others))
-            Item(SettingsTab.UPDATE)
-            Item(SettingsTab.LOG)
-            Item(SettingsTab.ABOUT)
-            if (vm.isInDebugMode) {
-                Item(SettingsTab.DEBUG)
-            }
-            Item(SettingsTab.SETTINGS_BACKUP)
+            SettingsCategoryItems(showDebug = vm.isInDebugMode) { Item(it) }
         },
         tabContent = { currentTab ->
             val tabModifier = Modifier
@@ -386,6 +320,7 @@ fun SettingsScreen(
                                 MediaSourceSubscriptionGroup(
                                     vm.mediaSourceSubscriptionGroupState,
                                 )
+                                MangaSubscriptionGroup()
                                 MediaSourceGroup(
                                     vm.mediaSourceGroupState,
                                     vm.editMediaSourceState,
@@ -562,14 +497,9 @@ internal fun SettingsPageLayout(
                         object : SettingsDrawerScope(), ColumnScope by this {
                             @Composable
                             override fun Item(item: SettingsTab) {
-                                NavigationDrawerItem(
-                                    icon = { Icon(getIcon(item), contentDescription = null) },
-                                    label = { Text(getName(item)) },
-                                    selected = item == currentTab() && highlightSelectedItemState.value,
-                                    onClick = {
-                                        onSelectedTab(item)
-                                    },
-                                )
+                                SettingsNavigationItem(settingsTabName(item), settingsTabIcon(item),
+                                    item == currentTab() && highlightSelectedItemState.value,
+                                    onClick = { onSelectedTab(item) })
                             }
                         }
                     }
@@ -706,7 +636,7 @@ internal fun SettingsPageLayout(
                                 tab?.let {
                                     AniTopAppBar(
                                         title = {
-                                            AniTopAppBarDefaults.Title(getName(it))
+                                            AniTopAppBarDefaults.Title(settingsTabName(it))
                                         },
                                         navigationIcon = {
                                             if (listDetailLayoutParameters.preferSinglePane) {
@@ -1068,67 +998,5 @@ abstract class SettingsDrawerScope internal constructor() : ColumnScope {
                 .padding(top = paddingTop, bottom = 12.dp),
             color = MaterialTheme.colorScheme.primary,
         )
-    }
-}
-
-@Stable
-private fun getIcon(tab: SettingsTab): ImageVector {
-    return when (tab) {
-        SettingsTab.PROFILE -> Icons.Outlined.AccountCircle
-        SettingsTab.APPEARANCE -> Icons.Outlined.SettingsApplications
-        SettingsTab.THEME -> Icons.Outlined.Palette
-        SettingsTab.UPDATE -> Icons.Outlined.Update
-        SettingsTab.PLAYER -> Icons.Outlined.SmartDisplay
-        SettingsTab.MEDIA_SOURCE -> Icons.Outlined.Subscriptions
-        SettingsTab.MEDIA_SELECTOR -> Icons.Outlined.FilterList
-        SettingsTab.SERVER -> Icons.Outlined.Public
-        SettingsTab.PROXY -> Icons.Outlined.VpnKey
-        SettingsTab.BT -> Icons.Filled.P2p
-//        SettingsTab.CACHE -> Icons.Rounded.Download // Icons.Outlined.Download 太 sharp 了
-        SettingsTab.STORAGE -> Icons.Outlined.Storage
-        SettingsTab.SETTINGS_BACKUP -> Icons.Outlined.Settings
-        SettingsTab.ABOUT -> Icons.Outlined.Info
-        SettingsTab.LOG -> Icons.Outlined.Feedback
-        SettingsTab.DEBUG -> Icons.Outlined.Science
-    }
-}
-
-@Stable
-@Composable
-private fun getName(tab: SettingsTab): String {
-    return when (tab) {
-        SettingsTab.PROFILE -> stringResource(Lang.settings_tab_account)
-        SettingsTab.APPEARANCE -> stringResource(Lang.settings_tab_appearance)
-        SettingsTab.THEME -> stringResource(Lang.settings_tab_theme)
-        SettingsTab.PLAYER -> stringResource(Lang.settings_tab_player)
-        SettingsTab.MEDIA_SOURCE -> stringResource(Lang.settings_tab_media_source)
-        SettingsTab.MEDIA_SELECTOR -> stringResource(Lang.settings_tab_media_selector)
-        SettingsTab.SERVER -> stringResource(Lang.settings_tab_danmaku)
-        SettingsTab.PROXY -> stringResource(Lang.settings_tab_proxy)
-        SettingsTab.BT -> stringResource(Lang.settings_tab_bt)
-//        SettingsTab.CACHE -> stringResource(Lang.settings_tab_cache)
-        SettingsTab.STORAGE -> stringResource(Lang.settings_tab_storage)
-        SettingsTab.SETTINGS_BACKUP -> stringResource(Lang.settings_tab_settings_backup)
-        SettingsTab.LOG -> stringResource(Lang.settings_tab_log)
-        SettingsTab.UPDATE -> stringResource(Lang.settings_tab_update)
-        SettingsTab.ABOUT -> stringResource(Lang.settings_tab_about)
-        SettingsTab.DEBUG -> stringResource(Lang.settings_tab_debug)
-    }
-}
-
-// a lot of call-sites, don't make it internal
-@Composable
-fun SettingsTab(
-    modifier: Modifier = Modifier,
-    content: @Composable SettingsScope.() -> Unit,
-) {
-    Column(
-        modifier,
-        verticalArrangement = Arrangement.spacedBy(SettingsScope.itemVerticalSpacing),
-    ) {
-        val scope = remember(this) {
-            object : SettingsScope(), ColumnScope by this@Column {}
-        }
-        scope.content()
     }
 }

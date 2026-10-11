@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.AlertDialog
@@ -32,6 +34,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.remember
 import me.him188.ani.app.ui.comment.CommentItem
 import me.him188.ani.app.ui.comment.CommentMapperContext
@@ -87,11 +93,12 @@ internal fun MangaDetailsContent(
     ratingActions: EditableRatingActions = EditableRatingActions.Noop,
     onRelations: () -> Unit = {}, onRetryRelations: () -> Unit = {},
     onRelatedSubject: (Int) -> Unit = {},
+    onAutoSelect: () -> Unit = {},
 ) {
-    var chapterSheet by rememberSaveable { mutableStateOf(false) }
     var commentsSheet by rememberSaveable { mutableStateOf(false) }
-    var sourceDialog by rememberSaveable { mutableStateOf(false) }
-    var compactTab by rememberSaveable { mutableIntStateOf(0) }
+    val pager = rememberPagerState { 2 }
+    val tabScope = rememberCoroutineScope()
+    val actions = LocalMangaActions.current
     val details = state.details
     val counts = details?.collections.orEmpty()
     val stats = SubjectCollectionStats(counts["wish"] ?: 0, counts["doing"] ?: 0,
@@ -111,7 +118,7 @@ internal fun MangaDetailsContent(
     val read: @Composable () -> Unit = {
         Button({
             val chapter = state.chapters.firstOrNull { it.id == state.memory?.chapterId }
-            if (chapter != null) onChapter(chapter) else chapterSheet = true
+            if (chapter != null) onChapter(chapter) else if (state.book == null) actions.showSources() else actions.showChapters()
         }, Modifier.fillMaxWidth().testTag("manga-start-reading")) {
             Text(if (state.memory?.chapterId != null) "继续阅读" else "选择章节")
         }
@@ -133,7 +140,7 @@ internal fun MangaDetailsContent(
         MangaRelatedSection(state, onRelations, onRetryRelations, onRelatedSubject)
     }
     val chapters: @Composable () -> Unit = {
-        MangaChapterPreview(state, { chapterSheet = true }, onChapter)
+        MangaChapterGrid(state, onChapter)
     }
     BoxWithConstraints(modifier.fillMaxSize().testTag("manga-details")) {
         val layout = SubjectDetailsLayoutParams.calculate(maxWidth)
@@ -146,7 +153,7 @@ internal fun MangaDetailsContent(
                         Modifier.fillMaxWidth().aspectRatio(849f / 1200f).clip(RoundedCornerShape(16.dp)),
                         contentScale = ContentScale.Crop)
                     read()
-                    Text("我的进度：${manga.chaptersRead} 话 · ${manga.volumesRead} 卷", style = MaterialTheme.typography.bodyMedium)
+                    MangaLibraryControls(state)
                     SubjectCollectionStatsRow(stats, doingLabel = "在读", wishLabel = "想读")
                     HorizontalDivider()
                     information()
@@ -171,118 +178,57 @@ internal fun MangaDetailsContent(
                     }
                     SubjectSummarySection(details?.summary.orEmpty().ifBlank { "暂无简介" })
                     chapters()
-                    MangaRatingEntry(state, ratingActions)
+                    if (!layout.showRail) MangaRatingEntry(state, ratingActions)
                     related()
-                    if (!layout.showRail) MangaComments(state, onComments, preview = true, onAll = { commentsSheet = true })
+                    if (!layout.showRail) MangaReviewPreview(state, rail = false, onAll = { commentsSheet = true })
                 }
                 if (layout.showRail) {
                     Column(Modifier.width(layout.railWidth).testTag("manga-detail-rail"),
                         verticalArrangement = Arrangement.spacedBy(layout.railItemSpacing)) {
                         RailCard {
-                            SectionHeader("评分")
+                            SectionHeader("评分") { MangaRatingEntry(state, ratingActions) }
                             SubjectRatingSummary(rating, onClick = ratingActions::requestEditRating)
                             RatingHistogram(rating, Modifier.fillMaxWidth().padding(top = 16.dp))
                         }
-                        RailCard { MangaComments(state, onComments, preview = true, onAll = { commentsSheet = true }) }
+                        RailCard { MangaReviewPreview(state, rail = true, onAll = { commentsSheet = true }) }
                     }
                 }
             }
         } else {
             SubjectDetailsSingleColumnPage(headerInfo, seasonTags = { Text("漫画") },
                 collectionData = { SubjectCollectionStatsRow(stats, doingLabel = "在读", wishLabel = "想读") },
-                collectionActions = { Text("${manga.chaptersRead} 话 · ${manga.volumesRead} 卷") },
+                collectionActions = { MangaLibraryControls(state) },
                 rating = { SubjectRatingSummary(rating, onClick = ratingActions::requestEditRating) }, selectEpisodeButton = { read() },
                 modifier = Modifier.testTag("manga-layout-COMPACT"), navigationIcon = navigation,
                 onClickOpenExternal = openExternal,
                 tabRow = { _, _ ->
-                    SecondaryTabRow(compactTab) {
+                    SecondaryTabRow(pager.currentPage) {
                         listOf("详情", "评论").forEachIndexed { index, title ->
-                            Tab(compactTab == index, { compactTab = index }, text = { Text(title) })
+                            Tab(pager.currentPage == index, { tabScope.launch { pager.animateScrollToPage(index) } }, text = { Text(title) })
                         }
                     }
                 }) { contentPadding ->
-                val listState = rememberLazyListState()
-                LazyColumn(Modifier.fillMaxSize().padding(contentPadding).nestedScrollWorkaround(listState),
-                    state = listState, contentPadding = PaddingValues(layout.contentHorizontalPadding),
-                    verticalArrangement = Arrangement.spacedBy(layout.sectionSpacing)) {
-                    if (compactTab == 0) {
-                        item { loadState() }
-                        item { chapters() }
-                        item { MangaRatingEntry(state, ratingActions) }
-                        item { related() }
-                        item { SubjectSummarySection(details?.summary.orEmpty().ifBlank { "暂无简介" }) }
-                        item { tags() }
-                        item { information() }
-                        item { RatingHistogram(rating, Modifier.fillMaxWidth()) }
-                        item { TextButton({ commentsSheet = true }, Modifier.testTag("manga-all-comments")) { Text("查看评论") } }
-                    } else item { MangaComments(state, onComments) }
-                }
-            }
-        }
-    }
-    if (chapterSheet) ModalBottomSheet(onDismissRequest = { chapterSheet = false }) {
-        TextButton({ chapterSheet = false }, Modifier.testTag("manga-close-chapters")) { Text("关闭目录") }
-        MangaChapterList(state, initialKeyword, onSearch, onBook, { chapterSheet = false; onChapter(it) }, { sourceDialog = true })
-    }
-    if (commentsSheet) ModalBottomSheet(onDismissRequest = { commentsSheet = false }) {
-        TextButton({ commentsSheet = false }, Modifier.testTag("manga-close-comments")) { Text("关闭评论") }
-        LazyColumn(contentPadding = PaddingValues(24.dp)) { item { MangaComments(state, onComments) } }
-    }
-    if (sourceDialog) AlertDialog(onDismissRequest = { sourceDialog = false }, title = { Text("漫画源订阅") },
-        text = { Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            MangaSource.entries.forEach { Text(it.title, style = MaterialTheme.typography.titleMedium); Text(it.subscriptionUrl) }
-        } }, confirmButton = { TextButton({ sourceDialog = false }) { Text("完成") } })
-}
-
-@Composable
-private fun MangaChapterPreview(state: MangaDetailsUiState, onAll: () -> Unit, onChapter: (MangaChapter) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SectionHeader("章节") {
-            TextButton(onAll, Modifier.testTag("manga-all-chapters")) {
-                Text(if (state.book == null) "选择漫画源" else "全部 ${state.chapters.size} 话 / 卷")
-            }
-        }
-        if (state.chaptersLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
-        if (state.book == null) Text("选择漫画源后即可阅读", style = MaterialTheme.typography.bodyMedium)
-        else {
-            Text(state.book.source.title, style = MaterialTheme.typography.labelMedium)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                state.chapters.filter { it.group == "章节" }.ifEmpty { state.chapters }.takeLast(8).reversed().forEach { chapter ->
-                    Surface(onClick = { onChapter(chapter) }, Modifier.width(128.dp), shape = RoundedCornerShape(12.dp),
-                        color = if (chapter.id == state.memory?.chapterId) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh) {
-                        Text(chapter.title, Modifier.padding(16.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                HorizontalPager(pager, Modifier.fillMaxSize().padding(contentPadding)) { page ->
+                    if (page == 1) MangaReviewFeed(state)
+                    else {
+                        val listState = rememberLazyListState()
+                        LazyColumn(Modifier.fillMaxSize().nestedScrollWorkaround(listState), state = listState,
+                            contentPadding = PaddingValues(layout.contentHorizontalPadding),
+                            verticalArrangement = Arrangement.spacedBy(layout.sectionSpacing)) {
+                            item { loadState() }
+                            item { chapters() }
+                            item { MangaRatingEntry(state, ratingActions) }
+                            item { related() }
+                            item { SubjectSummarySection(details?.summary.orEmpty().ifBlank { "暂无简介" }) }
+                            item { tags() }
+                            item { information() }
+                            item { RatingHistogram(rating, Modifier.fillMaxWidth()) }
+                            item { TextButton({ commentsSheet = true }, Modifier.testTag("manga-all-comments")) { Text("查看评论") } }
+                        }
                     }
                 }
             }
         }
-        state.sourceError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
-}
-
-@Composable
-internal fun MangaComments(state: MangaDetailsUiState, onMore: () -> Unit, preview: Boolean = false, onAll: () -> Unit = {}) {
-    val uriHandler = LocalUriHandler.current
-    val imageViewer = rememberImageViewerHandler()
-    ImageViewerBackHandler(imageViewer)
-    ImageViewer(imageViewer) { imageViewer.clear() }
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        SectionHeader("评论 · ${state.commentsTotal}") {
-            if (preview) TextButton(onAll, Modifier.testTag("manga-all-comments")) { Text("查看全部") }
-        }
-        (if (preview) state.comments.take(3) else state.comments).forEach { comment ->
-            val item = remember(comment) {
-                UIComment(comment.id.toLong(), "manga:${comment.id}",
-                    UserInfo(comment.userId.toString(), comment.username, comment.user, comment.avatar),
-                    CommentMapperContext.parseBBCode(comment.text), comment.updatedAt,
-                    emptyList(), emptyList(), 0, comment.rating.takeIf { it > 0 }, rawContent = comment.text)
-            }
-            CommentItem(item, onClickUrl = uriHandler::openUri, onClickImage = imageViewer::viewImage,
-                showRating = true, contentPadding = PaddingValues(vertical = 8.dp),
-                menu = CommentMenuHandlers(onOpenOriginal = { uriHandler.openUri("https://bgm.tv/subject/${state.subjectId}/comments") }))
-        }
-        state.commentsError?.let { MangaInlineError(it, onMore) }
-        if (state.commentsLoading) CircularProgressIndicator()
-        else if (state.comments.isEmpty() && state.commentsError == null) Text("暂无评论")
-        else if (!preview && state.comments.size < state.commentsTotal) TextButton(onMore) { Text("加载更多评论") }
-    }
+    if (commentsSheet) MangaReviewsSheet(state) { commentsSheet = false }
 }

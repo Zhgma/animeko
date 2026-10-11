@@ -34,12 +34,9 @@ data class MangaDetails(
     val rating: RatingInfo, val info: List<Pair<String, String>>, val tags: List<String>,
     val collections: Map<String, Int>, val aliases: List<String>,
 )
-data class MangaComment(val id: Int, val user: String, val avatar: String, val text: String, val rating: Int,
-    val username: String = "", val userId: Int = 0, val updatedAt: Long = 0)
 
 data class MangaRelation(val id: Int, val type: Int, val title: String, val originalTitle: String,
     val cover: String, val relation: String)
-data class MangaComments(val items: List<MangaComment>, val total: Int)
 
 /** Public metadata and comments are independent of the anime server and its collection cache. */
 class MangaDetailsRepository(private val client: ScopedHttpClient) {
@@ -77,15 +74,7 @@ class MangaDetailsRepository(private val client: ScopedHttpClient) {
             parameter("offset", offset)
         }
         check(response.status.value in 200..299) { "评论 HTTP ${response.status.value}" }
-        val root = Json.parseToJsonElement(response.bodyAsText()).jsonObject
-        check(root["data"] is JsonArray) { "评论接口返回格式有变" }
-        MangaComments(root.array("data").map {
-            val c = it.jsonObject
-            val user = c.obj("user")
-            MangaComment(c.number("id"), user.text("nickname").ifBlank { user.text("username") },
-                user.obj("avatar").text("medium"), c.text("comment"), c.number("rate"), user.text("username"), user.number("id"),
-                ((c["updatedAt"] as? JsonPrimitive)?.longOrNull ?: 0) * 1000)
-        }, root.number("total"))
+        parseMangaComments(response.bodyAsText())
     }
 
     suspend fun relations(id: Int, token: String?): List<MangaRelation> = client.use {

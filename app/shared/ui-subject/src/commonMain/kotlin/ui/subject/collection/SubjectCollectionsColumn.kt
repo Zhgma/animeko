@@ -186,32 +186,18 @@ fun SubjectCollectionItem(
     shape: Shape = SubjectCollectionItemDefaults.shape,
     colors: CardColors = CardDefaults.cardColors(),
 ) {
-    Card(
-        onClick,
-        modifier.clip(shape).fillMaxWidth().height(height),
-        shape = shape,
-        colors = colors,
-    ) {
-        Row(Modifier.weight(1f, fill = false)) {
-            AsyncImage(
-                item.subjectInfo.listCoverUrl,
-                contentDescription = null,
-                modifier = Modifier
-                    .height(height).width(height * COVER_WIDTH_TO_HEIGHT_RATIO),
-                contentScale = ContentScale.Crop,
-            )
-
-            Box(Modifier.weight(1f)) {
-                SubjectCollectionItemContent(
-                    item = item,
-                    editableSubjectCollectionTypeState = editableSubjectCollectionTypeState,
-                    onShowEpisodeList = onShowEpisodeList,
-                    playButton = playButton,
-                    Modifier.padding(start = 12.dp).fillMaxSize(),
-                )
-            }
-        }
-    }
+    SubjectCollectionCard(
+        onClick = onClick,
+        cover = {
+            AsyncImage(item.subjectInfo.listCoverUrl, null,
+                Modifier.height(height).width(height * COVER_WIDTH_TO_HEIGHT_RATIO), contentScale = ContentScale.Crop)
+        },
+        content = {
+            SubjectCollectionItemContent(item, editableSubjectCollectionTypeState, onShowEpisodeList, playButton,
+                Modifier.padding(start = 12.dp).fillMaxSize())
+        },
+        modifier = modifier, height = height, shape = shape, colors = colors,
+    )
 }
 
 @Stable

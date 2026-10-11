@@ -11,6 +11,7 @@ import me.him188.ani.app.data.repository.manga.MangaChapter
 import me.him188.ani.app.data.repository.manga.MangaPage
 import me.him188.ani.app.data.repository.manga.MangaSource
 import me.him188.ani.app.data.repository.manga.MangaSourceBook
+import me.him188.ani.app.data.repository.manga.MangaSourceAccessException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -20,6 +21,36 @@ class MangaReadAheadCacheTest {
     private val book = MangaSourceBook(MangaSource.KOMIIC, "book", "Test")
     private val chapters = List(3) { MangaChapter("$it", "Chapter $it", it.toDouble(), "章节") }
     private fun pages(chapter: MangaChapter) = List(3) { MangaPage("${chapter.id}/$it", "referer") }
+
+    @Test
+    fun refreshingMangaGuiSignaturesRetainsAlreadyDownloadedPages() = runTest {
+        var requests = 0
+        val cache = MangaReadAheadCache(backgroundScope, { _, _ -> emptyList() }, { requests++; "file://cached" }, {})
+        val page = MangaPage("https://us.hamreus.com/comic/1.webp?e=old&m=old", "https://www.manhuagui.com/")
+        assertEquals("file://cached", cache.image(page))
+        assertEquals("file://cached", cache.image(page.copy(url = page.url.substringBefore('?') + "?e=new&m=new")))
+        assertEquals(1, requests)
+        cache.clear()
+    }
+
+    @Test
+    fun quotaFailureStopsWholeChapterRequestsAndRefreshGetsNewSignedUrls() = runTest {
+        var requests = 0
+        var version = "expired"
+        val cache = MangaReadAheadCache(backgroundScope,
+            { _, _ -> listOf(MangaPage("https://images.test/page?signature=$version", "")) },
+            { requests++; if (version == "expired") throw MangaSourceAccessException("额度用完") else it.url }, {})
+        val progress = mutableMapOf<Int, MangaDownloadProgress>()
+        cache.prefetch(book, chapters.take(2)) { i, p -> progress[i] = p }
+        assertEquals(1, requests)
+        assertEquals("额度用完", progress[1]?.error)
+        version = "new"
+        cache.invalidateCatalogs(book)
+        val refreshed = cache.pages(book, chapters.first()).single()
+        assertEquals("https://images.test/page?signature=new", cache.image(refreshed))
+        assertEquals(2, requests)
+        cache.clear()
+    }
 
     @Test
     fun downloadsBothWholeChaptersAndReusesNextChapterWithoutNetwork() = runTest {

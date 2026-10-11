@@ -114,7 +114,7 @@ internal fun ManualSectionLabel(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun ManualSourceSelector(
+fun ManualSourceSelector(
     sources: List<ManualBrowseSource>,
     selectedSourceId: String?,
     onSelect: (instanceId: String) -> Unit,

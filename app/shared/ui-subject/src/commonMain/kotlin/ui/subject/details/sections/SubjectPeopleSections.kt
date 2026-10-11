@@ -77,39 +77,13 @@ fun SubjectCollectionStatsRow(
     doingLabel: String = stringResource(Lang.subject_details_stat_watching),
     wishLabel: String = stringResource(Lang.subject_details_stat_wish),
 ) {
-    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        StatCell(stats.collect, stringResource(Lang.subject_details_stat_collected), Modifier.weight(1f))
-        StatCell(stats.doing, doingLabel, Modifier.weight(1f))
-        StatCell(stats.wish, wishLabel, Modifier.weight(1f))
-    }
+    SubjectCollectionStatsValues(stats.collect, stats.doing, stats.wish, modifier, doingLabel, wishLabel)
 }
 
-@Composable
-private fun StatCell(count: Int, label: String, modifier: Modifier = Modifier) {
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            remember(count) { groupThousands(count) },
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-        )
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-        )
-    }
-}
+
 
 /** `39983 -> "39,983"`. 详情页多处数字 (收藏统计/评分人数/评论数) 按定稿千分组显示. */
-internal fun groupThousands(n: Int): String {
-    val s = n.toString()
-    val neg = s.startsWith("-")
-    val digits = if (neg) s.substring(1) else s
-    val grouped = digits.reversed().chunked(3).joinToString(",").reversed()
-    return if (neg) "-$grouped" else grouped
-}
+
 
 /**
  * 评分摘要块 (对齐定稿: 大分数 `8.4` + 右侧上下两行 [星星 / `#72 · 39,983 人评分`]).
@@ -126,36 +100,7 @@ fun SubjectRatingSummary(
     starSize: Dp = 16.dp,
     onClick: (() -> Unit)? = null,
 ) {
-    Row(
-        modifier
-            .clip(MaterialTheme.shapes.small)
-            .ifThen(onClick != null) { clickable(onClick = checkNotNull(onClick)) },
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text(
-            remember(ratingInfo.score) { renderScore(ratingInfo.score) },
-            style = scoreStyle,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-        )
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            FiveRatingStars(
-                remember(ratingInfo.score) { ratingInfo.scoreFloat.roundToInt() },
-                starSize = starSize,
-            )
-            Text(
-                stringResource(
-                    Lang.subject_details_rating_summary,
-                    ratingInfo.rank.toString(),
-                    remember(ratingInfo.total) { groupThousands(ratingInfo.total) },
-                ),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-            )
-        }
-    }
+    SubjectRatingSummaryValues(renderScore(ratingInfo.score), ratingInfo.rank, ratingInfo.total, modifier, scoreStyle, starSize, onClick)
 }
 
 /**

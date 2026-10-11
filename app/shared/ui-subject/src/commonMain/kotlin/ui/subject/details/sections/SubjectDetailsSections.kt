@@ -163,35 +163,7 @@ fun SectionHeaderCacheButton(
 /**
  * 简介区块: 默认 5 行折叠, 溢出时显示右对齐的 "显示更多/收起".
  */
-@Composable
-fun SubjectSummarySection(
-    summary: String,
-    modifier: Modifier = Modifier,
-    collapsedMaxLines: Int = 5,
-) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    var hasOverflow by remember { mutableStateOf(false) }
-    Column(modifier.fillMaxWidth()) {
-        SelectionContainer {
-            Text(
-                summary,
-                Modifier.fillMaxWidth().clickable { expanded = !expanded },
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = if (expanded) Int.MAX_VALUE else collapsedMaxLines,
-                overflow = TextOverflow.Ellipsis,
-                onTextLayout = { if (!expanded) hasOverflow = it.hasVisualOverflow },
-            )
-        }
-        if (hasOverflow || expanded) {
-            TextButton(
-                { expanded = !expanded },
-                Modifier.align(Alignment.End),
-            ) {
-                Text(stringResource(if (expanded) Lang.subject_details_show_less else Lang.subject_details_show_more))
-            }
-        }
-    }
-}
+
 
 private const val ALWAYS_SHOW_TAGS_COUNT = 8
 
@@ -267,32 +239,7 @@ fun SubjectInfoTable(
 }
 
 /** 作品信息的通用键值表，供动画、漫画等条目共用。 */
-@Composable
-fun SubjectInfoTable(
-    rows: List<Pair<String, String>>,
-    modifier: Modifier = Modifier,
-    labelWidth: Dp = 78.dp,
-    rowSpacing: Dp = 12.dp,
-) {
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(rowSpacing)) {
-        rows.forEach { (label, value) ->
-            Row(Modifier.fillMaxWidth()) {
-                Text(
-                    label,
-                    Modifier.width(labelWidth),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    value,
-                    Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = LocalContentColor.current,
-                )
-            }
-        }
-    }
-}
+
 
 @Composable
 private fun formatAirDate(date: PackedDate): String = stringResource(

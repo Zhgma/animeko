@@ -5,9 +5,8 @@
 
 package me.him188.ani.app.ui.manga
 
-import kotlinx.coroutines.CancellationException
+import me.him188.ani.app.data.repository.manga.MangaLibraryChanges
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
@@ -24,53 +23,25 @@ import me.him188.ani.app.ui.foundation.AbstractViewModel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 
-data class MangaCollectionUiState(
-    val type: MangaCollectionType = MangaCollectionType.DOING,
-    val items: List<MangaCollection> = emptyList(),
-    val username: String? = null,
-    val loading: Boolean = false,
-    val needsLogin: Boolean = false,
-    val failed: Boolean = false,
-)
-
 class MangaCollectionViewModel : AbstractViewModel(), KoinComponent {
     private val sessionManager = get<SessionManager>()
     private val repository = BangumiMangaRepository(get<HttpClientProvider>().get())
-    private data class Query(val type: MangaCollectionType = MangaCollectionType.DOING, val revision: Int = 0)
-    private val query = MutableStateFlow(Query())
-    private val mutableState = MutableStateFlow(MangaCollectionUiState(loading = true))
-    val state = mutableState.asStateFlow()
+    private val revision = MutableStateFlow(0)
+    private val controller = MangaCollectionController(
+        load = { token, type, onPage -> repository.loadCollections(token, type, onPage) },
+        isAuthorizationError = { it is MangaAuthorizationException },
+    )
+    val state = controller.state
 
     init {
         backgroundScope.launch {
-            combine(sessionManager.sessionFlow, query) { session, request -> session to request }
-                .collectLatest { (session, request) ->
-                    // A new session cancels outstanding requests and discards the previous account's data.
-                    val token = (session as? AccessTokenSession)?.tokens?.bangumiAccessToken
-                    mutableState.value = MangaCollectionUiState(type = request.type, needsLogin = token == null)
-                    if (token == null) return@collectLatest
-                    mutableState.update { it.copy(loading = true) }
-                    try {
-                        repository.loadCollections(token, request.type) { username, items ->
-                            mutableState.update { it.copy(username = username, items = items) }
-                        }
-                        mutableState.update { it.copy(loading = false) }
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: MangaAuthorizationException) {
-                        mutableState.value = MangaCollectionUiState(type = request.type, needsLogin = true)
-                    } catch (e: Exception) {
-                        mutableState.update { it.copy(loading = false, failed = true) }
-                    }
+            combine(sessionManager.sessionFlow, revision, MangaLibraryChanges.revision) { session, _, _ -> session }
+                .collectLatest { session ->
+                    controller.refresh((session as? AccessTokenSession)?.tokens?.bangumiAccessToken)
                 }
         }
     }
 
-    fun select(type: MangaCollectionType) {
-        query.update { it.copy(type = type) }
-    }
-
-    fun refresh() {
-        query.update { it.copy(revision = it.revision + 1) }
-    }
+    fun select(type: MangaCollectionType) { controller.select(type) }
+    fun refresh() { revision.update { it + 1 } }
 }

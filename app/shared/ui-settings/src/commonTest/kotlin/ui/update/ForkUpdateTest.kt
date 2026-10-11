@@ -16,6 +16,21 @@ class ForkUpdateTest {
         val asset = forkAssetNames(version, android, debug, "default").first()
         return ForkRelease(tag, draft, prerelease, "Changes", "2026-10-10", listOf(ForkAsset(asset, "$FORK_RELEASES_URL/download/$tag/$asset")))
     }
+    @Test fun betaPublicationUpgradesBothPackagesOnlyOnTestingChannels() {
+        val tag = "0.2.0-beta.1"
+        val assets = listOf(false, true).map { debug ->
+            val name = forkAssetNames(tag, android, debug, "default").first()
+            ForkAsset(name, "$FORK_RELEASES_URL/download/$tag/$name")
+        }
+        val beta = ForkRelease(tag, prerelease = true, assets = assets)
+        for (debug in listOf(false, true)) {
+            assertNull(selectForkRelease(listOf(beta), "0.1.0", ReleaseClass.STABLE, android, debug, "default"))
+            val update = selectForkRelease(listOf(beta), "0.1.0", ReleaseClass.BETA, android, debug, "default")!!
+            assertEquals(tag, update.name)
+            assertEquals(assets[if (debug) 1 else 0].url, update.downloadUrlAlternatives.single())
+            assertNull(selectForkRelease(listOf(beta), tag, ReleaseClass.BETA, android, debug, "default"))
+        }
+    }
     @Test fun comparesNumbersAndPrereleaseIdentifiersWithoutDowngrades() {
         assertTrue(ForkVersion.parse("4.10.0")!! > ForkVersion.parse("4.9.9")!!)
         assertTrue(ForkVersion.parse("4.9.0-beta.10")!! > ForkVersion.parse("4.9.0-beta.2")!!)

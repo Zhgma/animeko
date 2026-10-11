@@ -28,7 +28,7 @@ object AniHelperDestination {
     const val GITHUB_CONTRIBUTORS = "https://github.com/open-ani/animeko/graphs/contributors"
     const val ANI_WEBSITE = "https://myani.org"
     const val ISSUE_TRACKER = "https://github.com/open-ani/animeko/issues"
-    const val RELEASE_PREFIX = "https://github.com/Zhgma/animeko/releases/tag/v"
+    const val RELEASE_PREFIX = "https://github.com/Zhgma/animeko/releases/tag/"
 
     const val GITHUB_REPO = "https://github.com/him188/ani"
     const val BANGUMI = "https://bangumi.tv"

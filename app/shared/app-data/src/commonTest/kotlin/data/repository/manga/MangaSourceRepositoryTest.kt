@@ -15,6 +15,13 @@ import kotlin.test.assertTrue
 
 class MangaSourceRepositoryTest {
     @Test
+    fun coverUpdateBadgeCannotReplaceTheBookTitleDuringDeduplication() {
+        val books = MangaSourceRepository.parseBookLinks("""<a class="bcover" href="/comic/12887/" title="GRANDBLUE碧蓝之海"><img src="//cf.mhgui.com/cpic/b/12887.jpg"/><span>更新至112话</span></a>
+            <a href="/comic/12887/">GRANDBLUE碧蓝之海</a><a href="/comic/12887/">详情</a>""")
+        assertEquals("GRANDBLUE碧蓝之海", books.single().title)
+        assertEquals("https://cf.mhgui.com/cpic/b/12887.jpg", books.single().cover)
+    }
+    @Test
     fun separatesVolumesAndOrdersDecimalChapters() = runTest {
         val client = HttpClient(MockEngine { request ->
             assertEquals("komiic.com", request.url.host)
@@ -54,6 +61,18 @@ class MangaSourceRepositoryTest {
         val chapters = MangaSourceRepository.parseChapters("12", html)
         assertEquals(listOf("101", "102", "104"), chapters.map { it.id })
         assertEquals("单行本", chapters.last().group)
+    }
+
+    @Test
+    fun chapterPageCountsCannotBecomeChapterNumbersAndFullTitlesArePreserved() {
+        val chapters = MangaSourceRepository.parseChapters("12", """
+            <a href="/comic/12/1.html" title="官方人气投票结果"><span>官方人气投…<i>1p</i></span></a>
+            <a href="/comic/12/2.html" title="第25回 再访女子大"><span>第25回再访…<i>53p</i></span></a>
+        """)
+        assertEquals("第25回 再访女子大", chapters.first().title)
+        assertEquals(53, chapters.first().pageCount)
+        assertEquals("其他", chapters.last().group)
+        assertNull(chapters.last().number)
     }
 
     @Test

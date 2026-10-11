@@ -2,12 +2,16 @@
 
 追漫从 Bangumi 读取当前登录账号的漫画收藏。入口位于追番页顶部，与追番并列。
 
+来源协议、自动选源、手动来源记忆与下载错误处理详见 [漫画来源与选源](manga-sources.md)。
+
 ## 接入边界
 
 - `CollectionPage.kt` 是收藏页面的接入文件：保存追番 / 追漫选择，将顶部标题交给 `TrackingCollectionTabs`，在选择追漫时显示 `MangaCollectionPage`。
-- `app-data/.../data/repository/manga/BangumiMangaRepository.kt` 封装 Bangumi 的只读收藏接口与独立漫画模型。
+- `app-data/.../data/repository/manga/BangumiMangaRepository.kt` 封装 Bangumi 的收藏读取与独立漫画模型；`MangaLibraryRepository` 负责收藏分类和话 / 卷进度写入。
 - `ui-subject/.../ui/manga/` 包含追漫界面和 ViewModel。
 - 翻译位于 `app-lang/src/androidMain/res/*/manga.xml`。
+
+追漫收藏页直接使用追番的 `CollectionPageLayout`、`CollectionTypeScrollableTabRow`、`CollectionTypeTabLabel` 和 `CollectionPager`。分类顺序取自 `COLLECTION_TABS_SORTED`，对应“抛弃 / 想读 / 在读 / 搁置 / 读过”；数字使用同款 Badge。触摸左右滑动与点击标签切换同一个 Pager，各分类保留独立的列表与滚动位置。漫画卡片保留竖向封面和话数、卷数信息。移动端通过下拉刷新，头像旁不增加刷新或设置按钮；桌面使用共享布局自带的刷新入口。页面不额外显示总数说明栏。
 
 详情展示直接共用上游页面组件：`MultiColumnScaffold` 和 `RailCard` 具有模块内可见性，`SubjectInfoTable` 提供通用键值对重载，`SubjectCollectionStatsRow` 接受“在读 / 想读”标签；现有动画调用保留默认参数。更新上游时，保留新增漫画文件及这些小型接入点。漫画数据独立于追番的 Room 表、剧集模型和收藏同步任务；阅读界面复用播放器的通用布局与控制栏框架。
 
@@ -19,30 +23,32 @@
 2. `GET /v0/users/{username}/collections?subject_type=1&type=...&limit=30&offset=...` 分页读取书籍收藏，包括当前账号有权访问的私密收藏。
 3. `GET /v0/subjects/{id}` 读取书籍类型，只展示 `type=1` 且 `platform=漫画` 的条目。
 
-分页偏移按原始书籍条目数推进，避免只有小说的页提前终止漫画列表。条目详情最多同时请求四个。列表按页逐步呈现，失败后提供重试，不将错误当作空收藏。更换账号或分类会取消旧请求并清空旧列表。收藏状态分别映射为 1 想读、3 在读、2 读过、4 搁置、5 抛弃。
+分页偏移按原始书籍条目数推进，避免只有小说的页提前终止漫画列表。条目详情最多同时请求四个。列表按页逐步呈现，失败后提供重试，不将错误当作空收藏。优先加载当前分类，再加载其余分类；每个分类全部读取并筛出漫画后才显示数量，不使用含小说的书籍总数。切换分类使用各自缓存，更换账号取消旧请求并清空缓存。下拉刷新保留已显示内容并重新加载各分类。收藏状态分别映射为 1 想读、3 在读、2 读过、4 搁置、5 抛弃。
 
-阅读进度取 `ep_status` 和 `vol_status`。总话数 / 总卷数未填写时显示 `—`。封面进入应用内漫画详情。收藏管理在 Bangumi 完成，返回后可下拉或点击刷新同步。
+阅读进度取 `ep_status` 和 `vol_status`。总话数 / 总卷数未填写时显示 `—`。封面进入应用内漫画详情。应用内收藏菜单复用 `EditCollectionTypeDropDown`，使用“想读 / 在读 / 读过 / 搁置 / 抛弃”标签。`POST /v0/users/-/collections/{id}` 只写入 `type`；进度编辑通过 PATCH 只写入 `ep_status` / `vol_status`，保留评价、标签和隐私。成功后通过漫画独立的 revision 通知追漫列表刷新。未收藏时进度编辑禁用；授权与网络错误保留编辑内容并显示错误。当前 v0 接口没有删除收藏能力，菜单不提供无效的删除动作。
 
 ## 详情、漫画源与阅读器
 
 详情页使用动画详情同一套 `SubjectDetailsLayoutParams.calculate`：小于 600dp 为单栏，600–1599dp 为双栏，1600dp 起为三栏，尺寸依据页面实际可用宽度。窄屏直接使用 `SubjectDetailsSingleColumnPage` 的封面、吸顶标签与嵌套滚动；双栏和三栏直接使用 `MultiColumnScaffold`，封面、阅读按钮及作品信息位于左侧，中间显示标题、简介和章节，三栏时评分与评论位于右侧 `RailCard`。评分摘要、直方图、收藏统计、标签、作品信息表和简介使用动画的共用组件。`SubjectInfo` 只用作窄屏页头的显示适配对象，不进入动画仓库或接口。
 
-作品信息和评分来自 Bangumi v0；评论通过独立的 `next.bgm.tv/p1/subjects/{id}/comments` 分页获取，预览与完整评论列表均可在应用内查看。p1 接口可能变化，其解析集中在 `MangaDetailsRepository`。章节和来源选择使用 Compose 跨平台底部面板。
+作品信息和评分来自 Bangumi v0；评论通过独立的 `next.bgm.tv/p1/subjects/{id}/comments` 分页获取，预览与完整评论列表均可在应用内查看。p1 接口可能变化，其解析集中在 `MangaDetailsRepository`。评价预览直接使用 `ReviewsPreviewSection` / `HotReviewsCardContent`，完整评价使用 `SubjectCommentColumn` / `SubjectCommentsSheet`，由 `MangaCommentPaging` 提供分页和刷新。窄屏详情 / 评价可左右滑动，评价页内有写评价入口。阅读区未完全展开时，下拉优先展开阅读区，再刷新评论。Bangumi 评论沿用共享组件的原文入口，不调用仅支持 Animeko 评论的举报接口。
 
-`MangaSourceRepository` 提供 Komiic 和漫画柜的原生适配器，参考以下源订阅协议：
+章节列表通过显示适配使用 `PagedEpisodesGrid`，适配 ID 只用于界面索引，不写入番剧数据层；支持分页、分组、阅读进度和长按标记读过。详情与阅读器共用选源、章节和缓存动作。
+
+`MangaSourceRepository` 提供 Komiic、漫画柜、包子漫画、G站漫画和 MangaDex 的原生适配器，完整协议与可访问性说明见 [漫画来源与选源](manga-sources.md)。Komiic 与漫画柜的协议参考：
 
 - https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/komiic.js
 - https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manhuagui.js
 
-订阅地址展示在章节页。适配器随应用发布，不执行远程 JavaScript，也不承诺兼容任意 Venera 插件或脚本热更新。Komiic 使用 GraphQL 获取搜索、章节和图片；漫画柜解析 HTML 与 LZ-string 压缩数据。用户通过搜索或作品链接明确选择来源，绑定按 Bangumi 条目 ID 保存。单行本、普通章节和番外分组，数字章节按数值排列，翻到上一话 / 下一话时限定同一分组。站点登录要求、限额及网络错误直接提示，不将错误当成空章节。
+订阅地址展示在数据源管理中，详情和阅读器控制栏都可进入共享选源容器。适配器随应用发布，不执行远程 JavaScript，也不承诺兼容任意 Venera 插件或脚本热更新。Komiic 使用 GraphQL 获取搜索、章节和图片；漫画柜解析 HTML 与 LZ-string 压缩数据。用户通过搜索或作品链接明确选择来源，绑定按 Bangumi 条目 ID 保存。单行本、普通章节和番外分组，数字章节按数值排列，翻到上一话 / 下一话时限定同一分组。站点登录要求、限额及网络错误直接提示，不将错误当成空章节。
 
 `MangaReaderScreen`、ViewModel、网络解析和阅读记录均位于 `commonMain`，使用 Compose Multiplatform、Ktor、现有 `AsyncImage` 与 `SystemPath`。阅读器使用纵向连续滚动：竖屏每行一页，横屏每行两页，默认先右后左。可以切换先左后右，也可以通过“配对”切换首张单独显示，修正双页配对偏移。奇数末页保留在阅读顺序的起始侧。窗口尺寸变化时保留当前页所在的行；按钮、键盘上下方向键 / PageUp / PageDown 和滑块按当前单双页布局定位。支持目录、双击与双指缩放。图片按需请求并携带来源站点要求的 Referer，写入应用缓存后交给共用图片加载器解码。当前话与同一分组的下一话自动在后台完整缓存，优先处理当前话。前台图片请求和预加载共用互斥缓存，避免重复下载。下一话的图片目录也缓存，因此翻到已缓存章节无需重新获取目录。详情栏显示两话的缓存进度与失败信息，重试只补未完成的图片；取消操作会传播，网络错误不会伪装成缓存完成。两话预加载完成后清理更早章节，退出作品详情时释放本次会话的缓存文件。
 
-阅读页面使用正式的 `NavRoutes.MangaDetail` 导航，因此不占用追番主页的导航栏区域。搜索宽屏侧栏的章节动作通过该路由携带 `initialChapterId`，在独立页面恢复来源并打开指定章节，全屏尺寸不受搜索侧栏限制。视频页的 `EpisodeScreenLayout` 与布局模式定义位于 `video-player/.../PlayerScreenLayout.kt`，动漫和漫画共用同一份布局实现；视频页的侧栏状态及模式选择仍由视频模块管理。漫画窄屏使用上方 16:9 阅读区与下方“详情 / 评论”，宽屏使用阅读区与右侧详情栏，全屏仅显示阅读区，切换时不重建阅读内容。单双页依据整个阅读页面的横竖方向，不依据嵌入阅读区的 16:9 比例。
+阅读页面使用正式的 `NavRoutes.MangaDetail` 导航，因此不占用追番主页的导航栏区域。搜索宽屏侧栏的章节动作通过该路由携带 `initialChapterId`，在独立页面恢复来源并打开指定章节，全屏尺寸不受搜索侧栏限制。视频页的 `EpisodeScreenLayout` 与布局模式定义位于 `video-player/.../PlayerScreenLayout.kt`，动漫和漫画共用同一份布局实现；视频页的侧栏状态及模式选择仍由视频模块管理。漫画手机竖屏使用初始占页面高度 70% 的阅读区与下方“详情 / 评论”。漫画区域内滚动只翻页；详情或评论向下浏览时优先连续收起阅读区，直到高度为零，再滚动列表。反向滚动优先返回列表顶部，剩余下拉距离逐步展开阅读区，最大恢复到 70%。高度比例在全屏切换和旋转时保留，阅读内容持续组合；横屏窄窗口使用 16:9 阅读区，宽屏使用阅读区与右侧详情栏，全屏仅显示阅读区，切换时不重建阅读内容。单双页依据整个阅读页面的横竖方向，不依据嵌入阅读区的 16:9 比例。
 
 阅读器控制层直接使用 `VideoScaffold` 和 `PlayerControllerState`。初始和进出全屏时隐藏，单击阅读区域切换显示，五秒无操作后自动隐藏；拖动进度条和打开阅读设置期间保持显示。控制栏覆盖在图片上，显隐不改变阅读区高度；左右顺序与首张配对位于阅读设置。全屏使用现有 `setRequestFullScreen` / `setSystemBarVisible` 跨平台接口，保留设备横竖方向，返回优先退出全屏。桌面支持 F 切换全屏、Escape 退出、空格切换控制栏。
 
-`MangaReadingStore` 在已有 Preferences DataStore 中使用 `manga.reader.{subjectId}` 命名空间，保存来源绑定、章节、页码、左右阅读顺序与首张配对方式。该本地记录不修改 Bangumi 话数或卷数；漫画模块不写入番剧数据库。Android、桌面和 iOS 共用阅读器实现；iOS 编译与真机验证需要 macOS / Xcode。
+`MangaReadingStore` 在已有 Preferences DataStore 中使用 `manga.reader.{subjectId}` 命名空间，保存来源绑定、章节、页码、左右阅读顺序与首张配对方式。本地页码独立保存；章节末行图片成功解码并显示两秒后，仅对明确的正整数主章节 / 单行本编号递增 Bangumi 话数 / 卷数。小数话、番外和无明确编号的章节由用户手动编辑进度，图片加载失败不计为读完。漫画模块不写入番剧数据库。Android、桌面和 iOS 共用阅读器实现；iOS 编译与真机验证需要 macOS / Xcode。
 
 ## 评价与关联作品
 
@@ -107,3 +113,13 @@ Release 中上传对应安装包及可选同名 `.sha1`；Android 后续版本�
 `ForkUpdateTest` 验证版本比较、渠道、草稿、架构、调试 / 正式 / TV 隔离、通用包回退和空仓库。
 
 官方接口定义：https://github.com/bangumi/api/blob/master/open-api/v0.yaml
+
+## 离线缓存与来源管理
+
+`MangaPageControls` 统一收藏、评价、分页章节与来源管理控件。`MangaSourcesDialog` 使用番剧的 `MediaSelectorDialog` 自适应容器，`MangaSourceSettingsStore` 在 Preferences 中保存来源启用状态和自动选源顺序。停用不会静默解除用户的条目来源绑定；再次打开已停用的固定来源时提示重新启用或换源。阅读中的来源切换仅在分组和章节号唯一匹配时自动续读，无法确认时回到选章。
+
+阅读器整话预加载仍使用 `MangaReadAheadCache`。用户主动选择缓存的章节则由 `MangaOfflineDownloads` 管理，使用与应用下载管理器相同生命周期的协程，关闭详情页后继续下载。`MangaOfflineStore` 在应用数据目录下保存独立图片和原子替换的索引；选中的队列、已完成页及错误可跨重启保留。重启后未完成项目由用户继续 / 重试，不静默启动网络传输。已完成章节直接用本地图片阅读；支持批量选择、暂停、缺页续传及删除确认。离线文件不参与会话预读的淘汰。
+
+`MangaLibraryRepositoryTest` 验证收藏写入字段、失败不触发刷新、未收藏与授权错误的区别。`MangaOfflineStoreTest` 验证部分失败后恢复、重新打开索引后的离线阅读和删除。`MangaAlignmentTest` 验证收藏菜单、共享评价动作、来源管理、换源歧义与失败页不计为读完。接口写入使用 MockEngine 测试，不改动测试账号的真实收藏。
+
+测试版本使用 `0.x.x-beta.N` 标签和 `prerelease: true` 发布标记，Android versionCode 同样递增。发布器设置 `latest=false`，稳定版通道保留正式版本；测试版通道可选择 beta。普通 APK 和调试 APK 同时提供，保留各自签名和包名，OTA 按当前安装类型选择附件。

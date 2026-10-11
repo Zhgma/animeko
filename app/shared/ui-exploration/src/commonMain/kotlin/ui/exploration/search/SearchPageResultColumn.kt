@@ -9,14 +9,14 @@
 
 package me.him188.ani.app.ui.exploration.search
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -30,31 +30,22 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Sort
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.WindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
@@ -63,31 +54,20 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.itemContentType
-import androidx.paging.compose.itemKey
 import kotlinx.coroutines.flow.collectLatest
 import me.him188.ani.app.data.models.preference.NsfwMode
 import me.him188.ani.app.domain.search.SearchSort
-import me.him188.ani.app.ui.foundation.IconButton
 import me.him188.ani.app.ui.foundation.animation.AniMotionScheme
 import me.him188.ani.app.ui.foundation.animation.LocalAniMotionScheme
-import me.him188.ani.app.ui.foundation.icons.BackgroundDotLarge
-import me.him188.ani.app.ui.foundation.icons.GalleryThumbnail
 import me.him188.ani.app.ui.foundation.interaction.keyboardDirectionToSelectItem
 import me.him188.ani.app.ui.foundation.interaction.keyboardPageToScroll
 import me.him188.ani.app.ui.foundation.layout.currentWindowAdaptiveInfo1
 import me.him188.ani.app.ui.foundation.layout.paneHorizontalPadding
 import me.him188.ani.app.ui.foundation.layout.paneVerticalPadding
 import me.him188.ani.app.ui.foundation.widgets.NsfwMask
-import me.him188.ani.app.ui.foundation.widgets.SelectableDropdownMenuItem
 import me.him188.ani.app.ui.lang.Lang
-import me.him188.ani.app.ui.lang.exploration_search_results_shown
-import me.him188.ani.app.ui.lang.exploration_search_sort_collection
-import me.him188.ani.app.ui.lang.exploration_search_sort_date
-import me.him188.ani.app.ui.lang.exploration_search_sort_match
-import me.him188.ani.app.ui.lang.exploration_search_sort_rank
 import me.him188.ani.app.ui.lang.foundation_load_error_no_results
 import me.him188.ani.app.ui.search.LoadErrorCard
-import me.him188.ani.app.ui.search.SearchDefaults.IconTextButton
 import me.him188.ani.app.ui.search.SearchResultLazyVerticalGrid
 import me.him188.ani.app.ui.search.hasFirstPage
 import me.him188.ani.app.ui.search.isFinishedAndEmpty
@@ -274,17 +254,6 @@ internal data class SearchResultColumnLayoutParams(
     }
 }
 
-enum class SearchResultLayoutKind {
-    COVER,
-    PREVIEW, ;
-
-    companion object {
-        fun next(kind: SearchResultLayoutKind): SearchResultLayoutKind {
-            return entries[(kind.ordinal + 1) % entries.size]
-        }
-    }
-}
-
 @Composable
 private fun SearchResultItem(
     info: SubjectPreviewItemInfo,
@@ -346,33 +315,15 @@ private fun LazyGridItemScope.SearchResultColumnScopeImpl(
             }
 
             itemsState.value.hasFirstPage -> {
-                Surface(modifier1, color = MaterialTheme.colorScheme.surfaceContainerLowest) {
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalArrangement = Arrangement.aligned(Alignment.CenterVertically),
-                        itemVerticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            stringResource(Lang.exploration_search_results_shown, itemsState.value.itemCount),
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                        Row(
-                            Modifier.weight(1f).align(Alignment.Bottom),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.aligned(Alignment.End),
-                        ) {
-                            LayoutKindButton(
-                                layoutKind,
-                                onLayoutKindChange,
-                            )
-                            SortButton(
-                                currentSort,
-                                onSortChange,
-                                sortOptions = sortOptions,
-                            )
-                        }
-                    }
-                }
+                SearchResultsToolbar(
+                    count = itemsState.value.itemCount,
+                    layoutKind = layoutKind,
+                    currentSort = currentSort,
+                    onLayoutKindChange = onLayoutKindChange,
+                    onSortChange = onSortChange,
+                    modifier = modifier1,
+                    sortOptions = sortOptions,
+                )
             }
 
             else -> {
@@ -392,96 +343,4 @@ interface SearchResultColumnScope {
         modifier: Modifier = Modifier,
         sortOptions: List<SearchSort> = SearchSort.entries,
     )
-}
-
-@Composable
-private fun LayoutKindButton(
-    layoutKind: SearchResultLayoutKind,
-    onLayoutKindChange: (SearchResultLayoutKind) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    IconButton(
-        onClick = {
-            onLayoutKindChange(SearchResultLayoutKind.next(layoutKind))
-        },
-        modifier,
-    ) {
-        Icon(
-            when (layoutKind) {
-                SearchResultLayoutKind.COVER -> Icons.Outlined.BackgroundDotLarge
-                SearchResultLayoutKind.PREVIEW -> Icons.Outlined.GalleryThumbnail
-            },
-            layoutKind.name, // not good
-        )
-    }
-}
-
-/**
- * 切换排序方式的按钮
- *
- * @see [SearchSort]
- */
-@Composable
-private fun SortButton(
-    currentSort: SearchSort,
-    onSortChange: (SearchSort) -> Unit,
-    modifier: Modifier = Modifier,
-    sortOptions: List<SearchSort> = SearchSort.entries,
-) {
-    val sortLabels = rememberSearchSortLabels()
-    Box(
-        modifier, contentAlignment = Alignment.BottomEnd,
-    ) {
-        var showDropdown by rememberSaveable {
-            mutableStateOf(false)
-        }
-        IconTextButton(
-            onClick = { showDropdown = true },
-            leadingIcon = {
-                Icon(Icons.AutoMirrored.Rounded.Sort, null)
-            },
-        ) {
-            Text(getSortText(currentSort, sortLabels), softWrap = false)
-        }
-        DropdownMenu(showDropdown, { showDropdown = false }) {
-            for (sort in sortOptions) {
-                SelectableDropdownMenuItem(
-                    selected = sort == currentSort,
-                    text = {
-                        Text(
-                            getSortText(sort, sortLabels),
-                            softWrap = false,
-                        )
-                    },
-                    onClick = {
-                        showDropdown = false
-                        onSortChange(sort)
-                    },
-                )
-            }
-        }
-    }
-}
-
-@Immutable
-private data class SearchSortLabels(
-    val match: String,
-    val collection: String,
-    val rank: String,
-    val date: String,
-)
-
-@Composable
-private fun rememberSearchSortLabels(): SearchSortLabels = SearchSortLabels(
-    match = stringResource(Lang.exploration_search_sort_match),
-    collection = stringResource(Lang.exploration_search_sort_collection),
-    rank = stringResource(Lang.exploration_search_sort_rank),
-    date = stringResource(Lang.exploration_search_sort_date),
-)
-
-private fun getSortText(currentSort: SearchSort, labels: SearchSortLabels): String = when (currentSort) {
-    SearchSort.MATCH -> labels.match
-    SearchSort.COLLECTION -> labels.collection
-    SearchSort.RANK -> labels.rank
-    SearchSort.DATE -> labels.date
 }

@@ -149,8 +149,8 @@ fun SubjectDetailsHeaderCompact(
     modifier: Modifier = Modifier,
     onClickCover: (() -> Unit)? = null,
 ) {
-    Column(modifier) {
-        Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.Top) {
+    SubjectDetailsHeaderCompactContent(title, subtitle, seasonTags, collectionData, collectionAction,
+        selectEpisodeButton, rating, modifier, cover = {
             val imageWidth = 140.dp
 
             Box(
@@ -171,58 +171,7 @@ fun SubjectDetailsHeaderCompact(
                 )
             }
 
-            Column(
-                Modifier.weight(1f, fill = true)
-                    .padding(horizontal = 12.dp),
-            ) {
-                Column(
-                    Modifier.fillMaxWidth(), // required by Rating
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    var showSubtitle by remember { mutableStateOf(false) }
-                    Box(Modifier.clickable { showSubtitle = !showSubtitle }) {
-                        ProvideTextStyle(MaterialTheme.typography.titleLarge) {
-                            if (showSubtitle) {
-                                subtitle()
-                            } else {
-                                title()
-                            }
-                        }
-                    }
-
-                    ProvideTextStyle(MaterialTheme.typography.labelLarge) {
-                        seasonTags()
-                    }
-
-                    Spacer(Modifier.weight(1f))
-
-                    Row(
-                        Modifier.requiredHeight(IntrinsicSize.Max).align(Alignment.End),
-                        verticalAlignment = Alignment.Bottom,
-                    ) {
-                        rating()
-                    }
-                }
-            }
-        }
-
-        Row(
-            Modifier.padding(top = 16.dp).align(Alignment.Start),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(
-                Modifier.weight(1f),
-                verticalAlignment = Alignment.Bottom,
-            ) {
-                collectionData()
-            }
-            collectionAction()
-        }
-
-        Box(Modifier.paddingIfNotEmpty(top = 8.dp), contentAlignment = Alignment.CenterEnd) {
-            selectEpisodeButton()
-        }
-    }
+    })
 }
 
 @Composable

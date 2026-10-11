@@ -157,34 +157,9 @@ internal fun SettingsScope.MediaSourceSubscriptionGroup(
     state: MediaSourceSubscriptionGroupState,
 ) {
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
-    Group(
-        title = { Text(stringResource(Lang.settings_media_source_subscription)) },
-        description = { Text(stringResource(Lang.settings_media_source_subscription_description)) },
-        actions = {
-            IconButton({ showAddDialog = true }) {
-                Icon(
-                    Icons.Rounded.Add,
-                    contentDescription = stringResource(Lang.settings_media_source_subscription_add),
-                )
-            }
-
-            AnimatedContent(
-                state.isUpdateAllInProgress.collectAsStateWithLifecycle().value,
-                transitionSpec = LocalAniMotionScheme.current.animatedContent.standard,
-                contentAlignment = Alignment.CenterEnd,
-            ) {
-                if (it) {
-                    CircularProgressIndicator(Modifier.size(24.dp))
-                } else {
-                    IconButton({ state.updateAll() }) {
-                        Icon(
-                            Icons.Rounded.Refresh,
-                            contentDescription = stringResource(Lang.settings_media_source_subscription_refresh_all),
-                        )
-                    }
-                }
-            }
-        },
+    MediaSourceSubscriptionGroupFrame(
+        updating = state.isUpdateAllInProgress.collectAsStateWithLifecycle().value,
+        onAdd = { showAddDialog = true }, onRefresh = { state.updateAll() },
     ) {
         for ((index, subscription) in state.subscriptions.withIndex()) {
             SubscriptionItem(subscription, state)
