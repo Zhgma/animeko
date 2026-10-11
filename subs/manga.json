@@ -1,0 +1,60 @@
+{
+  "exportedMediaSourceDataList": {
+    "mediaSources": [
+      {
+        "factoryId": "manga-native",
+        "version": 1,
+        "arguments": {
+          "name": "Komiic",
+          "key": "komiic",
+          "url": "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/komiic.js"
+        }
+      },
+      {
+        "factoryId": "manga-native",
+        "version": 1,
+        "arguments": {
+          "name": "漫画柜",
+          "key": "manhuagui",
+          "url": "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manhuagui.js"
+        }
+      },
+      {
+        "factoryId": "manga-native",
+        "version": 1,
+        "arguments": {
+          "name": "包子漫画",
+          "key": "baozi",
+          "url": "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/baozi.js"
+        }
+      },
+      {
+        "factoryId": "manga-native",
+        "version": 1,
+        "arguments": {
+          "name": "G站漫画",
+          "key": "goda",
+          "url": "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/goda.js"
+        }
+      },
+      {
+        "factoryId": "manga-native",
+        "version": 1,
+        "arguments": {
+          "name": "漫画人",
+          "key": "manhuaren",
+          "url": "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manhuaren.js"
+        }
+      },
+      {
+        "factoryId": "manga-native",
+        "version": 1,
+        "arguments": {
+          "name": "优酷漫画",
+          "key": "ykmh",
+          "url": "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/ykmh.js"
+        }
+      }
+    ]
+  }
+}
