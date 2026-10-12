@@ -102,6 +102,7 @@ export function createKomiicServer({ upstream = upstreamRequest, secret = random
     pending.set(key, promise); try { return await promise; } finally { pending.delete(key); }
   }
   function upstreamStatus(status) {
+    if (status === 402) { cooldownUntil = now() + 30000; throw new ApiError(429, 'komiic_reading_limit'); }
     if (status === 429) { cooldownUntil = now() + 30000; throw new ApiError(429, 'komiic_rate_limited'); }
     if ([401, 403].includes(status)) throw new ApiError(status, 'komiic_access_restricted');
     if (status === 404) throw new ApiError(404, 'komiic_not_found');

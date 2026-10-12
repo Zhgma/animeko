@@ -76,13 +76,14 @@ test('tampered image signatures and query injection are rejected before image fe
 });
 
 test('login, forbidden, reading limit, redirect and upstream throttling propagate without automatic retries', async t => {
-  for (const status of [401, 403, 429, 302, 500]) {
+  for (const status of [401, 402, 403, 429, 302, 500]) {
     let count = 0;
     const f = await fixture(t, { upstream: async () => { count++; return { status, type: 'text/html', body: Buffer.from('blocked') }; } });
     const result = await f.post({ operation: 'Search', variables: { keyword: 'book' } });
-    assert.equal(result.status, [401, 403, 429].includes(status) ? status : 502);
+    assert.equal(result.status, status === 402 ? 429 : [401, 403, 429].includes(status) ? status : 502);
+    if (status === 402) assert.equal((await result.json()).error, 'komiic_reading_limit');
     assert.equal(count, 1);
-    if (status === 429) {
+    if ([402, 429].includes(status)) {
       assert.equal((await f.post({ operation: 'Search', variables: { keyword: 'other' } })).status, 429);
       assert.equal(count, 1);
     }
