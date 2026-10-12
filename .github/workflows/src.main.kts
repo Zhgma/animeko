@@ -1812,6 +1812,7 @@ class WithMatrix(
             if (shouldUpload) {
                 usesWithAttempts(
                     name = "Upload Android Debug APK $arch",
+                    `if` = "false", // Debug APKs are local-only project-wide.
                     action = UploadArtifact(
                         name = "ani-android-${arch}-debug",
                         path_Untyped = "app/android/build/outputs/apk/default/debug/android-default-${arch}-debug.apk",

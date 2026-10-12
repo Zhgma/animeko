@@ -6,6 +6,8 @@ Read docs/contributing for project guidelines. Before modifying a subsystem, che
 
 Additional requirements:
 
+- 项目所有正式版、测试版及 CI 附件仅发布 Release APK；禁止推送或上传 debug APK 及其摘要。本地调试构建可以保留。已发布的历史附件无需删除。
+
 - You should add imports, instead of using fully qualified names in code.
 - For Android Instrumented tests, you can just use `@Test`, no need to write `@RunWith` to the class.
 - 注释和文档应直接描述当前设计、职责、行为与约束，不要用“不再…”“改为…”“新设计…”等措辞叙述开发过程，也不要记录未上线方案、被纠正的错误假设或对话历史。只有在解释兼容性或迁移逻辑确有必要时，才说明已发布版本的历史行为。
