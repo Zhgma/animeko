@@ -9,6 +9,7 @@
 | --- | --- | --- |
 | POST | `/v0/search/subjects?limit=20&offset=0` | 搜索 BGM 书籍 |
 | GET | `/v0/subjects/{id}` | 书籍详情；非书籍返回 404 |
+| GET | `/p1/subjects/{id}/comments?limit=20&offset=0` | 书籍公开评论分页；非书籍返回 404 |
 | GET | `/v0/me` | 当前 BGM 用户的 id 和 username |
 | GET | `/v0/users/{username}/collections?subject_type=1&type=3&limit=30&offset=0` | 本人书籍收藏列表 |
 | GET | `/v0/users/{username}/collections/{id}` | 本人书籍收藏状态、话数/卷数等 |
@@ -34,6 +35,13 @@
 错误响应为 `{"error":"错误码"}`。常见状态为 400 参数错误、404 书籍不存在或类型不符、
 405 方法不允许、413 请求过大、415 内容类型错误、429 限流、502/503/504 上游故障。
 429/503 提供 `Retry-After`；调用方应退避，不立即循环重试。
+
+### 公开评论
+
+评论接口先通过 v0 详情确认 `type=1`，再直连固定 `next.bgm.tv/p1/subjects/{id}/comments`。
+保留 `{data,total}` 与评论、用户、评分等原始字段，limit 为 1–20，offset 为 0–10000。
+不携带用户凭据，拒绝 Cookie、Authorization、未知参数和写入方法；评论缓存 60 秒。
+校验书籍与获取评论共享 15 秒时限，应用评论请求超时为 20 秒。
 
 ### 收藏状态和阅读进度
 
@@ -63,14 +71,14 @@ POST 只接受上面的 type 字段。PATCH 接受非空的 `type`、`ep_status`
 
 ## 范围和资源限制
 
-- 固定访问 `https://api.bgm.tv`，使用 Node HTTPS 直连；不使用环境代理、不接受上游 URL、不跟随重定向。
-- 公开搜索/详情拒绝 `Authorization`；本人书籍收藏接口要求 Bearer 凭据。所有接口拒绝 Cookie，不代理评分写入、评论、关联、剧集、封面图片或阅读资源。
+- 固定访问 `https://api.bgm.tv`，公开评论固定访问 `https://next.bgm.tv/p1/subjects/{id}/comments`，使用 Node HTTPS 直连；不使用环境代理、不接受上游 URL、不跟随重定向。
+- 公开搜索/详情/评论拒绝 `Authorization`；本人书籍收藏接口要求 Bearer 凭据。所有接口拒绝 Cookie，不代理评分写入、关联、剧集、封面图片或阅读资源。
 - 受 BGM 登录权限限制的数据不保证可访问，NSFW 参数不绕过 BGM 的授权规则。
 - 每 IP 平均 60 次/分钟，突发 30 次；全局平均 300 次/分钟，突发 60 次；限流包含缓存命中。
 - 每 IP 最多 6 个并发数据请求，适配应用最多 4 条目并行读取；全局最多 8 个，最多 128 个 HTTP 连接。
 - 收藏写入另有每 IP 平均 30 次/分钟、突发 10 次的限制。
 - 请求体最多 4 KiB，上游响应最多 2 MiB，单个上游请求超时 7 秒；账号流程的核验和读写共享 15 秒总时限。
-- 搜索缓存 60 秒，书籍详情缓存 1 小时；404 缓存 1 分钟、非书籍拒绝缓存 5 分钟。
+- 搜索和评论缓存 60 秒，书籍详情缓存 1 小时；404 缓存 1 分钟、非书籍拒绝缓存 5 分钟。
 - 相同请求合并；缓存最多 1000 项/16 MiB。上游 429 触发全局 15 秒退避。
 - API 支持跨域。账号接口需显式提供 Bearer，不接受浏览器 Cookie 凭据；公共接口的范围和限流不构成只有某个 APK 能调用的身份认证。
 - Caddy 覆盖 `X-Real-IP`，后端仅信任回环代理；外部不能通过自报转发头绕过每 IP 限流。
@@ -78,10 +86,10 @@ POST 只接受上面的 type 字段。PATCH 接受非空的 `type`、`ep_status`
 ## 应用接入
 
 复用 `MangaBangumiHttp` 和现有 JSON 解析，不修改 Animeko 的自动生成客户端。
-`MangaBangumiNetwork` 提供 `BOOKS_API_BASE_URL`，将书籍搜索、基础详情、本人身份/收藏查询及收藏状态/阅读进度写入路由到本服务。
-公开请求不发送用户 BGM token，账号请求复用当前用户的 token。评分写入、评论和关联使用原地址；番剧继续使用原有 Animeko/BGM 接口。
+`MangaBangumiNetwork` 提供 `BOOKS_API_BASE_URL`，将书籍搜索、基础详情、公开评论、本人身份/收藏查询及收藏状态/阅读进度写入路由到本服务。
+公开请求不发送用户 BGM token，账号请求复用当前用户的 token。评分写入和关联使用原地址；番剧继续使用原有 Animeko/BGM 接口。
 手动进度与阅读器自动完成一话调用同一个 `MangaLibraryRepository.setProgress`，真实同步成功才刷新应用状态。
-客户端账号请求总超时为 20 秒，公开请求为 8 秒。
+客户端账号和评论请求总超时为 20 秒，其他公开请求为 8 秒。
 本机缓存仍使用已有 `MangaBangumiCache`。已安装的旧应用需要更新构建后才会使用新入口。
 
 ## 验证与部署

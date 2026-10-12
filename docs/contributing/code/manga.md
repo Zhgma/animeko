@@ -29,10 +29,10 @@
 
 ### 网络与缓存
 
-书籍搜索和基础详情通过 `https://119.28.149.19:8443/api/books` 的公共只读接口读取，
+书籍搜索、基础详情和公开评论通过 `https://119.28.149.19:8443/api/books` 的公共只读接口读取，
 接口保留 BGM v0 JSON 结构，服务端限定 `type=1`（包含漫画和小说），请求不携带 BGM token。
 `MangaBangumiHttp` 将书籍身份/收藏查询、收藏状态和话数/卷数更新也路由到该服务，账号请求携带当前用户的 BGM token。
-服务端核验本人身份并限制书籍类型，不保存 token、不缓存个人响应。评分写入、评论和关联使用各自的原地址。
+服务端核验本人身份并限制书籍类型，不保存 token、不缓存个人响应。评分写入和关联使用各自的原地址。
 番剧使用原有 Animeko/BGM 接口。接口契约、限流、部署及回滚见 [书籍 API](../../../services/books-api/README.md)。
 
 设置 → 网络代理 → 漫画 Bangumi 代理支持直连、系统代理与自定义代理（含账号密码），默认直连。
@@ -44,7 +44,7 @@
 网络错误、429 或 5xx 可以回退同一分区的旧数据，取消操作、401/403 不回退；首次失败后同分区
 30 秒内优先使用缓存，避免逐个条目等待超时。下拉刷新和代理设置操作
 解除退避；列表与详情提示正在使用缓存。成功读取覆盖旧缓存，最多 400 个响应 / 400 万字符，
-超大响应不缓存。账号接口的客户端总超时为 20 秒，公开请求为 8 秒。没有缓存的首次请求仍显示错误，不能生成不存在的收藏或章节。
+超大响应不缓存。账号和评论接口的客户端总超时为 20 秒，其他公开请求为 8 秒。没有缓存的首次请求仍显示错误，不能生成不存在的收藏或章节。
 
 收藏列表、作品信息、关联、评论、搜索结果与个人评价可从缓存恢复；来源绑定和阅读位置使用独立的
 `MangaReadingStore`，因此 Bangumi 不可用时仍能继续选源和阅读。写入始终请求网络，失败不通知同步成功，
@@ -54,7 +54,7 @@
 
 详情页使用动画详情同一套 `SubjectDetailsLayoutParams.calculate`：小于 600dp 为单栏，600–1599dp 为双栏，1600dp 起为三栏，尺寸依据页面实际可用宽度。窄屏直接使用 `SubjectDetailsSingleColumnPage` 的封面、吸顶标签与嵌套滚动；双栏和三栏直接使用 `MultiColumnScaffold`，封面、阅读按钮及作品信息位于左侧，中间显示标题、简介和章节，三栏时评分与评论位于右侧 `RailCard`。评分摘要、直方图、收藏统计、标签、作品信息表和简介使用动画的共用组件。`SubjectInfo` 只用作窄屏页头的显示适配对象，不进入动画仓库或接口。
 
-作品信息和评分来自 Bangumi v0；评论通过独立的 `next.bgm.tv/p1/subjects/{id}/comments` 分页获取，预览与完整评论列表均可在应用内查看。p1 接口可能变化，其解析集中在 `MangaDetailsRepository`。评价预览直接使用 `ReviewsPreviewSection` / `HotReviewsCardContent`，完整评价使用 `SubjectCommentColumn` / `SubjectCommentsSheet`，由 `MangaCommentPaging` 提供分页和刷新。窄屏详情 / 评价可左右滑动，评价页内有写评价入口。阅读区未完全展开时，下拉优先展开阅读区，再刷新评论。Bangumi 评论沿用共享组件的原文入口，不调用仅支持 Animeko 评论的举报接口。
+作品信息和评分来自 Bangumi v0；评论通过书籍服务的 `/p1/subjects/{id}/comments` 分页获取，由服务器核验书籍类型后直连 `next.bgm.tv`，预览与完整评论列表均可在应用内查看。p1 接口可能变化，其解析集中在 `MangaDetailsRepository`。评价预览直接使用 `ReviewsPreviewSection` / `HotReviewsCardContent`，完整评价使用 `SubjectCommentColumn` / `SubjectCommentsSheet`，由 `MangaCommentPaging` 提供分页和刷新。窄屏详情 / 评价可左右滑动，评价页内有写评价入口。阅读区未完全展开时，下拉优先展开阅读区，再刷新评论。Bangumi 评论沿用共享组件的原文入口，不调用仅支持 Animeko 评论的举报接口。
 
 章节列表通过显示适配使用 `PagedEpisodesGrid`，适配 ID 只用于界面索引，不写入番剧数据层；支持分页、分组、阅读进度和长按标记读过。详情与阅读器共用选源、章节和缓存动作。
 

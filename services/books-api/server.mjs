@@ -14,10 +14,18 @@ class ApiError extends Error {
 
 /** Fixed direct upstream. Bearer credentials are passed only by the authenticated book routes. */
 export function fetchBangumi(path, { method, body, authorization, signal }) {
+  return fetchJson('api.bgm.tv', path, { method, body, authorization, signal });
+}
+
+export function fetchBookComments(path, { signal }) {
+  return fetchJson('next.bgm.tv', path, { method: 'GET', signal });
+}
+
+function fetchJson(hostname, path, { method, body, authorization, signal }) {
   return new Promise((resolve, reject) => {
     const bytes = body === undefined ? undefined : Buffer.from(JSON.stringify(body));
     const request = https.request({
-      hostname: 'api.bgm.tv', port: 443, path, method, agent: directAgent, signal,
+      hostname, port: 443, path, method, agent: directAgent, signal,
       headers: { Accept: 'application/json', 'User-Agent': 'AnimeComic-Books/1.0 (public book metadata)',
         ...(authorization ? { Authorization: authorization } : {}),
         ...(bytes ? { 'Content-Type': 'application/json', 'Content-Length': bytes.length } : {}) },
@@ -99,7 +107,7 @@ async function readCollectionWrite(request) {
   return body;
 }
 
-export function createBooksServer({ upstream = fetchBangumi, now = Date.now,
+export function createBooksServer({ upstream = fetchBangumi, commentsUpstream = fetchBookComments, now = Date.now,
   ipBurst = 30, ipPerMinute = 60, globalBurst = 60, globalPerMinute = 300,
   maxConcurrent = 8, maxPerIpConcurrent = 6, trustLoopbackProxy = false } = {}) {
   const clients = new Map(), cache = new Map(), pending = new Map();
@@ -144,20 +152,26 @@ export function createBooksServer({ upstream = fetchBangumi, now = Date.now,
     }
     cache.set(key, { ...result, size, expires: now() + ttl }); cacheBytes += size;
   }
-  async function load(key, path, options, isSearch, id) {
+  async function load(key, path, options, isSearch, id, commentsLimit = null) {
     const cached = cache.get(key);
     if (cached && cached.expires > now()) return { ...cached, cache: 'HIT' };
     if (pending.has(key)) return pending.get(key);
     if (now() < cooldownUntil) throw new ApiError(503, 'upstream_busy');
     const promise = (async () => {
-      const result = await upstream(path, options);
+      const result = await (commentsLimit === null ? upstream : commentsUpstream)(path, options);
       if (result.status === 429) { cooldownUntil = now() + 15000; throw new ApiError(503, 'upstream_busy'); }
       if (result.status === 404) {
         const missing = { status: 404, body: JSON.stringify({ error: 'book_not_found' }), cache: 'MISS' };
         remember(key, missing, 60000); return missing;
       }
       if (result.status !== 200) throw new ApiError(502, 'upstream_failed');
-      if (isSearch) {
+      if (commentsLimit !== null) {
+        if (!object(result.data) || !Number.isSafeInteger(result.data.total) || result.data.total < 0 ||
+            !Array.isArray(result.data.data) || result.data.data.length > commentsLimit ||
+            !result.data.data.every(row => object(row) && Number.isSafeInteger(row.id) && typeof row.comment === 'string')) {
+          throw new ApiError(502, 'invalid_upstream_response');
+        }
+      } else if (isSearch) {
         if (!object(result.data) || !Array.isArray(result.data.data) || result.data.data.length > 20 ||
             !result.data.data.every(book => object(book) && book.type === 1)) throw new ApiError(502, 'invalid_upstream_response');
       } else if (!object(result.data) || result.data.id !== id) {
@@ -167,7 +181,7 @@ export function createBooksServer({ upstream = fetchBangumi, now = Date.now,
         remember(key, denied, 300000); return denied;
       }
       const success = { status: 200, body: JSON.stringify(result.data), cache: 'MISS' };
-      remember(key, success, isSearch ? 60000 : 3600000); return success;
+      remember(key, success, isSearch || commentsLimit !== null ? 60000 : 3600000); return success;
     })();
     pending.set(key, promise);
     try { return await promise; } finally { pending.delete(key); }
@@ -240,13 +254,14 @@ export function createBooksServer({ upstream = fetchBangumi, now = Date.now,
       const url = new URL(request.url, 'http://localhost');
       const isSearch = url.pathname === PREFIX + '/v0/search/subjects';
       const detail = new RegExp('^' + PREFIX + '/v0/subjects/([1-9]\\d{0,7})$').exec(url.pathname);
+      const comments = new RegExp('^' + PREFIX + '/p1/subjects/([1-9]\\d{0,7})/comments$').exec(url.pathname);
       const health = url.pathname === PREFIX + '/health';
       const isMe = url.pathname === PREFIX + '/v0/me';
       const collection = new RegExp('^' + PREFIX + '/v0/users/([A-Za-z0-9_-]{1,64})/collections(?:/([1-9]\\d{0,7}))?$').exec(url.pathname);
       const account = isMe || Boolean(collection);
       const canWrite = collection && collection[1] === '-' && collection[2];
       const isWrite = canWrite && ['POST', 'PATCH'].includes(request.method);
-      if (!isSearch && !detail && !health && !account) throw new ApiError(404, 'not_found');
+      if (!isSearch && !detail && !comments && !health && !account) throw new ApiError(404, 'not_found');
       client = clientFor(request);
       if (!spend(global, globalBurst, globalPerMinute) || !spend(client, ipBurst, ipPerMinute)) throw new ApiError(429, 'rate_limited');
       if (request.method === 'OPTIONS') {
@@ -254,14 +269,26 @@ export function createBooksServer({ upstream = fetchBangumi, now = Date.now,
       }
       if (!isWrite && request.method !== (isSearch ? 'POST' : 'GET')) throw new ApiError(405, 'method_not_allowed');
       if (request.headers.cookie || (!account && request.headers.authorization)) throw new ApiError(400, 'public_api_no_credentials');
-      const allowed = isSearch ? ['limit', 'offset'] : collection && !collection[2] ? ['limit', 'offset', 'type', 'subject_type'] : [];
+      const allowed = isSearch || comments ? ['limit', 'offset'] : collection && !collection[2] ? ['limit', 'offset', 'type', 'subject_type'] : [];
       const keys = [...url.searchParams.keys()];
       if (keys.some(key => !allowed.includes(key)) || new Set(keys).size !== keys.length) throw new ApiError(400, 'invalid_query');
-      if (health) { reply(response, 200, { status: 'ok', service: 'animecomic-books', version: 2 }); return; }
+      if (health) { reply(response, 200, { status: 'ok', service: 'animecomic-books', version: 3 }); return; }
       if (active >= maxConcurrent || client.active >= maxPerIpConcurrent) throw new ApiError(429, 'too_many_concurrent_requests');
       active++; client.active++; admitted = true;
       if (request.method === 'GET' && (Number(request.headers['content-length'] ?? 0) || request.headers['transfer-encoding'])) throw new ApiError(400, 'body_not_allowed');
       if (account) { await handleAccount(request, response, url, collection, isMe, isWrite, client); return; }
+      if (comments) {
+        const limit = integer(url.searchParams.get('limit'), 20, 1, 20);
+        const offset = integer(url.searchParams.get('offset'), 0, 0, 10000);
+        const id = Number(comments[1]);
+        const options = { method: 'GET', signal: AbortSignal.timeout(15000) };
+        const subjectPath = `/v0/subjects/${id}`;
+        const subject = await load(subjectPath + 'null', subjectPath, options, false, id);
+        if (subject.status !== 200) { reply(response, subject.status, subject.body); return; }
+        const path = `/p1/subjects/${id}/comments?limit=${limit}&offset=${offset}`;
+        const result = await load(path, path, options, false, id, limit);
+        reply(response, result.status, result.body, { 'X-Cache': result.cache }); return;
+      }
       let path, options;
       if (isSearch) {
         const limit = integer(url.searchParams.get('limit'), 20, 1, 20);

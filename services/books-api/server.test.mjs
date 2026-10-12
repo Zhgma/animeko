@@ -249,3 +249,54 @@ test('private list rejects mixed anime content, and write bursts have a separate
   assert.equal((await f.get(ownBook, { method: 'PATCH', headers: authHeaders, body: '{"vol_status":0}' })).status, 429);
   assert.equal(calls.filter(x => x.method === 'PATCH').length, 10);
 });
+
+
+test('book comments preserve pages, share public cache and use no account credentials', async t => {
+  const calls = []; let time = 0;
+  const f = await fixture(t, { now: () => time, commentsUpstream: async (path, options) => {
+    calls.push({ path, options }); return { status: 200, data: { total: 57, data: [{ id: 7, comment: 'public review', user: { id: 9 }, rate: 8 }] } };
+  } });
+  const first = await f.get('/p1/subjects/118165/comments?limit=2&offset=20');
+  assert.equal(first.status, 200); assert.equal((await first.json()).total, 57);
+  assert.equal(calls[0].path, '/p1/subjects/118165/comments?limit=2&offset=20');
+  assert.equal(calls[0].options.authorization, undefined);
+  assert.equal((await f.get('/p1/subjects/118165/comments?offset=20&limit=2')).headers.get('x-cache'), 'HIT');
+  assert.equal(calls.length, 1); assert.equal(f.calls.length, 1);
+  assert.equal((await f.get('/p1/subjects/118165/comments?limit=2&offset=22')).status, 200);
+  assert.equal(calls.length, 2);
+  time = 61000;
+  assert.equal((await f.get('/p1/subjects/118165/comments?limit=2&offset=20')).status, 200);
+  assert.equal(calls.length, 3); assert.equal(f.calls.length, 1);
+});
+
+test('comments deny anime and missing subjects before requesting their comments', async t => {
+  let calls = 0;
+  const f = await fixture(t, { upstream: async path => path.endsWith('/2')
+    ? { status: 200, data: { id: 2, type: 2 } } : { status: 404 },
+    commentsUpstream: async () => { calls++; throw new Error('must not fetch'); } });
+  for (const id of [2, 3]) assert.equal((await f.get(`/p1/subjects/${id}/comments`)).status, 404);
+  assert.equal(calls, 0);
+});
+
+test('comments bound pagination and reject credentials, writes and arbitrary routes', async t => {
+  const f = await fixture(t);
+  for (const suffix of ['?limit=21', '?limit=0', '?offset=10001', '?offset=-1', '?limit=1&limit=2', '?url=https://example.com', '?sort=latest']) {
+    assert.equal((await f.get('/p1/subjects/118165/comments' + suffix)).status, 400);
+  }
+  for (const headers of [{ Authorization: 'Bearer secret' }, { Cookie: 'session=secret' }]) {
+    assert.equal((await f.get('/p1/subjects/118165/comments', { headers })).status, 400);
+  }
+  assert.equal((await f.get('/p1/subjects/118165/comments', { method: 'POST' })).status, 405);
+  assert.equal((await f.get('/p1/subjects/118165/comments/7')).status, 404);
+  assert.equal(f.calls.length, 0);
+});
+
+test('comments failures and malformed payloads are not cached as empty success', async t => {
+  const results = [{ status: 500 }, { status: 200, data: { total: 1, data: [{}] } },
+    { status: 200, data: { total: 0, data: [] } }];
+  const f = await fixture(t, { commentsUpstream: async () => results.shift() });
+  assert.equal((await f.get('/p1/subjects/118165/comments')).status, 502);
+  assert.equal((await f.get('/p1/subjects/118165/comments')).status, 502);
+  const response = await f.get('/p1/subjects/118165/comments');
+  assert.equal(response.status, 200); assert.deepEqual(await response.json(), { total: 0, data: [] });
+});

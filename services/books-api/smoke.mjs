@@ -34,6 +34,12 @@ assert.equal((await call('/v0/subjects/118165', { headers: { Authorization: 'Bea
 assert.equal((await call('/v0/users/-/collections/118165')).response.status, 401);
 assert.equal((await call('/v0/users/-/collections/118165', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"type":3}' })).response.status, 401);
 assert.equal((await call('/v0/users/-/collections/118165', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer test-not-a-real-token' }, body: '{"ep_status":12}' })).response.status, 401);
+const comments = await call('/p1/subjects/311122/comments?limit=2&offset=0');
+assert.equal(comments.response.status, 200); assert.ok(comments.data.total > 2); assert.equal(comments.data.data.length, 2);
+const nextComments = await call('/p1/subjects/311122/comments?limit=2&offset=2');
+assert.equal(nextComments.response.status, 200); assert.notEqual(comments.data.data[0].id, nextComments.data.data[0].id);
+assert.equal((await call('/p1/subjects/253/comments')).response.status, 404);
+assert.equal((await call('/p1/subjects/311122/comments?limit=21')).response.status, 400);
 // Different client-supplied forwarding headers must still share the actual caller's IP budget.
 const limited = await Promise.all(Array.from({ length: 35 }, (_, i) => call('/health', { headers: { 'X-Real-IP': `192.0.2.${i + 1}` } })));
 assert.ok(limited.some(({ response }) => response.status === 429));

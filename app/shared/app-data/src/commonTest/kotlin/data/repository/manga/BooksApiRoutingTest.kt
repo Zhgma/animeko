@@ -30,7 +30,7 @@ class BooksApiRoutingTest {
     }
 
     @Test
-    fun relationsCommentsAndRatingWritesKeepTheirOriginalRoutesAndCredentials() = runTest {
+    fun relationsAndRatingWritesKeepTheirOriginalRoutesAndCredentials() = runTest {
         val urls = mutableListOf<String>()
         val client = HttpClient(MockEngine { request ->
             urls += request.url.toString()
@@ -41,7 +41,6 @@ class BooksApiRoutingTest {
             val http = MangaBangumiHttp(client.asScopedHttpClient(), booksApiBaseUrl = BOOKS_API_BASE_URL)
             val originals = listOf(
                 "https://api.bgm.tv/v0/subjects/118165/subjects",
-                "https://next.bgm.tv/p1/subjects/118165/comments",
             )
             originals.forEach { http.get(it, "private-token") }
             val collection = "https://api.bgm.tv/v0/users/-/collections/118165"
@@ -76,6 +75,26 @@ class BooksApiRoutingTest {
                 "$BOOKS_API_BASE_URL/v0/users/-/collections/118165",
             ), urls)
             assertEquals(listOf(HttpMethod.Get, HttpMethod.Get, HttpMethod.Get, HttpMethod.Post, HttpMethod.Patch), methods)
+        } finally { client.close() }
+    }
+
+    @Test
+    fun commentsAndNetworkProbeUseBooksServiceWithoutCredentials() = runTest {
+        val urls = mutableListOf<String>()
+        val client = HttpClient(MockEngine { request ->
+            urls += request.url.toString()
+            assertNull(request.headers["Authorization"])
+            respond("{}")
+        })
+        try {
+            val http = MangaBangumiHttp(client.asScopedHttpClient(), booksApiBaseUrl = BOOKS_API_BASE_URL)
+            http.get("https://next.bgm.tv/p1/subjects/311122/comments", "private-token", mapOf("limit" to 20, "offset" to 20))
+            http.probe()
+            assertEquals(listOf(
+                "$BOOKS_API_BASE_URL/p1/subjects/311122/comments?limit=20&offset=20",
+                "$BOOKS_API_BASE_URL/v0/subjects/118165",
+                "$BOOKS_API_BASE_URL/p1/subjects/118165/comments?limit=1",
+            ), urls)
         } finally { client.close() }
     }
 

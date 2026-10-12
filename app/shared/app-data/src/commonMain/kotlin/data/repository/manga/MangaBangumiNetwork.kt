@@ -178,15 +178,15 @@ class MangaBangumiHttp(
     }
 
     suspend fun probe() {
-        for (url in listOf("https://api.bgm.tv/v0/subjects/118165", "https://next.bgm.tv/p1/subjects/118165/comments?limit=1")) {
-            send(HttpMethod.Get, url, null, emptyMap(), null).requireSuccess()
-        }
+        send(HttpMethod.Get, "https://api.bgm.tv/v0/subjects/118165", null, emptyMap(), null).requireSuccess()
+        send(HttpMethod.Get, "https://next.bgm.tv/p1/subjects/118165/comments", null, mapOf("limit" to 1), null).requireSuccess()
         cache?.retry()
     }
 
     private suspend fun send(method: HttpMethod, url: String, token: String?, parameters: Map<String, Any>, body: String?): MangaBangumiResponse = client.use {
+        val commentsRequest = booksApiBaseUrl != null && method == HttpMethod.Get && BOOK_COMMENTS_URL.matches(url)
         val publicBookRequest = booksApiBaseUrl != null && (
-            (method == HttpMethod.Get && BOOK_DETAILS_URL.matches(url)) ||
+            commentsRequest || (method == HttpMethod.Get && BOOK_DETAILS_URL.matches(url)) ||
                 (method == HttpMethod.Post && url == "https://api.bgm.tv/v0/search/subjects")
             )
         val accountRequest = booksApiBaseUrl != null && (
@@ -194,11 +194,15 @@ class MangaBangumiHttp(
                 (method in listOf(HttpMethod.Post, HttpMethod.Patch) && BOOK_COLLECTION_WRITE_URL.matches(url) &&
                     isCollectionStateWrite(method, body))
             )
-        val target = if (publicBookRequest || accountRequest) booksApiBaseUrl + url.removePrefix("https://api.bgm.tv") else url
+        val target = when {
+            commentsRequest -> booksApiBaseUrl + url.removePrefix("https://next.bgm.tv")
+            publicBookRequest || accountRequest -> booksApiBaseUrl + url.removePrefix("https://api.bgm.tv")
+            else -> url
+        }
         val response = request(target) {
             this.method = method
             expectSuccess = false
-            timeout { requestTimeoutMillis = if (accountRequest) 20_000 else 8_000; connectTimeoutMillis = 5_000 }
+            timeout { requestTimeoutMillis = if (accountRequest || commentsRequest) 20_000 else 8_000; connectTimeoutMillis = 5_000 }
             if (!publicBookRequest && !token.isNullOrBlank()) bearerAuth(token)
             parameters.forEach { (key, value) -> parameter(key, value) }
             if (body != null) { contentType(ContentType.Application.Json); setBody(body) }
@@ -207,6 +211,7 @@ class MangaBangumiHttp(
     }
 
     private companion object {
+        val BOOK_COMMENTS_URL = Regex("https://next\\.bgm\\.tv/p1/subjects/[1-9][0-9]*/comments")
         val BOOK_DETAILS_URL = Regex("https://api\\.bgm\\.tv/v0/subjects/[1-9][0-9]*")
         val BOOK_COLLECTION_URL = Regex("https://api\\.bgm\\.tv/v0/users/[A-Za-z0-9_-]+/collections(?:/[1-9][0-9]*)?")
         val BOOK_COLLECTION_WRITE_URL = Regex("https://api\\.bgm\\.tv/v0/users/-/collections/[1-9][0-9]*")

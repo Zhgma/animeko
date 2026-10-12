@@ -1,11 +1,41 @@
 openapi: 3.0.3
 info:
   title: AnimeComic Books API
-  version: 2.0.1
-  description: Bangumi type=1 search, metadata and authenticated own book collection state/progress. All upstream traffic is direct HTTPS.
+  version: 3.0.0
+  description: Bangumi type=1 search, metadata, public comments and authenticated own book collection state/progress. All upstream traffic is direct HTTPS.
 servers:
   - url: https://119.28.149.19:8443/api/books
 paths:
+  /p1/subjects/{id}/comments:
+    get:
+      operationId: getBookComments
+      description: Books only. Public comments from fixed next.bgm.tv upstream, cached for 60 seconds. Authorization and Cookie headers are rejected.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1, maximum: 99999999 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 20, default: 20 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, maximum: 10000, default: 0 }
+      responses:
+        '200':
+          description: Public comment page preserving Bangumi p1 fields
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, total]
+                properties:
+                  total: { type: integer, minimum: 0 }
+                  data:
+                    type: array
+                    maxItems: 20
+                    items: { type: object, additionalProperties: true }
+        default: { $ref: '#/components/responses/Error' }
   /v0/me:
     get:
       operationId: getCurrentBookUser
