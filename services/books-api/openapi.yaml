@@ -1,0 +1,260 @@
+openapi: 3.0.3
+info:
+  title: AnimeComic Books API
+  version: 2.0.1
+  description: Bangumi type=1 search, metadata and authenticated own book collection state/progress. All upstream traffic is direct HTTPS.
+servers:
+  - url: https://119.28.149.19:8443/api/books
+paths:
+  /v0/me:
+    get:
+      operationId: getCurrentBookUser
+      security: [{ bangumiBearer: [] }]
+      responses:
+        '200':
+          description: Verified current Bangumi identity; no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, username]
+                properties:
+                  id: { type: integer }
+                  username: { type: string }
+        default: { $ref: '#/components/responses/Error' }
+  /v0/users/{username}/collections:
+    get:
+      operationId: getOwnBookCollections
+      security: [{ bangumiBearer: [] }]
+      parameters:
+        - $ref: '#/components/parameters/OwnUsername'
+        - name: subject_type
+          in: query
+          schema: { type: integer, enum: [1], default: 1 }
+        - name: type
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 5 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 30, default: 30 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, maximum: 10000, default: 0 }
+      responses:
+        '200':
+          description: Current user's books only, including own private collections; no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, total, limit, offset]
+                properties:
+                  total: { type: integer }
+                  limit: { type: integer }
+                  offset: { type: integer }
+                  data: { type: array, items: { $ref: '#/components/schemas/BookCollection' } }
+        default: { $ref: '#/components/responses/Error' }
+  /v0/users/{username}/collections/{id}:
+    get:
+      operationId: getOwnBookCollection
+      security: [{ bangumiBearer: [] }]
+      parameters:
+        - $ref: '#/components/parameters/OwnUsername'
+        - $ref: '#/components/parameters/BookId'
+      responses:
+        '200': { $ref: '#/components/responses/BookCollection' }
+        default: { $ref: '#/components/responses/Error' }
+  /v0/users/-/collections/{id}:
+    parameters:
+      - $ref: '#/components/parameters/BookId'
+    get:
+      operationId: getCurrentBookCollection
+      security: [{ bangumiBearer: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/BookCollection' }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      operationId: setBookCollectionType
+      security: [{ bangumiBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type]
+              additionalProperties: false
+              properties:
+                type: { type: integer, minimum: 1, maximum: 5, description: '1 wish, 3 doing, 2 done, 4 on hold, 5 dropped' }
+      responses:
+        '202': { description: Bangumi accepted the collection update; read back to confirm final state }
+        '204': { description: Collection created or state updated; other fields preserved }
+        default: { $ref: '#/components/responses/Error' }
+    patch:
+      operationId: updateBookCollectionProgress
+      security: [{ bangumiBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              additionalProperties: false
+              properties:
+                type: { type: integer, minimum: 1, maximum: 5 }
+                ep_status: { type: integer, minimum: 0, maximum: 1000000 }
+                vol_status: { type: integer, minimum: 0, maximum: 1000000 }
+      responses:
+        '202': { description: Bangumi accepted the progress update; read back to confirm final state }
+        '204': { description: Specified fields updated; no automatic retry }
+        default: { $ref: '#/components/responses/Error' }
+  /health:
+    get:
+      operationId: booksHealth
+      responses:
+        '200':
+          description: Process is healthy (does not probe upstream)
+  /v0/subjects/{id}:
+    get:
+      operationId: getBook
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1, maximum: 99999999 }
+      responses:
+        '200':
+          description: Original Bangumi v0 Subject JSON, restricted to books
+          headers:
+            X-Cache: { schema: { type: string, enum: [HIT, MISS] } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Book' }
+        '404': { description: Missing subject or subject is not a book }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        default: { $ref: '#/components/responses/Error' }
+  /v0/search/subjects:
+    post:
+      operationId: searchBooks
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 20, default: 20 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, maximum: 1000, default: 0 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [keyword]
+              properties:
+                keyword: { type: string, minLength: 1, maxLength: 100 }
+                sort: { type: string, enum: [match, rank, heat, score], default: match }
+                filter:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    type:
+                      type: array
+                      minItems: 1
+                      maxItems: 1
+                      items: { type: integer, enum: [1] }
+                    nsfw: { type: boolean }
+      responses:
+        '200':
+          description: Original Bangumi v0 Paged Subject JSON
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, total, limit, offset]
+                properties:
+                  total: { type: integer }
+                  limit: { type: integer }
+                  offset: { type: integer }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Book' }
+        '400': { description: Invalid keyword, filter, pagination, credentials or extra fields }
+        '413': { description: Request body exceeds 4096 bytes }
+        '415': { description: Uncompressed application/json required }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        default: { $ref: '#/components/responses/Error' }
+components:
+  securitySchemes:
+    bangumiBearer:
+      type: http
+      scheme: bearer
+      description: Current user's Bangumi access token (write collection permission required for mutations), not an Animeko JWT
+  parameters:
+    OwnUsername:
+      name: username
+      in: path
+      required: true
+      description: Current token owner's username or '-'; other users are forbidden
+      schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }
+    BookId:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1, maximum: 99999999 }
+  schemas:
+    BookCollection:
+      type: object
+      description: Original Bangumi collection JSON for the current user and a book only
+      required: [subject_id, subject_type, type, ep_status, vol_status]
+      additionalProperties: true
+      properties:
+        subject_id: { type: integer }
+        subject_type: { type: integer, enum: [1] }
+        type: { type: integer, minimum: 1, maximum: 5 }
+        ep_status: { type: integer }
+        vol_status: { type: integer }
+        rate: { type: integer }
+        private: { type: boolean }
+        comment: { type: string }
+        tags: { type: array, items: { type: string } }
+    Book:
+      type: object
+      description: Additional fields retain their original Bangumi v0 schema.
+      required: [id, type]
+      additionalProperties: true
+      properties:
+        id: { type: integer }
+        type: { type: integer, enum: [1] }
+        name: { type: string }
+        name_cn: { type: string }
+        platform: { type: string }
+        summary: { type: string }
+        images: { type: object, additionalProperties: { type: string } }
+        rating: { type: object }
+        infobox: { type: array, items: { type: object } }
+        tags: { type: array, items: { type: object } }
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+  responses:
+    BookCollection:
+      description: Current user's book state and progress; no-store
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/BookCollection' }
+    RateLimited:
+      description: Client/global request budget or concurrency exhausted
+      headers:
+        Retry-After: { schema: { type: integer, example: 15 } }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Error:
+      description: Route validation or upstream failure; see README for status codes
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }

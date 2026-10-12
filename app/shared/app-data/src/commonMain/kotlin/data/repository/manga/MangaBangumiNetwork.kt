@@ -56,7 +56,7 @@ class MangaBangumiNetwork(store: DataStore<Preferences>, scope: CoroutineScope) 
     private val features = setOf(UserAgentFeature.withValue(ScopedHttpClientUserAgent.ANI))
     private val provider = DefaultHttpClientProvider(ProxySettingsFlowProxyProvider(settings.flow, scope), scope)
     val cache = MangaBangumiCache(store)
-    val http = MangaBangumiHttp(provider.get(features), cache)
+    val http = MangaBangumiHttp(provider.get(features), cache, BOOKS_API_BASE_URL)
     suspend fun start() {
         provider.startProxyListening(sequenceOf(DefaultHttpClientProvider.HoldingInstanceMatrix(features)))
     }
@@ -150,7 +150,13 @@ class MangaBangumiCache(private val store: DataStore<Preferences>) {
     suspend fun retry() { mutex.withLock { unavailableUntil.clear() }; usingCache.value = false }
 }
 
-class MangaBangumiHttp(private val client: ScopedHttpClient, private val cache: MangaBangumiCache? = null) {
+internal const val BOOKS_API_BASE_URL = "https://119.28.149.19:8443/api/books"
+
+class MangaBangumiHttp(
+    private val client: ScopedHttpClient,
+    private val cache: MangaBangumiCache? = null,
+    private val booksApiBaseUrl: String? = null,
+) {
     internal suspend fun get(url: String, token: String? = null, parameters: Map<String, Any> = emptyMap()): MangaBangumiResponse =
         read(HttpMethod.Get, url, token, parameters)
 
@@ -179,14 +185,36 @@ class MangaBangumiHttp(private val client: ScopedHttpClient, private val cache: 
     }
 
     private suspend fun send(method: HttpMethod, url: String, token: String?, parameters: Map<String, Any>, body: String?): MangaBangumiResponse = client.use {
-        val response = request(url) {
+        val publicBookRequest = booksApiBaseUrl != null && (
+            (method == HttpMethod.Get && BOOK_DETAILS_URL.matches(url)) ||
+                (method == HttpMethod.Post && url == "https://api.bgm.tv/v0/search/subjects")
+            )
+        val accountRequest = booksApiBaseUrl != null && (
+            (method == HttpMethod.Get && (url == "https://api.bgm.tv/v0/me" || BOOK_COLLECTION_URL.matches(url))) ||
+                (method in listOf(HttpMethod.Post, HttpMethod.Patch) && BOOK_COLLECTION_WRITE_URL.matches(url) &&
+                    isCollectionStateWrite(method, body))
+            )
+        val target = if (publicBookRequest || accountRequest) booksApiBaseUrl + url.removePrefix("https://api.bgm.tv") else url
+        val response = request(target) {
             this.method = method
             expectSuccess = false
-            timeout { requestTimeoutMillis = 8_000; connectTimeoutMillis = 5_000 }
-            if (!token.isNullOrBlank()) bearerAuth(token)
+            timeout { requestTimeoutMillis = if (accountRequest) 20_000 else 8_000; connectTimeoutMillis = 5_000 }
+            if (!publicBookRequest && !token.isNullOrBlank()) bearerAuth(token)
             parameters.forEach { (key, value) -> parameter(key, value) }
             if (body != null) { contentType(ContentType.Application.Json); setBody(body) }
         }
         MangaBangumiResponse(response.status.value, response.bodyAsText())
+    }
+
+    private companion object {
+        val BOOK_DETAILS_URL = Regex("https://api\\.bgm\\.tv/v0/subjects/[1-9][0-9]*")
+        val BOOK_COLLECTION_URL = Regex("https://api\\.bgm\\.tv/v0/users/[A-Za-z0-9_-]+/collections(?:/[1-9][0-9]*)?")
+        val BOOK_COLLECTION_WRITE_URL = Regex("https://api\\.bgm\\.tv/v0/users/-/collections/[1-9][0-9]*")
+
+        fun isCollectionStateWrite(method: HttpMethod, body: String?): Boolean {
+            val fields = runCatching { Json.parseToJsonElement(body.orEmpty()).jsonObject.keys }.getOrNull() ?: return false
+            val allowed = if (method == HttpMethod.Post) setOf("type") else setOf("type", "ep_status", "vol_status")
+            return fields.isNotEmpty() && fields.all { it in allowed }
+        }
     }
 }
