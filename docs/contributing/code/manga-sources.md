@@ -5,19 +5,22 @@
 
 ## 来源
 
-`MangaSourceRepository` 提供 Komiic、漫画柜、包子漫画、G站漫画、优酷漫画、漫画人 的原生适配。
+`MangaSourceRepository` 提供 Komiic、漫画柜、G站漫画、优酷漫画、漫画人、CCC追漫台和 Comick 的维护来源；包子漫画适配器兼容用户自行导入的旧订阅。
 订阅地址对应 [Venera configs](https://github.com/venera-app/venera-configs) 中的协议参考；
 应用不执行远程 JavaScript，适配器更新随应用发布。
 
 - Komiic：GraphQL 搜索、目录和图片列表；图片请求使用阅读页 Referer。
 - 漫画柜：HTML 搜索/目录与受限的 LZ 字典数据解码。搜索标题优先取链接 title/封面 alt，
   封面更新提示不能作为作品标题。图片携带源站 Referer 与页面返回的签名。
-- 包子漫画：搜索和目录使用公开 HTML，图片使用 App 阅读页。网站验证可能阻止匿名访问。
+- 包子漫画：不包含在维护订阅和内置回退清单中；手动导入仍兼容其公开 HTML/App 阅读页，网站验证可能阻止匿名访问。
 - G站漫画：HTML 搜索，API 目录及图片元数据；API 和图片请求使用 G站 Referer。
   图片列表只按固定格式解码为 JSON，不执行脚本。
 - 优酷漫画：默认停用，可在订阅中手动启用。HTML 搜索/目录，章节 `chapterImages` JSON 数组；图片主机读取站点 `config.js`，图片带移动站 Referer。
 - 漫画人：HTML 搜索/目录，受限字典解码提取公开章节图片数组；图片带章节 Referer。不执行远程 JavaScript。
   部分旧章节可能已失效，404 明确报错。
+
+- CCC追漫台：公开 API 搜索和目录，读取匿名可访问章节；使用站点的免费阅读图片封装并在客户端解码，付费或登录章节明确提示到原站阅读。
+- Comick：HTML 内嵌 JSON 搜索、分页目录和分页图片列表，以英文为主；章节标题标出语言，读取同站分页，不执行远程脚本。
 
 可访问性由运行时网络和站点策略决定。HTTP 401/403/429、网页验证和没有搜索结果分别显示；
 不绕过登录、验证码或阅读额度。图片只对临时传输错误及服务器 5xx 自动重试一次。
@@ -45,8 +48,8 @@
 常规回归包括 `MangaSourceRepositoryTest`、`MangaAdditionalSourcesTest`、`MangaReadingStoreTest`、
 `MangaSourceSelectionTest`、`MangaSourcePanelTest` 和 `MangaReadAheadCacheTest`。
 `MangaSourceLiveTest` 为可选 Desktop 网络检查：设置 `ANIMEKO_MANGA_LIVE=1`，
-可选 `ANIMEKO_MANGA_PROXY`，验证所有六个来源的搜索、目录、图片列表、真实图片下载及 Skia 图片解码。
-未设置环境变量时不会访问外部网站。
+可选 `ANIMEKO_MANGA_PROXY`，验证既有来源的搜索、目录、图片列表、真实图片下载及 Skia 图片解码。
+未设置环境变量时不会访问外部网站。`VerifiedMangaSourcesTest` 覆盖 CCC 免费章节和图片封装、Comick 目录/阅读分页与订阅边界；`VerifiedMangaSourcesLiveTest` 验证两个新增来源的实际搜索、目录、图片和 Skia 解码。
 
 ## 共享管理与交互验证
 
@@ -68,7 +71,7 @@
 成功时间和尝试时间分别持久化；失败后保留上次来源与链接并等待下一周期，可随时手动重试。
 设置页和后台共用一个 repository，互斥刷新防止重复下载；停用、编辑和删除不被进行中的刷新覆盖。
 
-配置保存在 `manga.sources.settings` 的 `subscriptions` 中。内置来源为六个，优酷漫画默认停用。
+配置保存在 `manga.sources.settings` 的 `subscriptions` 中。维护清单和内置回退均为七个来源，优酷漫画默认停用；包子漫画只供自定义订阅兼容。
 旧版原始内置链接一次性合并为仓库订阅，移除 MangaDex；保留自定义和已编辑的链接、原排序、
 源级停用状态与已删除来源的停用偏好。已删除的仓库订阅和空配置不会自动补回。
 新增和修改先下载验证，失败保留原配置与编辑内容；刷新失败

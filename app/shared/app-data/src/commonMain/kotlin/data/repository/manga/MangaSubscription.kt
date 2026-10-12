@@ -46,8 +46,8 @@ data class MangaSubscription(
 
         fun defaults() = listOf(MangaSubscription(
             REPOSITORY_ID, "Animecomic 漫画源", REPOSITORY_URL,
-            sources = MangaSource.available,
-            sourceLinks = MangaSource.available.associateWith { it.subscriptionUrl },
+            sources = MangaSource.maintained,
+            sourceLinks = MangaSource.maintained.associateWith { it.subscriptionUrl },
         ))
     }
 }
@@ -66,6 +66,8 @@ object MangaSubscriptionParser {
     private val json = Json { ignoreUnknownKeys = true }
 
     private fun adapter(key: String) = when (key.lowercase()) {
+        "ccc" -> MangaSource.CCC
+        "comick" -> MangaSource.COMICK
         "komiic" -> MangaSource.KOMIIC
         "manhuagui" -> MangaSource.MANHUAGUI
         "baozi" -> MangaSource.BAOZI
@@ -134,7 +136,7 @@ object MangaSubscriptionParser {
             listOf(key)
         }
         val sources = keys.mapNotNull(::adapter).distinct()
-        require(sources.isNotEmpty()) { "订阅中没有本版本支持的漫画源；目前支持 Komiic、漫画柜、包子漫画、G站漫画、漫画人和优酷漫画" }
+        require(sources.isNotEmpty()) { "订阅中没有本版本支持的漫画源；目前支持 Komiic、漫画柜、G站漫画、漫画人、优酷漫画、CCC追漫台和 Comick（兼容手动导入包子漫画）" }
         return MangaSubscriptionContents(sources, keys.filter { adapter(it) == null }.distinct())
     }
 }

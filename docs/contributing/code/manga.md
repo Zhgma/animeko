@@ -58,7 +58,7 @@
 
 章节列表通过显示适配使用 `PagedEpisodesGrid`，适配 ID 只用于界面索引，不写入番剧数据层；支持分页、分组、阅读进度和长按标记读过。详情与阅读器共用选源、章节和缓存动作。
 
-`MangaSourceRepository` 提供 Komiic、漫画柜、包子漫画、G站漫画、漫画人和优酷漫画 的原生适配器，完整协议与可访问性说明见 [漫画来源与选源](manga-sources.md)。Komiic 与漫画柜的协议参考：
+`MangaSourceRepository` 提供 Komiic、漫画柜、G站漫画、漫画人、优酷漫画、CCC追漫台和 Comick 的维护来源，包子漫画保留手动导入兼容，完整协议与可访问性说明见 [漫画来源与选源](manga-sources.md)。Komiic 与漫画柜的协议参考：
 
 - https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/komiic.js
 - https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manhuagui.js

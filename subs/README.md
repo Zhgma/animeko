@@ -34,8 +34,10 @@
 每个 key 只能出现一次，URL 必须是无凭据的 HTTP(S) 地址。
 番剧订阅管理器不注册 `manga-native`，因此此文件应导入漫画源订阅。
 
-已支持的 key 为 `komiic`、`manhuagui`、`baozi`、`goda`、`manhuaren`、`ykmh`。
-没有 MangaDex。优酷漫画在新安装中默认停用；包子漫画可能返回访问验证或 403。
+维护清单的 key 为 `komiic`、`manhuagui`、`goda`、`manhuaren`、`ykmh`、`ccc`、`comick`。
+CCC追漫台和 Comick 需要 0.2.0-beta.4 或更新版本；旧版刷新时会把新 key 显示为暂不支持。
+没有 MangaDex 和包子漫画。优酷漫画在新安装中默认停用；用户自行导入的包子漫画订阅与本地记录不随维护清单变化而删除。
+CCC追漫台只读取匿名可访问章节；Comick 以英文内容为主。
 网站可用性受网络和站点策略影响，维护此清单不保证每个章节始终可读。
 
 ## 维护

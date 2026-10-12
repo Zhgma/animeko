@@ -44,20 +44,26 @@ enum class MangaSource(val title: String, val subscriptionUrl: String, val home:
     GODA("G站漫画", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/goda.js", "https://godamh.com"),
     MANHUAREN("漫画人", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manhuaren.js", "https://www.manhuaren.com"),
     YKMH("优酷漫画", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/ykmh.js", "https://www.ykmh.net"),
+    CCC("CCC追漫台", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/ccc.js", "https://www.creative-comic.tw"),
+    COMICK("Comick", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/comick.js", "https://comick.art"),
     // Kept for decoding saved offline records. No network adapter is registered.
     MANGADEX("MangaDex", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manga_dex.js", "https://mangadex.org");
 
-    companion object { val available = entries.filter { it != MANGADEX } }
+    companion object {
+        val available = entries.filter { it != MANGADEX }
+        val maintained = available.filter { it != BAOZI }
+    }
 }
 @Serializable
 data class MangaSourceBook(val source: MangaSource, val id: String, val title: String, val cover: String = "")
 @Serializable
 data class MangaChapter(val id: String, val title: String, val number: Double?, val group: String, val pageCount: Int = 0)
-data class MangaPage(val url: String, val referer: String, val width: Int = 0, val height: Int = 0)
+data class MangaPage(val url: String, val referer: String, val width: Int = 0, val height: Int = 0, val cccImageId: Int? = null)
 
 /** Native adapters for the previously selected Venera source subscriptions. No remote script execution. */
 class MangaSourceRepository(private val client: ScopedHttpClient, private val cookies: WebSourceCookieJar? = null, private val identities: WebSourceIdentityRegistry? = null) {
     private val additional = AdditionalMangaSources(::fetchText)
+    private val verified = VerifiedMangaSources(::fetchText)
     suspend fun search(source: MangaSource, keyword: String): List<MangaSourceBook> {
         require(keyword.isNotBlank()) { "请输入作品名称" }
         return when (source) {
@@ -69,6 +75,7 @@ class MangaSourceRepository(private val client: ScopedHttpClient, private val co
                 MangaSourceBook(source, b.text("id"), b.text("title"), b.text("imageUrl"))
             }
             MangaSource.MANHUAGUI -> parseBookLinks(fetchText("${source.home}/s/${keyword.encodeURLPathPart()}_p1.html"))
+            MangaSource.CCC, MangaSource.COMICK -> verified.search(source, keyword)
             else -> additional.search(source, keyword)
         }
     }
@@ -80,6 +87,21 @@ class MangaSourceRepository(private val client: ScopedHttpClient, private val co
         }
         Regex("https://(?:www\\.)?manhuagui\\.com/comic/(\\d+)/?(?:[?#].*)?").matchEntire(url.trim())?.let {
             return MangaSourceBook(MangaSource.MANHUAGUI, it.groupValues[1], "漫画柜 #${it.groupValues[1]}")
+        }
+        val parsed = runCatching { Url(url.trim()) }.getOrNull()
+        if (parsed?.protocol?.name == "https") {
+            val source = when (parsed.host) {
+                "www.creative-comic.tw" -> MangaSource.CCC
+                "comick.art" -> MangaSource.COMICK
+                else -> null
+            }
+            if (source != null) {
+                val pattern = if (source == MangaSource.CCC) Regex("/zh/book/([0-9]+)(?:/content)?/?")
+                    else Regex("/comic/([A-Za-z0-9_-]+)/?")
+                pattern.matchEntire(parsed.encodedPath)?.let {
+                    return MangaSourceBook(source, it.groupValues[1], "${source.title} · ${it.groupValues[1]}")
+                }
+            }
         }
         return additional.bookFromUrl(url)
     }
@@ -101,6 +123,7 @@ class MangaSourceRepository(private val client: ScopedHttpClient, private val co
             }
             parseChapters(book.id, html).also { check(it.isNotEmpty()) { "漫画柜未返回章节，可能需要验证或页面格式有变" } }
         }
+        MangaSource.CCC, MangaSource.COMICK -> verified.chapters(book)
         else -> additional.chapters(book)
     }
 
@@ -120,10 +143,17 @@ class MangaSourceRepository(private val client: ScopedHttpClient, private val co
                     "${book.source.home}/")
             }
         }
+        MangaSource.CCC, MangaSource.COMICK -> verified.pages(book, chapter)
         else -> additional.pages(book, chapter)
     }.also { check(it.isNotEmpty()) { "该章节没有返回图片" } }
 
     suspend fun image(page: MangaPage): ByteArray = retryTransient {
+        val cccKey = page.cccImageId?.let { id ->
+            require(id > 0 && page.url == "https://storage.googleapis.com/ccc-www/fs/chapter_content/encrypt/$id/2")
+            val key = Json.parseToJsonElement(fetchText("${VerifiedMangaSources.CCC_API}/book/chapter/image/$id")).jsonObject
+            check(key.number("code") == 0) { "CCC：该图片需要登录或购买" }
+            key.obj("data").text("key").also { check(it.isNotBlank()) { "CCC 未返回图片密钥" } }
+        }
         client.use {
             val url = page.url
             val response = get(page.url) {
@@ -135,9 +165,10 @@ class MangaSourceRepository(private val client: ScopedHttpClient, private val co
                 timeout { requestTimeoutMillis = 45_000; connectTimeoutMillis = 15_000; socketTimeoutMillis = 20_000 }
             }
             checkStatus(response.status.value, "图片")
-            if (response.contentType()?.contentType != "image") throw MangaSourceAccessException(
+            if (cccKey == null && response.contentType()?.contentType != "image") throw MangaSourceAccessException(
                 "来源返回的不是图片，可能需要登录、网页验证或阅读额度已用完；请切换来源")
             response.body<ByteArray>().also { check(it.size in 1..25_000_000) { "图片大小异常" } }
+                .let { if (cccKey == null) it else decodeCccImage(cccKey, it) }
         }
     }
 
@@ -166,6 +197,7 @@ class MangaSourceRepository(private val client: ScopedHttpClient, private val co
             expectSuccess = false; header("Referer", origin); header("User-Agent", identities?.userAgentFor(Url(url).host) ?: USER_AGENT)
             cookies?.getCookieHeaderValues(url)?.forEach { header("Cookie", it) }
             header("Accept", "text/html,application/json;q=0.9,*/*;q=0.8")
+            if (Url(url).host == "api.creative-comic.tw") { header("device", "web_desktop"); header("uuid", "null") }
             timeout { requestTimeoutMillis = 25_000; connectTimeoutMillis = 10_000 }
         }
         val body = response.bodyAsText()
