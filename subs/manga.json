@@ -23,15 +23,6 @@
         "factoryId": "manga-native",
         "version": 1,
         "arguments": {
-          "name": "包子漫画",
-          "key": "baozi",
-          "url": "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/baozi.js"
-        }
-      },
-      {
-        "factoryId": "manga-native",
-        "version": 1,
-        "arguments": {
           "name": "G站漫画",
           "key": "goda",
           "url": "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/goda.js"
@@ -53,6 +44,24 @@
           "name": "优酷漫画",
           "key": "ykmh",
           "url": "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/ykmh.js"
+        }
+      },
+      {
+        "factoryId": "manga-native",
+        "version": 1,
+        "arguments": {
+          "name": "CCC追漫台",
+          "key": "ccc",
+          "url": "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/ccc.js"
+        }
+      },
+      {
+        "factoryId": "manga-native",
+        "version": 1,
+        "arguments": {
+          "name": "Comick",
+          "key": "comick",
+          "url": "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/comick.js"
         }
       }
     ]
