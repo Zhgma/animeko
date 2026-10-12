@@ -1,0 +1,1 @@
+{"mediaSources": [{"factoryId": "rss", "version": 1, "arguments": {"name": "\u672c\u5730 RSS \u9a8c\u8bc1", "searchConfig": {"searchUrl": "http://127.0.0.1:4173/samples/test-feed.xml", "filterByEpisodeSort": false}}}]}
