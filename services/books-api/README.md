@@ -16,6 +16,7 @@
 | GET | `/v0/users/{username}/collections/{id}` | 本人书籍收藏状态、话数/卷数等 |
 | POST | `/v0/users/-/collections/{id}` | 新建或修改书籍收藏状态 |
 | PATCH | `/v0/users/-/collections/{id}` | 局部更新书籍收藏状态、话数/卷数、评分、短评与隐私 |
+| GET | `/images/{payload}/{signature}` | 书籍接口返回的签名封面和评论头像 |
 | GET | `/health` | 进程健康检查，不请求 BGM |
 
 机器可读契约：[openapi.yaml](openapi.yaml)。
@@ -73,7 +74,7 @@ POST 只接受上面的 type 字段。PATCH 接受非空的 `type`、`ep_status`
 ## 范围和资源限制
 
 - 固定访问 `https://api.bgm.tv`，公开评论固定访问 `https://next.bgm.tv/p1/subjects/{id}/comments`，使用 Node HTTPS 直连；不使用环境代理、不接受上游 URL、不跟随重定向。
-- 公开搜索/详情/评论/关联拒绝 `Authorization`；本人书籍收藏接口要求 Bearer 凭据。所有接口拒绝 Cookie，不代理剧集、封面图片或阅读资源。
+- 公开搜索/详情/评论/关联拒绝 `Authorization`；本人书籍收藏接口要求 Bearer 凭据。所有接口拒绝 Cookie，不代理剧集或漫画阅读资源。图片只允许书籍接口返回的签名封面与头像。
 - 受 BGM 登录权限限制的数据不保证可访问，NSFW 参数不绕过 BGM 的授权规则。
 - 每 IP 平均 60 次/分钟，突发 30 次；全局平均 300 次/分钟，突发 60 次；限流包含缓存命中。
 - 每 IP 最多 6 个并发数据请求，适配应用最多 4 条目并行读取；全局最多 8 个，最多 128 个 HTTP 连接。
@@ -88,7 +89,7 @@ POST 只接受上面的 type 字段。PATCH 接受非空的 `type`、`ep_status`
 
 复用 `MangaBangumiHttp` 和现有 JSON 解析，不修改 Animeko 的自动生成客户端。
 `MangaBangumiNetwork` 提供 `BOOKS_API_BASE_URL`，将书籍搜索、基础详情、公开评论、本人身份/收藏查询及收藏状态/阅读进度写入路由到本服务。
-公开请求不发送用户 BGM token，账号请求复用当前用户的 token。评分写入和关联使用原地址；番剧继续使用原有 Animeko/BGM 接口。
+公开请求不发送用户 BGM token，账号请求复用当前用户的 token。评分写入和关联也使用书籍服务；番剧继续使用原有 Animeko/BGM 接口。
 手动进度与阅读器自动完成一话调用同一个 `MangaLibraryRepository.setProgress`，真实同步成功才刷新应用状态。
 客户端账号和评论请求总超时为 20 秒，其他公开请求为 8 秒。
 本机缓存仍使用已有 `MangaBangumiCache`。已安装的旧应用需要更新构建后才会使用新入口。
@@ -96,7 +97,7 @@ POST 只接受上面的 type 字段。PATCH 接受非空的 `type`、`ep_status`
 ## 验证与部署
 
 ```powershell
-node --test services/books-api/server.test.mjs
+node --test services/books-api/server.test.mjs services/books-api/images.test.mjs
 node services/books-api/smoke.mjs
 ```
 
@@ -129,3 +130,11 @@ Start-ScheduledTask -TaskName AnimeComic-BooksApi
 ## 关联作品与单行本
 
 关联接口验证根条目 `type=1`，保留结果中的漫画、单行本、小说和动画关联。根条目的类型限制不作用于关联目标，点击动画仍进入原番剧链路。关联缓存 60 秒，书籍校验和读取共享 15 秒时限，客户端超时 20 秒。公开关联拒绝凭据、查询参数和写入方法。
+
+## 封面和评论头像
+
+书籍搜索、详情、关联、本人书架和评论响应中的 `images`、`image`、`avatar` 字段返回本服务的签名图片 URL，JSON 结构保持一致。客户端直接使用返回地址。正文和短评中的链接不改写。
+
+图片上游固定为 `https://lain.bgm.tv` 的封面与头像路径，仅允许 JPEG、PNG、WebP、GIF；不跟随重定向、不传凭据、不接受任意 URL。签名密钥位于 `config/image-signing.key`，部署时生成并保留，只有管理员、SYSTEM 和服务账号有权限。更换密钥会使旧图片链接失效。
+
+每张图最多 8 MiB、12 秒时限；公共缓存最多 256 项/32 MiB，缓存一小时并合并同时请求。图片采用独立限额：每 IP 突发 120、每分钟 240 次，全局突发 240、每分钟 1200 次；每 IP 8 个并发、全局 12 个。图片请求不消耗书籍 JSON 接口配额。番剧图片和漫画阅读源图片保持各自原有链路。

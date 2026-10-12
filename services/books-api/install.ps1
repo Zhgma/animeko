@@ -16,11 +16,22 @@ if (-not (Test-Path -LiteralPath $runtime)) {
 }
 & $runtime --check (Join-Path $PSScriptRoot 'server.mjs')
 if ($LASTEXITCODE -ne 0) { throw 'Invalid server script' }
-& $runtime --test (Join-Path $PSScriptRoot 'server.test.mjs')
+& $runtime --test (Join-Path $PSScriptRoot 'server.test.mjs') (Join-Path $PSScriptRoot 'images.test.mjs')
 if ($LASTEXITCODE -ne 0) { throw 'Server tests failed' }
 & icacls.exe $root /grant '*S-1-5-19:(OI)(CI)RX' | Out-Null
 & icacls.exe (Join-Path $root 'logs') /grant '*S-1-5-19:(OI)(CI)M' | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Cannot set service permissions' }
+$configDir = Join-Path $root 'config'
+New-Item -ItemType Directory -Path $configDir -Force | Out-Null
+& icacls.exe $configDir /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' '*S-1-5-19:(OI)(CI)RX' | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'Cannot secure image signing configuration' }
+$imageKey = Join-Path $configDir 'image-signing.key'
+if (-not (Test-Path -LiteralPath $imageKey)) {
+    $keyBytes = New-Object byte[] 32
+    $random = [Security.Cryptography.RandomNumberGenerator]::Create()
+    try { $random.GetBytes($keyBytes); [IO.File]::WriteAllBytes($imageKey, $keyBytes) } finally { $random.Dispose() }
+}
+if ((Get-Item -LiteralPath $imageKey).Length -ne 32) { throw 'Invalid image signing key' }
 $oldTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 if ($oldTask) {
     Export-ScheduledTask -TaskName $taskName | Set-Content -LiteralPath (Join-Path $backupDir 'task.xml')
@@ -36,7 +47,7 @@ $healthy = $false
 for ($i = 0; $i -lt 15; $i++) {
     try {
         $result = Invoke-RestMethod 'http://127.0.0.1:4180/api/books/health' -TimeoutSec 2
-        if ($result.service -eq 'animecomic-books' -and $result.version -eq 4) { $healthy = $true; break }
+        if ($result.service -eq 'animecomic-books' -and $result.version -eq 5) { $healthy = $true; break }
     } catch { Start-Sleep -Seconds 1 }
 }
 if (-not $healthy) {

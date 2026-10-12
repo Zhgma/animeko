@@ -41,6 +41,16 @@ const comments = await call('/p1/subjects/311122/comments?limit=2&offset=0');
 assert.equal(comments.response.status, 200); assert.ok(comments.data.total > 2); assert.equal(comments.data.data.length, 2);
 const nextComments = await call('/p1/subjects/311122/comments?limit=2&offset=2');
 assert.equal(nextComments.response.status, 200); assert.notEqual(comments.data.data[0].id, nextComments.data.data[0].id);
+const volume = await call('/v0/subjects/118167');
+for (const imageUrl of [volume.data.images.large, relations.data.find(item => item.type === 1).images.common,
+  comments.data.data[0].user.avatar.medium]) {
+  assert.ok(imageUrl.startsWith(base + '/images/'));
+  const response = await fetch(imageUrl, { signal: AbortSignal.timeout(20000) });
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-type'), /^image\/(jpeg|png|webp|gif)$/);
+  assert.ok((await response.arrayBuffer()).byteLength > 0);
+  results.push({ image: true, status: response.status, type: response.headers.get('content-type') });
+}
 assert.equal((await call('/p1/subjects/253/comments')).response.status, 404);
 assert.equal((await call('/p1/subjects/311122/comments?limit=21')).response.status, 400);
 // Different client-supplied forwarding headers must still share the actual caller's IP budget.

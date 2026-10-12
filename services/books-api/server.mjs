@@ -3,6 +3,7 @@ import http from 'node:http';
 import https from 'node:https';
 import { isIP } from 'node:net';
 import { pathToFileURL } from 'node:url';
+import { createBookImages, ImageError } from './images.mjs';
 
 const PREFIX = '/api/books';
 const MAX_RESPONSE = 2 * 1024 * 1024;
@@ -112,9 +113,14 @@ async function readCollectionWrite(request) {
 
 export function createBooksServer({ upstream = fetchBangumi, commentsUpstream = fetchBookComments, now = Date.now,
   ipBurst = 30, ipPerMinute = 60, globalBurst = 60, globalPerMinute = 300,
+  imageSecret, imageBaseUrl, imageUpstream, imageIpBurst = 120, imageIpPerMinute = 240,
+  imageGlobalBurst = 240, imageGlobalPerMinute = 1200,
   maxConcurrent = 8, maxPerIpConcurrent = 6, trustLoopbackProxy = false } = {}) {
   const clients = new Map(), cache = new Map(), pending = new Map();
   const global = { tokens: globalBurst, at: now() };
+  const imageGlobal = { tokens: imageGlobalBurst, at: now() };
+  const images = createBookImages({ secret: imageSecret, baseUrl: imageBaseUrl, upstream: imageUpstream, now });
+  let activeImages = 0;
   let active = 0, cacheBytes = 0, cooldownUntil = 0;
   function spend(bucket, burst, rate) {
     const time = now();
@@ -131,10 +137,10 @@ export function createBooksServer({ upstream = fetchBangumi, commentsUpstream = 
     let client = clients.get(ip);
     if (!client) {
       if (clients.size >= 10000) {
-        for (const [key, entry] of clients) if (!entry.active && now() - entry.at > 120000) clients.delete(key);
+        for (const [key, entry] of clients) if (!entry.active && !entry.images.active && now() - Math.max(entry.at, entry.images.at) > 120000) clients.delete(key);
         if (clients.size >= 10000) throw new ApiError(503, 'server_busy');
       }
-      client = { tokens: ipBurst, at: now(), active: 0, writes: { tokens: 10, at: now() } }; clients.set(ip, client);
+      client = { tokens: ipBurst, at: now(), active: 0, images: { tokens: imageIpBurst, at: now(), active: 0 }, writes: { tokens: 10, at: now() } }; clients.set(ip, client);
     }
     return client;
   }
@@ -189,7 +195,7 @@ export function createBooksServer({ upstream = fetchBangumi, commentsUpstream = 
         const denied = { status: 404, body: JSON.stringify({ error: 'book_not_found' }), cache: 'MISS' };
         remember(key, denied, 300000); return denied;
       }
-      const success = { status: 200, body: JSON.stringify(result.data), cache: 'MISS' };
+      const success = { status: 200, body: JSON.stringify(images.rewrite(result.data)), cache: 'MISS' };
       remember(key, success, isSearch || commentsLimit !== null || relations ? 60000 : 3600000); return success;
     })();
     pending.set(key, promise);
@@ -256,27 +262,31 @@ export function createBooksServer({ upstream = fetchBangumi, commentsUpstream = 
     } else if (!object(result.data) || result.data.subject_id !== id || result.data.subject_type !== 1) {
       throw new ApiError(502, 'invalid_upstream_collection');
     }
-    reply(response, 200, result.data);
+    reply(response, 200, images.rewrite(result.data));
   }
   const server = http.createServer({ maxHeaderSize: 8192 }, async (request, response) => {
-    let client, admitted = false;
+    let client, admitted = false, imageAdmitted = false;
     try {
       // Reject encoded/traversal/absolute paths before URL normalization.
-      if (!/^\/api\/books\/[A-Za-z0-9_/-]+(?:\?[^#]*)?$/.test(request.url) || request.url.length > 512) throw new ApiError(404, 'not_found');
+      if (!/^\/api\/books\/[A-Za-z0-9_/-]+(?:\?[^#]*)?$/.test(request.url) || request.url.length > 1024) throw new ApiError(404, 'not_found');
       const url = new URL(request.url, 'http://localhost');
       const isSearch = url.pathname === PREFIX + '/v0/search/subjects';
       const detail = new RegExp('^' + PREFIX + '/v0/subjects/([1-9]\\d{0,7})$').exec(url.pathname);
       const comments = new RegExp('^' + PREFIX + '/p1/subjects/([1-9]\\d{0,7})/comments$').exec(url.pathname);
       const relations = new RegExp('^' + PREFIX + '/v0/subjects/([1-9]\\d{0,7})/subjects$').exec(url.pathname);
       const health = url.pathname === PREFIX + '/health';
+      const image = /^\/api\/books\/images\/([A-Za-z0-9_-]{1,600})\/([A-Za-z0-9_-]{43})$/.exec(url.pathname);
+      if (!image && request.url.length > 512) throw new ApiError(404, 'not_found');
       const isMe = url.pathname === PREFIX + '/v0/me';
       const collection = new RegExp('^' + PREFIX + '/v0/users/([A-Za-z0-9_-]{1,64})/collections(?:/([1-9]\\d{0,7}))?$').exec(url.pathname);
       const account = isMe || Boolean(collection);
       const canWrite = collection && collection[1] === '-' && collection[2];
       const isWrite = canWrite && ['POST', 'PATCH'].includes(request.method);
-      if (!isSearch && !detail && !comments && !relations && !health && !account) throw new ApiError(404, 'not_found');
+      if (!isSearch && !detail && !comments && !relations && !health && !account && !image) throw new ApiError(404, 'not_found');
       client = clientFor(request);
-      if (!spend(global, globalBurst, globalPerMinute) || !spend(client, ipBurst, ipPerMinute)) throw new ApiError(429, 'rate_limited');
+      if (image) {
+        if (!spend(imageGlobal, imageGlobalBurst, imageGlobalPerMinute) || !spend(client.images, imageIpBurst, imageIpPerMinute)) throw new ApiError(429, 'rate_limited');
+      } else if (!spend(global, globalBurst, globalPerMinute) || !spend(client, ipBurst, ipPerMinute)) throw new ApiError(429, 'rate_limited');
       if (request.method === 'OPTIONS') {
         reply(response, 204, '', { 'Access-Control-Allow-Methods': isSearch ? 'POST, OPTIONS' : canWrite ? 'GET, POST, PATCH, OPTIONS' : 'GET, OPTIONS', 'Access-Control-Allow-Headers': account ? 'Content-Type, Authorization' : 'Content-Type', 'Access-Control-Max-Age': '600' }); return;
       }
@@ -285,10 +295,19 @@ export function createBooksServer({ upstream = fetchBangumi, commentsUpstream = 
       const allowed = isSearch || comments ? ['limit', 'offset'] : collection && !collection[2] ? ['limit', 'offset', 'type', 'subject_type'] : [];
       const keys = [...url.searchParams.keys()];
       if (keys.some(key => !allowed.includes(key)) || new Set(keys).size !== keys.length) throw new ApiError(400, 'invalid_query');
-      if (health) { reply(response, 200, { status: 'ok', service: 'animecomic-books', version: 4 }); return; }
+      if (health) { reply(response, 200, { status: 'ok', service: 'animecomic-books', version: 5 }); return; }
+      if (request.method === 'GET' && (Number(request.headers['content-length'] ?? 0) || request.headers['transfer-encoding'])) throw new ApiError(400, 'body_not_allowed');
+      if (image) {
+        if (activeImages >= 12 || client.images.active >= 8) throw new ApiError(429, 'too_many_concurrent_requests');
+        activeImages++; client.images.active++; imageAdmitted = true;
+        const result = await images.load(image[1], image[2]);
+        response.writeHead(200, { 'Content-Type': result.type, 'Content-Length': result.body.length,
+          'Cache-Control': 'public, max-age=3600', 'X-Content-Type-Options': 'nosniff',
+          'Access-Control-Allow-Origin': '*', 'X-Cache': result.cache });
+        response.end(result.body); return;
+      }
       if (active >= maxConcurrent || client.active >= maxPerIpConcurrent) throw new ApiError(429, 'too_many_concurrent_requests');
       active++; client.active++; admitted = true;
-      if (request.method === 'GET' && (Number(request.headers['content-length'] ?? 0) || request.headers['transfer-encoding'])) throw new ApiError(400, 'body_not_allowed');
       if (account) { await handleAccount(request, response, url, collection, isMe, isWrite, client); return; }
       if (relations) {
         const id = Number(relations[1]);
@@ -326,11 +345,15 @@ export function createBooksServer({ upstream = fetchBangumi, commentsUpstream = 
       const result = await load(key, path, options, isSearch, detail ? Number(detail[1]) : null);
       reply(response, result.status, result.body, { 'X-Cache': result.cache });
     } catch (error) {
-      const status = error instanceof ApiError ? error.status : error.name === 'AbortError' ? 504 : 502;
-      reply(response, status, { error: error instanceof ApiError ? error.code : status === 504 ? 'upstream_timeout' : 'upstream_unavailable' },
+      const known = error instanceof ApiError || error instanceof ImageError;
+      const status = known ? error.status : error.name === 'AbortError' ? 504 : 502;
+      reply(response, status, { error: known ? error.code : status === 504 ? 'upstream_timeout' : 'upstream_unavailable' },
         { ...(status === 429 || status === 503 ? { 'Retry-After': '15' } : {}),
           ...(status === 413 ? { Connection: 'close' } : {}) });
-    } finally { if (admitted) { active--; client.active--; } }
+    } finally {
+      if (admitted) { active--; client.active--; }
+      if (imageAdmitted) { activeImages--; client.images.active--; }
+    }
   });
   server.headersTimeout = 5000;
   server.requestTimeout = 10000;

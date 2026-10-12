@@ -1,11 +1,33 @@
 openapi: 3.0.3
 info:
   title: AnimeComic Books API
-  version: 4.0.0
+  version: 5.0.0
   description: Bangumi type=1 search, metadata, public comments, relations and authenticated own book collection state/progress/rating. All upstream traffic is direct HTTPS.
 servers:
   - url: https://119.28.149.19:8443/api/books
 paths:
+  /images/{payload}/{signature}:
+    get:
+      operationId: getBookImage
+      description: Use the complete signed URL returned in book image or comment avatar fields. Fixed lain.bgm.tv upstream; no credentials, arbitrary URL parameters or redirects. Separate rate limits and one-hour public image cache.
+      parameters:
+        - name: payload
+          in: path
+          required: true
+          schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,600}$' }
+        - name: signature
+          in: path
+          required: true
+          schema: { type: string, pattern: '^[A-Za-z0-9_-]{43}$' }
+      responses:
+        '200':
+          description: Validated raster image up to 8 MiB
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+            image/gif: { schema: { type: string, format: binary } }
+        default: { $ref: '#/components/responses/Error' }
   /v0/subjects/{id}/subjects:
     get:
       operationId: getBookRelations
