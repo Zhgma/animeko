@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import { webUrl, parseFeed, boundedFetch, parseSubscriptionJson } from './media-core.mjs';
-import { btAttributes } from './bt-attributes.mjs';
+import { webUrl, parseFeed, boundedFetch, parseSubscriptionJson } from './media-core.mjs?v=f2d23ecc1bbfac74';
+import { btAttributes } from './bt-attributes.mjs?v=f2d23ecc1bbfac74';
 
 const gardenHosts = ['api.animes.garden', 'animes.garden', 'garden.breadio.wiki'];
 const host = url => { try { return new URL(url).hostname; } catch { return ''; } };

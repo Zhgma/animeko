@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import './api-endpoints.js';
+import './api-endpoints.js?v=f2d23ecc1bbfac74';
 export const defaults = { maxConns: 20, downloadLimit: -1, uploadLimit: -1, webSeeds: true, trackers: [], refreshMinutes: 60, autoRefresh: true, playbackRate: 1 };
 export function checkedSettings(value = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('网页 BT 设置必须是 JSON 对象');
