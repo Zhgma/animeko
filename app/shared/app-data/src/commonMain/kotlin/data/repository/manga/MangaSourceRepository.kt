@@ -37,6 +37,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import io.ktor.utils.io.errors.IOException
 
+const val KOMIIC_API_BASE_URL = "https://119.28.149.19:8443/api/komiic"
+
 enum class MangaSource(val title: String, val subscriptionUrl: String, val home: String) {
     KOMIIC("Komiic", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/komiic.js", "https://komiic.com"),
     MANHUAGUI("漫画柜", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manhuagui.js", "https://www.manhuagui.com"),
@@ -48,6 +50,8 @@ enum class MangaSource(val title: String, val subscriptionUrl: String, val home:
     COMICK("Comick", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/comick.js", "https://comick.art"),
     // Kept for decoding saved offline records. No network adapter is registered.
     MANGADEX("MangaDex", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manga_dex.js", "https://mangadex.org");
+
+    val iconUrl: String get() = if (this == KOMIIC) "$KOMIIC_API_BASE_URL/icon" else "$home/favicon.ico"
 
     companion object {
         val available = entries.filter { it != MANGADEX }
@@ -67,8 +71,8 @@ class MangaSourceRepository(private val client: ScopedHttpClient, private val co
     suspend fun search(source: MangaSource, keyword: String): List<MangaSourceBook> {
         require(keyword.isNotBlank()) { "请输入作品名称" }
         return when (source) {
-            MangaSource.KOMIIC -> query(
-                "query Search(\$keyword: String!) { searchComicsAndAuthors(keyword: \$keyword) { comics { id title imageUrl } } }",
+            MangaSource.KOMIIC -> komiic(
+                "Search",
                 buildJsonObject { put("keyword", keyword) },
             ).obj("searchComicsAndAuthors").array("comics").map {
                 val b = it.jsonObject
@@ -107,8 +111,8 @@ class MangaSourceRepository(private val client: ScopedHttpClient, private val co
     }
 
     suspend fun chapters(book: MangaSourceBook): List<MangaChapter> = when (book.source) {
-        MangaSource.KOMIIC -> query(
-            "query Chapters(\$comicId: ID!) { chaptersByComicId(comicId: \$comicId) { id serial type size } }",
+        MangaSource.KOMIIC -> komiic(
+            "Chapters",
             buildJsonObject { put("comicId", book.id) },
         ).array("chaptersByComicId").map {
             val c = it.jsonObject
@@ -128,13 +132,14 @@ class MangaSourceRepository(private val client: ScopedHttpClient, private val co
     }
 
     suspend fun pages(book: MangaSourceBook, chapter: MangaChapter): List<MangaPage> = when (book.source) {
-        MangaSource.KOMIIC -> query(
-            "query Images(\$chapterId: ID!) { imagesByChapterId(chapterId: \$chapterId) { kid width height } }",
-            buildJsonObject { put("chapterId", chapter.id) },
+        MangaSource.KOMIIC -> komiic(
+            "Images",
+            buildJsonObject { put("comicId", book.id); put("chapterId", chapter.id) },
         ).array("imagesByChapterId").map {
             val p = it.jsonObject
-            MangaPage("${book.source.home}/api/image/${p.text("kid").encodeURLPathPart()}",
-                "${book.source.home}/comic/${book.id}/chapter/${chapter.id}/images/all", p.number("width"), p.number("height"))
+            val url = p.text("url")
+            check(url.startsWith("$KOMIIC_API_BASE_URL/images/")) { "Komiic 未返回有效的图片地址" }
+            MangaPage(url, "$KOMIIC_API_BASE_URL/", p.number("width"), p.number("height"))
         }
         MangaSource.MANHUAGUI -> {
             val data = ManhuaguiDecoder.chapter(fetchText("${book.source.home}/comic/${book.id}/${chapter.id}.html"))
@@ -160,7 +165,7 @@ class MangaSourceRepository(private val client: ScopedHttpClient, private val co
                 expectSuccess = false
                 header("Referer", page.referer)
                 header("User-Agent", identities?.userAgentFor(Url(url).host) ?: USER_AGENT)
-            cookies?.getCookieHeaderValues(url)?.forEach { header("Cookie", it) }
+                if (!url.startsWith("$KOMIIC_API_BASE_URL/")) cookies?.getCookieHeaderValues(url)?.forEach { header("Cookie", it) }
                 header("Accept", "image/avif,image/webp,image/png,image/jpeg,*/*;q=0.8")
                 timeout { requestTimeoutMillis = 45_000; connectTimeoutMillis = 15_000; socketTimeoutMillis = 20_000 }
             }
@@ -172,17 +177,15 @@ class MangaSourceRepository(private val client: ScopedHttpClient, private val co
         }
     }
 
-    private suspend fun query(query: String, variables: JsonObject): JsonObject = client.use {
-        val url = "https://komiic.com/api/query"
+    private suspend fun komiic(operation: String, variables: JsonObject): JsonObject = client.use {
+        val url = "$KOMIIC_API_BASE_URL/query"
         val response = post(url) {
             expectSuccess = false
             contentType(ContentType.Application.Json)
-            header("Referer", "https://komiic.com/")
-            header("User-Agent", identities?.userAgentFor(Url(url).host) ?: USER_AGENT)
-            cookies?.getCookieHeaderValues(url)?.forEach { header("Cookie", it) }
+            header("User-Agent", USER_AGENT)
             header("Accept", "application/json")
             timeout { requestTimeoutMillis = 25_000; connectTimeoutMillis = 10_000 }
-            setBody(buildJsonObject { put("query", query); put("variables", variables) }.toString())
+            setBody(buildJsonObject { put("operation", operation); put("variables", variables) }.toString())
         }
         checkStatus(response.status.value, "Komiic")
         val root = Json.parseToJsonElement(response.bodyAsText()).jsonObject

@@ -24,7 +24,7 @@ class MangaSourceRepositoryTest {
     @Test
     fun separatesVolumesAndOrdersDecimalChapters() = runTest {
         val client = HttpClient(MockEngine { request ->
-            assertEquals("komiic.com", request.url.host)
+            assertEquals("$KOMIIC_API_BASE_URL/query", request.url.toString())
             assertNull(request.headers["Authorization"])
             respond("""{"data":{"chaptersByComicId":[
                 {"id":"3","serial":"10","type":"chapter","size":20},

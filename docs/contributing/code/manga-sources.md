@@ -9,7 +9,7 @@
 订阅地址对应 [Venera configs](https://github.com/venera-app/venera-configs) 中的协议参考；
 应用不执行远程 JavaScript，适配器更新随应用发布。
 
-- Komiic：GraphQL 搜索、目录和图片列表；图片请求使用阅读页 Referer。
+- Komiic：通过独立的 [Komiic API](../../../services/komiic-api/README.md) 搜索、读取目录和图片列表；服务端只生成固定查询，封面、站点图标和阅读图片通过受限图片端点加载，图片请求使用章节阅读页 Referer。客户端不向服务端发送 Komiic Cookie，其他来源保持原有会话和网络路径。
 - 漫画柜：HTML 搜索/目录与受限的 LZ 字典数据解码。搜索标题优先取链接 title/封面 alt，
   封面更新提示不能作为作品标题。图片携带源站 Referer 与页面返回的签名。
 - 包子漫画：不包含在维护订阅和内置回退清单中；手动导入仍兼容其公开 HTML/App 阅读页，网站验证可能阻止匿名访问。

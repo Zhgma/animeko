@@ -38,7 +38,7 @@ internal fun MangaSourcePanel(
     val actions = LocalMangaActions.current
     val choices = remember(state.sourceSettings) {
         state.sourceSettings.enabled.map { ManualBrowseSource(it.name, it.name,
-            MediaSourceInfo(displayName = it.title, websiteUrl = it.home, iconUrl = "${it.home}/favicon.ico")) }
+            MediaSourceInfo(displayName = it.title, websiteUrl = it.home, iconUrl = it.iconUrl)) }
     }
     val booksBySource = MangaSource.available.associateWith { candidate ->
         state.sourceSearches[candidate]?.books ?: if (candidate == state.source) state.results else emptyList()
@@ -46,7 +46,7 @@ internal fun MangaSourcePanel(
     val rows = state.sourceSettings.enabled.map { candidate ->
         val result = state.sourceSearches[candidate]
         val books = booksBySource.getValue(candidate)
-        WebSource(candidate.name, candidate.name, "${candidate.home}/favicon.ico", candidate.title,
+        WebSource(candidate.name, candidate.name, candidate.iconUrl, candidate.title,
             books.map { book -> WebSourceChannel(if (books.count { it.title == book.title } > 1) "${book.title} · #${book.id}" else book.title) }, isLoading = result?.loading == true,
             isError = result?.error != null, isPreferred = state.book?.source == candidate,
             captchaRequest = result?.captcha, isResolvingCaptcha = result?.resolvingCaptcha == true, isCaptchaSupported = state.captchaSupported)
