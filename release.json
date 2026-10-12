@@ -1,22 +1,22 @@
 {
-  "version": "0.2.0-beta.5",
-  "versionCode": 50412,
-  "tag": "0.2.0-beta.5",
+  "version": "0.2.0-beta.6",
+  "versionCode": 50413,
+  "tag": "0.2.0-beta.6",
   "prerelease": true,
-  "sourceCommit": "ea0bcc7e6cd59064e81cbb45fb55189b4770ae48",
+  "sourceCommit": "f3e647fc293c408418c5fb0dfa8af26723f476ec",
   "assets": {
-    "ani-0.2.0-beta.5-arm64-v8a.apk": {
-      "sha256": "8f60d5560c876fae009168ab83a17f661009d3470effc38ecdff1e0f513fe044",
+    "ani-0.2.0-beta.6-arm64-v8a.apk": {
+      "sha256": "578863cc83f3e756b130ea85bcc790ba346619b2870d1d08c4595528e295b893",
       "size": 38226617,
       "package": "me.him188.ani",
       "certificateSha256": "0e9cd761d18f282964ed79b7ec06e1ee5f6be84e84d065e8766151291915365a"
     },
-    "ani-0.2.0-beta.5-arm64-v8a.apk.sha1": {
-      "sha256": "4771d2f817dc4fe2b21549e3e8366f19b1cfe97d40ef25413a445693e777ff83",
+    "ani-0.2.0-beta.6-arm64-v8a.apk.sha1": {
+      "sha256": "c756192dbd743314c1aff5a068092e022036a6b816adb661358792bb8ea2ef5b",
       "size": 40
     },
     "SHA256SUMS.txt": {
-      "sha256": "8745fcf8a2d103e6e8a88a7013bc1145b1abee88f37768509d6ee4e4fe65d2fd",
+      "sha256": "5d1754a0b0fab91580652695506fbf2c57144783f8164abe162479169a17f1d8",
       "size": 97
     }
   }
