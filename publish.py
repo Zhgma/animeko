@@ -32,6 +32,7 @@ def validate():
     require(isinstance(meta.get("prerelease", False), bool), "Invalid prerelease flag")
     require(meta.get("prerelease", False) == ("-" in version), "Version/channel mismatch")
     require(re.fullmatch(r"[0-9a-f]{40}", meta["sourceCommit"]), "Invalid source commit")
+    validate_public_assets(meta)
     sdk = Path(os.environ.get("ANDROID_HOME", os.environ.get("ANDROID_SDK_ROOT", "")))
     suffix = ".bat" if os.name == "nt" else ""
     signers = sorted((sdk / "build-tools").glob("*/apksigner" + suffix))
@@ -50,11 +51,19 @@ def validate():
             certificate = run(str(signer), "verify", "--print-certs", str(p)).stdout
             require("certificate SHA-256 digest: " + expected["certificateSha256"] in certificate, "APK signer differs")
             badging = run(str(aapt), "dump", "badging", str(p)).stdout
+            require("application-debuggable" not in badging, "Debuggable APKs must not be published")
             require(f"name='{expected['package']}' versionCode='{meta['versionCode']}' versionName='{version}'" in badging, "APK package/version differs")
             require("sdkVersion:'27'" in badging and "native-code: 'arm64-v8a'" in badging, "APK platform differs")
         files.append(p)
-    require(len([p for p in files if p.suffix == ".apk"]) == 2, "Expected release and debug APKs")
     return meta, files
+
+
+def validate_public_assets(meta):
+    assets = meta["assets"]
+    require(not any("debug" in name.lower() for name in assets), "Debug artifacts must not be published")
+    apks = [asset for name, asset in assets.items() if name.endswith(".apk")]
+    require(apks, "Expected a signed release APK")
+    require(all(asset.get("package") == "me.him188.ani" for asset in apks), "Expected release application ID")
 
 
 def verify_uploaded(tag, files):

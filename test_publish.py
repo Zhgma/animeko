@@ -6,6 +6,19 @@ from unittest.mock import patch
 import publish
 
 class PublicationChannelTest(unittest.TestCase):
+    def test_debug_publication_is_rejected_even_when_renamed(self):
+        for assets in [
+            {"ani-0.3.0-debug.apk": {"package": "me.him188.ani"}},
+            {"ani-0.3.0.apk": {"package": "me.him188.ani.debug2"}},
+            {"ani-0.3.0.apk": {"package": "me.him188.ani"}, "ani-debug.apk.sha1": {}},
+            {},
+        ]:
+            with self.subTest(assets=assets), self.assertRaises(ValueError):
+                publish.validate_public_assets({"assets": assets})
+
+    def test_release_only_publication_is_accepted(self):
+        publish.validate_public_assets({"assets": {"ani-0.3.0.apk": {"package": "me.him188.ani"}}})
+
     def exercise(self, prerelease, existing=None):
         calls = []
         tag = "0.2.0-beta.1" if prerelease else "0.2.0"

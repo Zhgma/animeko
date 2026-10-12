@@ -1,6 +1,8 @@
 # Animecomic release artifacts
 
 This branch contains public, locally signed APK deliverables and their release publisher.
+All future stable and testing releases publish only release APKs. Debug APKs and their
+checksums are prohibited, including renamed debuggable packages. Debug builds are local only.
 The `main` branch contains application source code. Version tags point to the exact source
 commit recorded in `release.json`, not to this artifact branch.
 
