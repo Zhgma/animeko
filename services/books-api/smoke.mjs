@@ -27,7 +27,10 @@ for (const keyword of ['碧蓝之海', '三体']) {
 assert.equal((await call('/v0/subjects/253')).response.status, 404);
 assert.equal((await search('test', 2)).response.status, 400);
 assert.equal((await call('/v0/me')).response.status, 401);
-assert.equal((await call('/v0/subjects/118165/subjects')).response.status, 404);
+const relations = await call('/v0/subjects/118165/subjects');
+assert.equal(relations.response.status, 200); assert.ok(Array.isArray(relations.data));
+assert.ok(relations.data.some(item => item.type === 1));
+assert.equal((await call('/v0/subjects/253/subjects')).response.status, 404);
 assert.equal((await call('/v0/subjects/118165?url=http://127.0.0.1')).response.status, 400);
 assert.equal((await call('/v0/subjects/118165', { method: 'PATCH' })).response.status, 405);
 assert.equal((await call('/v0/subjects/118165', { headers: { Authorization: 'Bearer test-not-a-real-token' } })).response.status, 400);

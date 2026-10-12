@@ -83,7 +83,7 @@
 
 ## Fork 发布与应用更新
 
-Fork 版本从 `0.1.0` 开始，Android `versionCode` 从 `50407` 递增，支持覆盖已有 `50406` 开发安装。旧的 `4.9.0-dev` 属于上游版本序列，首次切换到 `0.1.0` 需要手动覆盖安装，后续按 `0.x.x` 正常检查更新。普通 Release APK 使用独立发布签名；`-debug.apk` 保留本机调试签名与 `.debug2` 应用 ID，供现有调试安装保留数据升级。两种安装包的签名与应用 ID 不互换。
+Fork 版本从 `0.1.0` 开始，Android `versionCode` 从 `50407` 递增，支持覆盖已有 `50406` 开发安装。旧的 `4.9.0-dev` 属于上游版本序列，首次切换到 `0.1.0` 需要手动覆盖安装，后续按 `0.x.x` 正常检查更新。所有公开版本只发布使用独立发布签名的 Release APK。历史调试安装的 `.debug2` 应用 ID 与签名不同，不能用 Release APK 覆盖。
 
 本地发布使用不带 `v` 的标签（如 `0.1.0`），避免触发需要上游私有凭据的 `v*` 发布工作流。标签指向主分支的源码提交。本地签名 APK、摘要、`release.json` 和发布脚本保存在独立的 `release-artifacts` 分支；向该分支推送会触发 GitHub Actions，校验签名、版本和源码标签，上传草稿并下载比对附件后公开 Release。主分支不存放二进制安装包。Actions 使用仓库自带的 `GITHUB_TOKEN`，本机只需具有写权限的 SSH Deploy key。签名库和密码保存在仓库外并需要独立备份。Git 标签、应用显示版本和附件文件名的版本部分保持一致。
 
@@ -95,7 +95,7 @@ HTTP User-Agent 的 `open-ani/ani` 产品版本对应上游代码基线 `4.9.0-d
 
 - Android：`ani-<version>-arm64-v8a.apk`、`ani-<version>-armeabi-v7a.apk`、`ani-<version>-x86_64.apk`，通用包 `ani-<version>-universal.apk`。
 - Android TV：前缀 `ani-tv-`；普通版与 TV 分别匹配。
-- Android 调试版：文件名额外含 `-debug`，例如 `ani-5.0.0-arm64-v8a-debug.apk`。调试版不会选择正式签名包。
+- Android 调试版仅用于本地开发，不发布；历史调试安装不会自动选择正式签名包。
 - Windows：`ani-<version>-windows-x86_64.zip`（ARM64 为 `aarch64`）。
 - macOS：`ani-<version>-macos-aarch64.dmg`，Intel 为 `ani-<version>-macos-x86_64.zip`。
 - Linux：`ani-<version>-linux-x86_64.appimage`，自动更新还需上游安装器要求的 `.zsync` 伴随文件。
@@ -144,3 +144,11 @@ Release 中上传对应安装包及可选同名 `.sha1`；Android 后续版本�
 阅读器整话预加载仍使用 `MangaReadAheadCache`。用户主动选择缓存的章节则由 `MangaOfflineDownloads` 管理，使用与应用下载管理器相同生命周期的协程，关闭详情页后继续下载。`MangaOfflineStore` 在应用数据目录下保存独立图片和原子替换的索引；选中的队列、已完成页及错误可跨重启保留。重启后未完成项目由用户继续 / 重试，不静默启动网络传输。已完成章节直接用本地图片阅读；支持批量选择、暂停、缺页续传及删除确认。离线文件不参与会话预读的淘汰。
 
 `MangaLibraryRepositoryTest` 验证收藏写入字段、失败不触发刷新、未收藏与授权错误的区别。`MangaOfflineStoreTest` 验证部分失败后恢复、重新打开索引后的离线阅读和删除。`MangaAlignmentTest` 验证收藏菜单、共享评价动作、来源管理、换源歧义与失败页不计为读完。接口写入使用 MockEngine 测试，不改动测试账号的真实收藏。
+
+## 书籍 API 请求边界
+
+漫画详情页、单行本与书架共用 `MangaRequestRouting`。搜索、详情、公开评论、直接关联作品均走书籍服务且不携带用户凭据。本人收藏读取、状态、话数/卷数、评分/短评/隐私写入携带当前 Bangumi token；服务端校验本人身份和目标 `type=1`。配置书籍服务后，未支持的请求明确失败，不回退直连 Bangumi。
+
+漫画搜索结果（包括单行本）、漫画关联卡片和关系图中的书籍节点进入 `NavRoutes.MangaDetail`，关联动画进入原动画详情。封面、漫画源图片和用户明确打开的原站页面不属于书籍 JSON API。公开接口无法读取需要 Bangumi 身份权限的受限条目；404 不代表没有走书籍服务。
+
+`BooksApiRoutingTest` 通过真实仓库方法覆盖系列和六个单行本的详情、评论、关联、评分、收藏和进度请求，并断言目标主机与凭据策略。服务端测试覆盖非书籍拒绝、关联结果保留动画信息、写入字段保留及评论缓存失效。

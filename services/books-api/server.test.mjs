@@ -49,7 +49,7 @@ test('all book platforms are supported; non-books are denied without metadata le
 
 test('public routes keep strict verbs and bounded non-duplicate query parameters', async t => {
   const f = await fixture(t, { ipBurst: 100 });
-  for (const path of ['/v0/episodes', '/v0/subjects', '/v0/subjects/1/subjects',
+  for (const path of ['/v0/episodes', '/v0/subjects', '/v0/subjects/1/persons',
     '/image?url=http://localhost/', '/v0/subjects/0', '/v0/subjects/-1', '/v0/subjects/1/', '/v0/subjects/1?url=http://localhost']) {
     assert.ok([400, 404].includes((await f.get(path)).status), path);
   }
@@ -211,7 +211,7 @@ test('list is pinned to books and private responses are never cached or shared a
 test('invalid collection writes and account targets cannot reach upstream', async t => {
   const calls = []; const f = await fixture(t, { upstream: accountUpstream(calls), ipBurst: 100 });
   for (const body of [{}, { type: 0 }, { type: 6 }, { type: '3' }, { ep_status: -1 }, { ep_status: 1.5 },
-    { vol_status: 1000001 }, { rate: 10 }, { comment: 'bad' }, { private: false }, { user: 'bob', type: 3 }]) {
+    { vol_status: 1000001 }, { rate: 11 }, { rate: 1.5 }, { comment: 123 }, { comment: null }, { private: 'false' }, { user: 'bob', type: 3 }]) {
     assert.equal((await f.get(ownBook, { method: 'PATCH', headers: authHeaders, body: JSON.stringify(body) })).status, 400);
   }
   assert.equal((await f.get(ownBook, { method: 'POST', headers: authHeaders, body: '{"type":3,"ep_status":2}' })).status, 400);
@@ -299,4 +299,52 @@ test('comments failures and malformed payloads are not cached as empty success',
   assert.equal((await f.get('/p1/subjects/118165/comments')).status, 502);
   const response = await f.get('/p1/subjects/118165/comments');
   assert.equal(response.status, 200); assert.deepEqual(await response.json(), { total: 0, data: [] });
+});
+
+test('series and individual volume relations preserve book and anime links without credentials', async t => {
+  const calls = [];
+  const rows = [{ id: 40, type: 1, relation: '单行本', name: 'volume' }, { id: 50, type: 2, relation: '动画', name: 'anime' }];
+  const f = await fixture(t, { upstream: async (path, options) => {
+    calls.push({ path, ...options });
+    return { status: 200, data: path.endsWith('/subjects') ? rows : { id: Number(path.split('/').pop()), type: 1 } };
+  } });
+  for (const id of [10, 40]) {
+    const response = await f.get(`/v0/subjects/${id}/subjects`);
+    assert.equal(response.status, 200); assert.deepEqual(await response.json(), rows);
+    assert.equal((await f.get(`/v0/subjects/${id}/subjects`)).headers.get('x-cache'), 'HIT');
+  }
+  assert.deepEqual(calls.map(x => x.path), ['/v0/subjects/10', '/v0/subjects/10/subjects', '/v0/subjects/40', '/v0/subjects/40/subjects']);
+  assert.ok(calls.every(x => x.authorization === undefined));
+});
+
+test('relation route rejects anime roots, credentials, query injection and malformed upstream', async t => {
+  const calls = [];
+  const f = await fixture(t, { upstream: async path => {
+    calls.push(path);
+    return { status: 200, data: path.endsWith('/subjects') ? { invalid: true } : { id: Number(path.split('/').pop()), type: path.endsWith('/2') ? 2 : 1 } };
+  } });
+  assert.equal((await f.get('/v0/subjects/2/subjects')).status, 404);
+  assert.deepEqual(calls, ['/v0/subjects/2']);
+  for (const suffix of ['?limit=1', '?url=https://example.com']) assert.equal((await f.get('/v0/subjects/1/subjects' + suffix)).status, 400);
+  assert.equal((await f.get('/v0/subjects/1/subjects', { headers: authHeaders })).status, 400);
+  assert.equal((await f.get('/v0/subjects/1/subjects', { method: 'POST' })).status, 405);
+  assert.equal((await f.get('/v0/subjects/1/subjects')).status, 502);
+  assert.equal((await f.get('/v0/subjects/1/subjects')).status, 502);
+  assert.equal(calls.filter(x => x.endsWith('/1/subjects')).length, 2);
+});
+
+test('rating and short review writes preserve progress and invalidate public comments', async t => {
+  const calls = [], account = accountUpstream(calls);
+  let reads = 0;
+  const f = await fixture(t, { upstream: async (path, options) => options.authorization ? account(path, options)
+    : { status: 200, data: { id: 118165, type: 1 } },
+    commentsUpstream: async () => { reads++; return { status: 200, data: { total: 0, data: [] } }; } });
+  assert.equal((await f.get('/p1/subjects/118165/comments')).status, 200);
+  const body = { rate: 9, comment: 'review', private: false };
+  assert.equal((await f.get(ownBook, { method: 'PATCH', headers: authHeaders, body: JSON.stringify(body) })).status, 204);
+  assert.deepEqual(calls.find(x => x.method === 'PATCH').body, body);
+  const value = await (await f.get(ownBook, { headers: authHeaders })).json();
+  assert.equal(value.rate, 9); assert.equal(value.comment, 'review'); assert.equal(value.private, false);
+  assert.equal(value.ep_status, 12); assert.equal(value.vol_status, 2); assert.equal(value.type, 3); assert.deepEqual(value.tags, ['tag']);
+  assert.equal((await f.get('/p1/subjects/118165/comments')).status, 200); assert.equal(reads, 2);
 });

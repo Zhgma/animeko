@@ -51,12 +51,12 @@ class MangaBangumiSettingsStore(private val store: DataStore<Preferences>) {
 }
 
 /** Owns only manga Bangumi API traffic. Source subscriptions and reader images use their own clients. */
-class MangaBangumiNetwork(store: DataStore<Preferences>, scope: CoroutineScope) {
+class MangaBangumiNetwork(store: DataStore<Preferences>, scope: CoroutineScope, booksApiBaseUrl: String = BOOKS_API_BASE_URL) {
     val settings = MangaBangumiSettingsStore(store)
     private val features = setOf(UserAgentFeature.withValue(ScopedHttpClientUserAgent.ANI))
     private val provider = DefaultHttpClientProvider(ProxySettingsFlowProxyProvider(settings.flow, scope), scope)
     val cache = MangaBangumiCache(store)
-    val http = MangaBangumiHttp(provider.get(features), cache, BOOKS_API_BASE_URL)
+    val http = MangaBangumiHttp(provider.get(features), cache, booksApiBaseUrl)
     suspend fun start() {
         provider.startProxyListening(sequenceOf(DefaultHttpClientProvider.HoldingInstanceMatrix(features)))
     }
@@ -150,8 +150,6 @@ class MangaBangumiCache(private val store: DataStore<Preferences>) {
     suspend fun retry() { mutex.withLock { unavailableUntil.clear() }; usingCache.value = false }
 }
 
-internal const val BOOKS_API_BASE_URL = "https://119.28.149.19:8443/api/books"
-
 class MangaBangumiHttp(
     private val client: ScopedHttpClient,
     private val cache: MangaBangumiCache? = null,
@@ -184,42 +182,16 @@ class MangaBangumiHttp(
     }
 
     private suspend fun send(method: HttpMethod, url: String, token: String?, parameters: Map<String, Any>, body: String?): MangaBangumiResponse = client.use {
-        val commentsRequest = booksApiBaseUrl != null && method == HttpMethod.Get && BOOK_COMMENTS_URL.matches(url)
-        val publicBookRequest = booksApiBaseUrl != null && (
-            commentsRequest || (method == HttpMethod.Get && BOOK_DETAILS_URL.matches(url)) ||
-                (method == HttpMethod.Post && url == "https://api.bgm.tv/v0/search/subjects")
-            )
-        val accountRequest = booksApiBaseUrl != null && (
-            (method == HttpMethod.Get && (url == "https://api.bgm.tv/v0/me" || BOOK_COLLECTION_URL.matches(url))) ||
-                (method in listOf(HttpMethod.Post, HttpMethod.Patch) && BOOK_COLLECTION_WRITE_URL.matches(url) &&
-                    isCollectionStateWrite(method, body))
-            )
-        val target = when {
-            commentsRequest -> booksApiBaseUrl + url.removePrefix("https://next.bgm.tv")
-            publicBookRequest || accountRequest -> booksApiBaseUrl + url.removePrefix("https://api.bgm.tv")
-            else -> url
-        }
-        val response = request(target) {
+        val route = MangaRequestRouting.resolve(method.value, url, body, booksApiBaseUrl)
+        val response = request(route.url) {
             this.method = method
             expectSuccess = false
-            timeout { requestTimeoutMillis = if (accountRequest || commentsRequest) 20_000 else 8_000; connectTimeoutMillis = 5_000 }
-            if (!publicBookRequest && !token.isNullOrBlank()) bearerAuth(token)
+            timeout { requestTimeoutMillis = route.timeoutMillis; connectTimeoutMillis = 5_000 }
+            if (route.sendAuthorization && !token.isNullOrBlank()) bearerAuth(token)
             parameters.forEach { (key, value) -> parameter(key, value) }
             if (body != null) { contentType(ContentType.Application.Json); setBody(body) }
         }
         MangaBangumiResponse(response.status.value, response.bodyAsText())
     }
 
-    private companion object {
-        val BOOK_COMMENTS_URL = Regex("https://next\\.bgm\\.tv/p1/subjects/[1-9][0-9]*/comments")
-        val BOOK_DETAILS_URL = Regex("https://api\\.bgm\\.tv/v0/subjects/[1-9][0-9]*")
-        val BOOK_COLLECTION_URL = Regex("https://api\\.bgm\\.tv/v0/users/[A-Za-z0-9_-]+/collections(?:/[1-9][0-9]*)?")
-        val BOOK_COLLECTION_WRITE_URL = Regex("https://api\\.bgm\\.tv/v0/users/-/collections/[1-9][0-9]*")
-
-        fun isCollectionStateWrite(method: HttpMethod, body: String?): Boolean {
-            val fields = runCatching { Json.parseToJsonElement(body.orEmpty()).jsonObject.keys }.getOrNull() ?: return false
-            val allowed = if (method == HttpMethod.Post) setOf("type") else setOf("type", "ep_status", "vol_status")
-            return fields.isNotEmpty() && fields.all { it in allowed }
-        }
-    }
 }

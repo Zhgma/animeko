@@ -36,7 +36,7 @@ $healthy = $false
 for ($i = 0; $i -lt 15; $i++) {
     try {
         $result = Invoke-RestMethod 'http://127.0.0.1:4180/api/books/health' -TimeoutSec 2
-        if ($result.service -eq 'animecomic-books' -and $result.version -eq 3) { $healthy = $true; break }
+        if ($result.service -eq 'animecomic-books' -and $result.version -eq 4) { $healthy = $true; break }
     } catch { Start-Sleep -Seconds 1 }
 }
 if (-not $healthy) {

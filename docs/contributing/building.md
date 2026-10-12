@@ -123,3 +123,7 @@ JVM 平台测试，无法运行 iOS 测试。
 
 打开 `Run Desktop` 的配置，复制一份，将 "Use classpath of module" 改为 `ani.app.desktop.test`。
 如果又遇到了，则改回来 `ani.app.desktop.main`。
+
+## APK 发布策略
+
+项目所有正式版、测试版和 CI 附件仅上传正式签名的 Release APK。Debug APK 仅用于本地开发，不推送、不上传，其摘要也不作为发布附件。历史公开附件保留。

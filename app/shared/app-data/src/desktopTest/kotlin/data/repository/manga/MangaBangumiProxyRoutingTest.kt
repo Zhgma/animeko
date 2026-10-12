@@ -46,7 +46,8 @@ class MangaBangumiProxyRoutingTest {
         }
         serve(proxy, "proxied", proxyRequest)
         serve(origin, "direct")
-        val network = MangaBangumiNetwork(data, scope)
+        val booksBase = "http://127.0.0.1:${origin.localPort}/api/books"
+        val network = MangaBangumiNetwork(data, scope, booksBase)
         val settings = ProxySettings.Disabled
         network.settings.save(settings.copy(default = settings.default.copy(mode = ProxyMode.CUSTOM,
             customConfig = ProxyConfig("http://127.0.0.1:${proxy.localPort}"))))
@@ -54,8 +55,8 @@ class MangaBangumiProxyRoutingTest {
         try {
             network.start()
             val target = "http://127.0.0.1:${origin.localPort}/source"
-            assertEquals("proxied", network.http.get(target).requireSuccess())
-            assertTrue(proxyRequest.get().contains(target))
+            assertEquals("proxied", network.http.get("https://api.bgm.tv/v0/subjects/118167").requireSuccess())
+            assertTrue(proxyRequest.get().contains("$booksBase/v0/subjects/118167"))
             assertEquals("direct", sourceClient.get(target).bodyAsText())
         } finally {
             sourceClient.close(); scope.cancel(); proxy.close(); origin.close()

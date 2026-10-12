@@ -10,11 +10,12 @@
 | POST | `/v0/search/subjects?limit=20&offset=0` | 搜索 BGM 书籍 |
 | GET | `/v0/subjects/{id}` | 书籍详情；非书籍返回 404 |
 | GET | `/p1/subjects/{id}/comments?limit=20&offset=0` | 书籍公开评论分页；非书籍返回 404 |
+| GET | `/v0/subjects/{id}/subjects` | 书籍关联作品，支持系列和单行本；根条目非书籍返回 404 |
 | GET | `/v0/me` | 当前 BGM 用户的 id 和 username |
 | GET | `/v0/users/{username}/collections?subject_type=1&type=3&limit=30&offset=0` | 本人书籍收藏列表 |
 | GET | `/v0/users/{username}/collections/{id}` | 本人书籍收藏状态、话数/卷数等 |
 | POST | `/v0/users/-/collections/{id}` | 新建或修改书籍收藏状态 |
-| PATCH | `/v0/users/-/collections/{id}` | 局部更新书籍收藏状态、话数/卷数 |
+| PATCH | `/v0/users/-/collections/{id}` | 局部更新书籍收藏状态、话数/卷数、评分、短评与隐私 |
 | GET | `/health` | 进程健康检查，不请求 BGM |
 
 机器可读契约：[openapi.yaml](openapi.yaml)。
@@ -57,7 +58,7 @@
 {"type":3}
 ```
 
-POST 只接受上面的 type 字段。PATCH 接受非空的 `type`、`ep_status`、`vol_status` 子集，例如：
+POST 只接受上面的 type 字段。PATCH 接受非空的 `type`、`ep_status`、`vol_status`、`rate`、`comment`、`private` 子集，例如：
 
 ```json
 {"ep_status":12,"vol_status":2}
@@ -67,12 +68,12 @@ POST 只接受上面的 type 字段。PATCH 接受非空的 `type`、`ep_status`
 隐私和其他进度。保留 BGM 写入响应的 202 Accepted 或 204 No Content；202 表示已接受，调用方可回读确认最终状态。
 失败不会伪装成功或自动重放写操作。BGM 返回 401/403 时保留其授权含义；
 不存在的收藏或非书籍返回 404。PATCH 不创建未收藏条目，先用 POST 标记收藏状态。
-服务不接受代替他人写入、评分/评论/隐私修改、删除收藏或动画剧集进度请求。
+评分为 0–10 的整数，短评为字符串，隐私为布尔值；请求 JSON 上限为 4096 字节。写入后失效该书籍的详情和公开评论缓存。服务不接受代替他人写入、删除收藏或动画剧集进度请求。
 
 ## 范围和资源限制
 
 - 固定访问 `https://api.bgm.tv`，公开评论固定访问 `https://next.bgm.tv/p1/subjects/{id}/comments`，使用 Node HTTPS 直连；不使用环境代理、不接受上游 URL、不跟随重定向。
-- 公开搜索/详情/评论拒绝 `Authorization`；本人书籍收藏接口要求 Bearer 凭据。所有接口拒绝 Cookie，不代理评分写入、关联、剧集、封面图片或阅读资源。
+- 公开搜索/详情/评论/关联拒绝 `Authorization`；本人书籍收藏接口要求 Bearer 凭据。所有接口拒绝 Cookie，不代理剧集、封面图片或阅读资源。
 - 受 BGM 登录权限限制的数据不保证可访问，NSFW 参数不绕过 BGM 的授权规则。
 - 每 IP 平均 60 次/分钟，突发 30 次；全局平均 300 次/分钟，突发 60 次；限流包含缓存命中。
 - 每 IP 最多 6 个并发数据请求，适配应用最多 4 条目并行读取；全局最多 8 个，最多 128 个 HTTP 连接。
@@ -124,3 +125,7 @@ Start-ScheduledTask -TaskName AnimeComic-BooksApi
 回滚服务可从 `backups\时间戳\task.xml` 恢复原任务；首次部署回滚可停用 `AnimeComic-BooksApi`，
 移除 Caddy 中 `BEGIN ANIMECOMIC BOOKS` 至 `END ANIMECOMIC BOOKS` 的块并恢复原来的 401 响应，
 校验配置后重启 HTTPS 任务。恢复整份 Caddy 备份前应核对期间其他服务对配置的修改。
+
+## 关联作品与单行本
+
+关联接口验证根条目 `type=1`，保留结果中的漫画、单行本、小说和动画关联。根条目的类型限制不作用于关联目标，点击动画仍进入原番剧链路。关联缓存 60 秒，书籍校验和读取共享 15 秒时限，客户端超时 20 秒。公开关联拒绝凭据、查询参数和写入方法。

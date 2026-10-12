@@ -98,12 +98,15 @@ async function readSearch(request) {
 
 async function readCollectionWrite(request) {
   const body = await readJson(request);
-  fields(body, request.method === 'POST' ? ['type'] : ['type', 'ep_status', 'vol_status']);
+  fields(body, request.method === 'POST' ? ['type'] : ['type', 'ep_status', 'vol_status', 'rate', 'comment', 'private']);
   if (!Object.keys(body).length || (request.method === 'POST' && body.type === undefined)) throw new ApiError(400, 'empty_update');
   if (body.type !== undefined && (!Number.isInteger(body.type) || body.type < 1 || body.type > 5)) throw new ApiError(400, 'invalid_collection_type');
   for (const key of ['ep_status', 'vol_status']) {
     if (body[key] !== undefined && (!Number.isInteger(body[key]) || body[key] < 0 || body[key] > 1000000)) throw new ApiError(400, 'invalid_progress');
   }
+  if (body.rate !== undefined && (!Number.isInteger(body.rate) || body.rate < 0 || body.rate > 10)) throw new ApiError(400, 'invalid_rating');
+  if (body.comment !== undefined && typeof body.comment !== 'string') throw new ApiError(400, 'invalid_comment');
+  if (body.private !== undefined && typeof body.private !== 'boolean') throw new ApiError(400, 'invalid_private');
   return body;
 }
 
@@ -152,7 +155,7 @@ export function createBooksServer({ upstream = fetchBangumi, commentsUpstream = 
     }
     cache.set(key, { ...result, size, expires: now() + ttl }); cacheBytes += size;
   }
-  async function load(key, path, options, isSearch, id, commentsLimit = null) {
+  async function load(key, path, options, isSearch, id, commentsLimit = null, relations = false) {
     const cached = cache.get(key);
     if (cached && cached.expires > now()) return { ...cached, cache: 'HIT' };
     if (pending.has(key)) return pending.get(key);
@@ -171,6 +174,12 @@ export function createBooksServer({ upstream = fetchBangumi, commentsUpstream = 
             !result.data.data.every(row => object(row) && Number.isSafeInteger(row.id) && typeof row.comment === 'string')) {
           throw new ApiError(502, 'invalid_upstream_response');
         }
+      } else if (relations) {
+        if (!Array.isArray(result.data) || result.data.length > 2000 || !result.data.every(row =>
+          object(row) && Number.isSafeInteger(row.id) && row.id > 0 &&
+          [1, 2, 3, 4, 6].includes(row.type) && typeof row.relation === 'string')) {
+          throw new ApiError(502, 'invalid_upstream_response');
+        }
       } else if (isSearch) {
         if (!object(result.data) || !Array.isArray(result.data.data) || result.data.data.length > 20 ||
             !result.data.data.every(book => object(book) && book.type === 1)) throw new ApiError(502, 'invalid_upstream_response');
@@ -181,7 +190,7 @@ export function createBooksServer({ upstream = fetchBangumi, commentsUpstream = 
         remember(key, denied, 300000); return denied;
       }
       const success = { status: 200, body: JSON.stringify(result.data), cache: 'MISS' };
-      remember(key, success, isSearch || commentsLimit !== null ? 60000 : 3600000); return success;
+      remember(key, success, isSearch || commentsLimit !== null || relations ? 60000 : 3600000); return success;
     })();
     pending.set(key, promise);
     try { return await promise; } finally { pending.delete(key); }
@@ -229,8 +238,11 @@ export function createBooksServer({ upstream = fetchBangumi, commentsUpstream = 
       const result = await privateRequest(`/v0/users/-/collections/${id}`, { method: request.method, body, authorization, signal });
       if (![202, 204].includes(result.status)) throw new ApiError(502, 'unexpected_write_response');
       // Public detail statistics must not stay cached after a collection mutation.
-      const key = `/v0/subjects/${id}null`;
-      if (cache.has(key)) { cacheBytes -= cache.get(key).size; cache.delete(key); }
+      for (const key of cache.keys()) {
+        if (key === `/v0/subjects/${id}null` || key.startsWith(`/p1/subjects/${id}/comments?`)) {
+          cacheBytes -= cache.get(key).size; cache.delete(key);
+        }
+      }
       reply(response, result.status, ''); return;
     }
     const path = `/v0/users/${username}/collections` + (id ? `/${id}`
@@ -255,13 +267,14 @@ export function createBooksServer({ upstream = fetchBangumi, commentsUpstream = 
       const isSearch = url.pathname === PREFIX + '/v0/search/subjects';
       const detail = new RegExp('^' + PREFIX + '/v0/subjects/([1-9]\\d{0,7})$').exec(url.pathname);
       const comments = new RegExp('^' + PREFIX + '/p1/subjects/([1-9]\\d{0,7})/comments$').exec(url.pathname);
+      const relations = new RegExp('^' + PREFIX + '/v0/subjects/([1-9]\\d{0,7})/subjects$').exec(url.pathname);
       const health = url.pathname === PREFIX + '/health';
       const isMe = url.pathname === PREFIX + '/v0/me';
       const collection = new RegExp('^' + PREFIX + '/v0/users/([A-Za-z0-9_-]{1,64})/collections(?:/([1-9]\\d{0,7}))?$').exec(url.pathname);
       const account = isMe || Boolean(collection);
       const canWrite = collection && collection[1] === '-' && collection[2];
       const isWrite = canWrite && ['POST', 'PATCH'].includes(request.method);
-      if (!isSearch && !detail && !comments && !health && !account) throw new ApiError(404, 'not_found');
+      if (!isSearch && !detail && !comments && !relations && !health && !account) throw new ApiError(404, 'not_found');
       client = clientFor(request);
       if (!spend(global, globalBurst, globalPerMinute) || !spend(client, ipBurst, ipPerMinute)) throw new ApiError(429, 'rate_limited');
       if (request.method === 'OPTIONS') {
@@ -272,11 +285,21 @@ export function createBooksServer({ upstream = fetchBangumi, commentsUpstream = 
       const allowed = isSearch || comments ? ['limit', 'offset'] : collection && !collection[2] ? ['limit', 'offset', 'type', 'subject_type'] : [];
       const keys = [...url.searchParams.keys()];
       if (keys.some(key => !allowed.includes(key)) || new Set(keys).size !== keys.length) throw new ApiError(400, 'invalid_query');
-      if (health) { reply(response, 200, { status: 'ok', service: 'animecomic-books', version: 3 }); return; }
+      if (health) { reply(response, 200, { status: 'ok', service: 'animecomic-books', version: 4 }); return; }
       if (active >= maxConcurrent || client.active >= maxPerIpConcurrent) throw new ApiError(429, 'too_many_concurrent_requests');
       active++; client.active++; admitted = true;
       if (request.method === 'GET' && (Number(request.headers['content-length'] ?? 0) || request.headers['transfer-encoding'])) throw new ApiError(400, 'body_not_allowed');
       if (account) { await handleAccount(request, response, url, collection, isMe, isWrite, client); return; }
+      if (relations) {
+        const id = Number(relations[1]);
+        const options = { method: 'GET', signal: AbortSignal.timeout(15000) };
+        const subjectPath = `/v0/subjects/${id}`;
+        const subject = await load(subjectPath + 'null', subjectPath, options, false, id);
+        if (subject.status !== 200) { reply(response, subject.status, subject.body); return; }
+        const path = `${subjectPath}/subjects`;
+        const result = await load(path, path, options, false, id, null, true);
+        reply(response, result.status, result.body, { 'X-Cache': result.cache }); return;
+      }
       if (comments) {
         const limit = integer(url.searchParams.get('limit'), 20, 1, 20);
         const offset = integer(url.searchParams.get('offset'), 0, 0, 10000);

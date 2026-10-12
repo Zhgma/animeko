@@ -1,11 +1,24 @@
 openapi: 3.0.3
 info:
   title: AnimeComic Books API
-  version: 3.0.0
-  description: Bangumi type=1 search, metadata, public comments and authenticated own book collection state/progress. All upstream traffic is direct HTTPS.
+  version: 4.0.0
+  description: Bangumi type=1 search, metadata, public comments, relations and authenticated own book collection state/progress/rating. All upstream traffic is direct HTTPS.
 servers:
   - url: https://119.28.149.19:8443/api/books
 paths:
+  /v0/subjects/{id}/subjects:
+    get:
+      operationId: getBookRelations
+      description: Root subject must be a book, including individual volumes. Related subjects retain all media types. Public cache lasts 60 seconds; no credentials or query parameters.
+      parameters:
+        - $ref: '#/components/parameters/BookId'
+      responses:
+        '200':
+          description: Original Bangumi related-subject array
+          content:
+            application/json:
+              schema: { type: array, maxItems: 2000, items: { type: object, additionalProperties: true } }
+        default: { $ref: '#/components/responses/Error' }
   /p1/subjects/{id}/comments:
     get:
       operationId: getBookComments
@@ -121,7 +134,7 @@ paths:
         '204': { description: Collection created or state updated; other fields preserved }
         default: { $ref: '#/components/responses/Error' }
     patch:
-      operationId: updateBookCollectionProgress
+      operationId: updateBookCollection
       security: [{ bangumiBearer: [] }]
       requestBody:
         required: true
@@ -135,6 +148,9 @@ paths:
                 type: { type: integer, minimum: 1, maximum: 5 }
                 ep_status: { type: integer, minimum: 0, maximum: 1000000 }
                 vol_status: { type: integer, minimum: 0, maximum: 1000000 }
+                rate: { type: integer, minimum: 0, maximum: 10 }
+                comment: { type: string, description: Entire JSON request body is limited to 4096 bytes }
+                private: { type: boolean }
       responses:
         '202': { description: Bangumi accepted the progress update; read back to confirm final state }
         '204': { description: Specified fields updated; no automatic retry }
