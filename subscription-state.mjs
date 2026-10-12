@@ -13,7 +13,7 @@ export function addDefaultCatalogs(subscriptions, catalogs, id = () => crypto.ra
 }
 export function refreshedSubscription(sub, parsed, now = Date.now()) {
   const previous = new Map((sub.sources || []).map(s => [sourceKey(s), s]));
-  const sources = parsed.sources.map(s => ({...s, enabled: previous.get(sourceKey(s))?.enabled !== false}));
+  const sources = parsed.sources.map(s => ({...s, id: previous.get(sourceKey(s))?.id ?? crypto.randomUUID(), enabled: previous.get(sourceKey(s))?.enabled !== false}));
   // Local ordering belongs to the user, independently of the catalog's order.
   const order = (sub.sources || []).map(sourceKey);
   sources.sort((a,b) => (order.includes(sourceKey(a)) ? order.indexOf(sourceKey(a)) : 9999) - (order.includes(sourceKey(b)) ? order.indexOf(sourceKey(b)) : 9999));

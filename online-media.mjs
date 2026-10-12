@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import './api-endpoints.js?v=f2d23ecc1bbfac74';
+import './api-endpoints.js?v=babfb6e08d91e8b1';
 export async function onlineRead(url) {
   const target = new URL(url);
   if (target.protocol !== 'https:' || target.username || target.password) throw new Error('在线来源必须使用 HTTPS');
@@ -55,7 +55,7 @@ export async function onlinePlay({url,title},playbackRate=1) {
     video.onerror=()=>{status.textContent='来源视频无法读取或浏览器不支持编码；可到来源站点播放。';};
     if(/\.m3u8(?:$|[?#])/i.test(direct)&&!video.canPlayType('application/vnd.apple.mpegurl')) {
       try {
-        if(!hlsScript)hlsScript=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='./vendor/hls.min.js?v=f2d23ecc1bbfac74';script.onload=resolve;script.onerror=()=>reject(new Error('播放器加载失败'));document.head.append(script);}).catch(e=>{hlsScript=null;throw e;});
+        if(!hlsScript)hlsScript=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='./vendor/hls.min.js?v=babfb6e08d91e8b1';script.onload=resolve;script.onerror=()=>reject(new Error('播放器加载失败'));document.head.append(script);}).catch(e=>{hlsScript=null;throw e;});
         await hlsScript;if(!dialog.open)return;
         if(!window.Hls?.isSupported())throw new Error('当前浏览器不支持 HLS');
         const hls=new window.Hls();hls.on(window.Hls.Events.ERROR,(_event,data)=>{if(data.fatal){status.textContent='HLS 来源拒绝跨域或无法读取；可到来源站点播放。';hls.stopLoad();}});
