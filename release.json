@@ -1,32 +1,32 @@
 {
-  "version": "0.2.0-beta.3",
-  "versionCode": 50410,
-  "tag": "0.2.0-beta.3",
+  "version": "0.2.0-beta.4",
+  "versionCode": 50411,
+  "tag": "0.2.0-beta.4",
   "prerelease": true,
-  "sourceCommit": "c633e7c0221b2a583aff6fe7eae82b7b770ac5e2",
+  "sourceCommit": "91726489bf80111db2910706e3c27fd24137151c",
   "assets": {
-    "ani-0.2.0-beta.3-arm64-v8a.apk": {
-      "sha256": "0be2eea542d3eb4b5fa3f12f534fcb461e02eaa5f76c18be5633d79b1961bea1",
-      "size": 38214329,
+    "ani-0.2.0-beta.4-arm64-v8a.apk": {
+      "sha256": "a5f82fbfd8199ff0d34e5ca173eeca75a050f3211ef17698f4af70ff38ab6834",
+      "size": 38222521,
       "package": "me.him188.ani",
       "certificateSha256": "0e9cd761d18f282964ed79b7ec06e1ee5f6be84e84d065e8766151291915365a"
     },
-    "ani-0.2.0-beta.3-arm64-v8a-debug.apk": {
-      "sha256": "7a17394ce28bb6c38b0e549ee0075c3568dec4bf6c399b5f70c3ddda99f380a7",
-      "size": 76345634,
+    "ani-0.2.0-beta.4-arm64-v8a-debug.apk": {
+      "sha256": "960def2196ba6a5e0662d643391dbe813690fd1d97d946cf1fbd034b69c115a0",
+      "size": 76358086,
       "package": "me.him188.ani.debug2",
       "certificateSha256": "1b16438397d9a608fcf829ebae10a2cbd477f6c5fddae554004397d838bcee94"
     },
-    "ani-0.2.0-beta.3-arm64-v8a.apk.sha1": {
-      "sha256": "3ece9e2987f9931c4951314fe816c917c7cb35ebe2db54cbb5ffe70edd8ad294",
+    "ani-0.2.0-beta.4-arm64-v8a.apk.sha1": {
+      "sha256": "23c7d48de9118a74cfa541e8bf605a1dcdd412efc72abc001c9a61820dd7d303",
       "size": 40
     },
-    "ani-0.2.0-beta.3-arm64-v8a-debug.apk.sha1": {
-      "sha256": "d53fd442dc51066451c57729d74849d0e2c03d630bbf70298de04bdacce76b00",
+    "ani-0.2.0-beta.4-arm64-v8a-debug.apk.sha1": {
+      "sha256": "766d7488d04c783d1e8b9352955593aee0a05fc66ca7d770e4428b292c45acfc",
       "size": 40
     },
     "SHA256SUMS.txt": {
-      "sha256": "3a3e359ddc1841fa57e85e2268fc5768702bbbb24a1812eb89beca648c264a32",
+      "sha256": "33fbdeec41e395e8513a61cc73cc760525dcd027eac9d10d1d94b8b1271e3d66",
       "size": 200
     }
   }

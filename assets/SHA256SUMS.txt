@@ -1,2 +1,2 @@
-0be2eea542d3eb4b5fa3f12f534fcb461e02eaa5f76c18be5633d79b1961bea1  ani-0.2.0-beta.3-arm64-v8a.apk
-7a17394ce28bb6c38b0e549ee0075c3568dec4bf6c399b5f70c3ddda99f380a7  ani-0.2.0-beta.3-arm64-v8a-debug.apk
+a5f82fbfd8199ff0d34e5ca173eeca75a050f3211ef17698f4af70ff38ab6834  ani-0.2.0-beta.4-arm64-v8a.apk
+960def2196ba6a5e0662d643391dbe813690fd1d97d946cf1fbd034b69c115a0  ani-0.2.0-beta.4-arm64-v8a-debug.apk
