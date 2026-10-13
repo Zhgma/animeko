@@ -28,7 +28,7 @@ class KomiicRelayTest {
             addCookie(Url(KOMIIC_API_BASE_URL), Cookie("another-service", "private", path = "/", secure = true))
         }
         val client = HttpClient(MockEngine { request ->
-            assertEquals("119.28.149.19", request.url.host)
+            assertEquals("43.131.255.74", request.url.host)
             assertNull(request.headers["Cookie"])
             assertNull(request.headers["Authorization"])
             if (request.url.toString() == imageUrl) {

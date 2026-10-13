@@ -22,6 +22,7 @@ class MangaReadingStore(private val store: DataStore<Preferences>) {
     suspend fun read(subjectId: Int): MangaReadingMemory? {
         val raw = store.data.first()[key(subjectId)] ?: return null
         return runCatching { json.decodeFromString<MangaReadingMemory>(raw) }.getOrNull()?.takeIf { it.book.source in MangaSource.available }
+            ?.let { it.copy(book = it.book.copy(cover = migrateMangaApiImageUrl(it.book.cover))) }
     }
     suspend fun save(subjectId: Int, memory: MangaReadingMemory) {
         store.edit { it[key(subjectId)] = json.encodeToString(memory) }

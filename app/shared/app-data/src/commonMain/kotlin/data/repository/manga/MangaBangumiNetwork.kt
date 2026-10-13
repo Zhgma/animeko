@@ -164,7 +164,8 @@ class MangaBangumiHttp(
 
     private suspend fun read(method: HttpMethod, url: String, token: String?, parameters: Map<String, Any>, body: String? = null): MangaBangumiResponse {
         val fetch: suspend () -> MangaBangumiResponse = { send(method, url, token, parameters, body) }
-        return cache?.read(token, "${method.value} $url ${parameters.entries.sortedBy { it.key }} ${body.orEmpty()}", fetch) ?: fetch()
+        val response = cache?.read(token, "${method.value} $url ${parameters.entries.sortedBy { it.key }} ${body.orEmpty()}", fetch) ?: fetch()
+        return response.copy(body = migrateMangaApiImages(response.body))
     }
 
     internal suspend fun write(method: HttpMethod, url: String, token: String, body: String) {

@@ -37,7 +37,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import io.ktor.utils.io.errors.IOException
 
-const val KOMIIC_API_BASE_URL = "https://119.28.149.19:8443/api/komiic"
+const val KOMIIC_API_BASE_URL = "https://43.131.255.74:8443/api/komiic"
 
 enum class MangaSource(val title: String, val subscriptionUrl: String, val home: String) {
     KOMIIC("Komiic", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/komiic.js", "https://komiic.com"),
@@ -76,7 +76,7 @@ class MangaSourceRepository(private val client: ScopedHttpClient, private val co
                 buildJsonObject { put("keyword", keyword) },
             ).obj("searchComicsAndAuthors").array("comics").map {
                 val b = it.jsonObject
-                MangaSourceBook(source, b.text("id"), b.text("title"), b.text("imageUrl"))
+                MangaSourceBook(source, b.text("id"), b.text("title"), migrateMangaApiImageUrl(b.text("imageUrl")))
             }
             MangaSource.MANHUAGUI -> parseBookLinks(fetchText("${source.home}/s/${keyword.encodeURLPathPart()}_p1.html"))
             MangaSource.CCC, MangaSource.COMICK -> verified.search(source, keyword)
@@ -137,7 +137,7 @@ class MangaSourceRepository(private val client: ScopedHttpClient, private val co
             buildJsonObject { put("comicId", book.id); put("chapterId", chapter.id) },
         ).array("imagesByChapterId").map {
             val p = it.jsonObject
-            val url = p.text("url")
+            val url = migrateMangaApiImageUrl(p.text("url"))
             check(url.startsWith("$KOMIIC_API_BASE_URL/images/")) { "Komiic 未返回有效的图片地址" }
             MangaPage(url, "$KOMIIC_API_BASE_URL/", p.number("width"), p.number("height"))
         }
@@ -160,8 +160,8 @@ class MangaSourceRepository(private val client: ScopedHttpClient, private val co
             key.obj("data").text("key").also { check(it.isNotBlank()) { "CCC 未返回图片密钥" } }
         }
         client.use {
-            val url = page.url
-            val response = get(page.url) {
+            val url = migrateMangaApiImageUrl(page.url)
+            val response = get(url) {
                 expectSuccess = false
                 header("Referer", page.referer)
                 header("User-Agent", identities?.userAgentFor(Url(url).host) ?: USER_AGENT)

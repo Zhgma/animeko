@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 
-internal const val BOOKS_API_BASE_URL = "https://119.28.149.19:8443/api/books"
+internal const val BOOKS_API_BASE_URL = "https://43.131.255.74:8443/api/books"
 
 @Serializable
 internal data class MangaRequestRoute(val url: String, val sendAuthorization: Boolean, val timeoutMillis: Long)
