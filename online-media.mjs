@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import './api-endpoints.js?v=babfb6e08d91e8b1';
+import './api-endpoints.js?v=41351d16ee4c92fd';
+import {videoCandidates} from './video-extraction.mjs?v=41351d16ee4c92fd';
 export async function onlineRead(url) {
   const target = new URL(url);
   if (target.protocol !== 'https:' || target.username || target.password) throw new Error('在线来源必须使用 HTTPS');
@@ -10,62 +11,94 @@ export async function onlineRead(url) {
     throw error;
   }
   if (!response.ok) { const data = await response.json().catch(()=>({})); throw new Error(data.error || '网站读取 API 返回 HTTP ' + response.status); }
-  const reader = response.body.getReader(), parts = []; let length = 0;
-  try {
-    while (true) {
-      const {done,value} = await reader.read(); if (done) break;
-      length += value.byteLength;
-      if (length > 12 * 1024 * 1024) throw new Error('来源响应超过 12 MiB');
-      parts.push(value);
-    }
-  } finally { await reader.cancel(); reader.releaseLock(); }
-  const bytes = new Uint8Array(length); let offset = 0;
-  for (const part of parts) { bytes.set(part, offset); offset += part.length; }
-  const page = JSON.parse(new TextDecoder().decode(bytes));
+  const reader=response.body.getReader(), parts=[];let length=0;
+  try { while(true){const {done,value}=await reader.read();if(done)break;length+=value.byteLength;if(length>12*1024*1024)throw new Error('来源响应超过 12 MiB');parts.push(value);} }
+  finally { await reader.cancel();reader.releaseLock(); }
+  const bytes=new Uint8Array(length);let offset=0;for(const part of parts){bytes.set(part,offset);offset+=part.length;}
+  const page=JSON.parse(new TextDecoder().decode(bytes));
   if (typeof page.text !== 'string' || typeof page.url !== 'string') throw new Error('网站读取 API 返回无效内容');
   return page;
 }
-export function staticVideoUrl(text, pageUrl) {
-  const match=text.match(/(?:var|let|const)\s+player_\w+\s*=\s*(\{[^\n]+?\})\s*(?:;|<)/);
-  if(!match)return '';
-  try {
-    const player=JSON.parse(match[1]);let value=player.url;
-    if(player.encrypt===2||player.encrypt==='2')value=decodeURIComponent(atob(value));
-    else if(player.encrypt===1||player.encrypt==='1')value=decodeURIComponent(value);
-    const url=new URL(value,pageUrl);
-    return url.protocol==='https:'&&!url.username&&!url.password&&/\.(mp4|webm|m3u8)(?:$|[?#])/i.test(url.href)?url.href:'';
-  }catch{return '';}
-}
+export function staticVideoUrl(text, pageUrl) { return videoCandidates(text,pageUrl).videos[0] || ''; }
 let hlsScript;
-export async function onlinePlay({url,title},playbackRate=1) {
-  const page=await onlineRead(url);
-  const direct=staticVideoUrl(page.text,page.url);
-  document.getElementById('web-media-player')?.close();
-  const dialog=document.createElement('dialog');dialog.id='web-media-player';
-  const label=document.createElement('h3');label.textContent=title||'在线播放';
-  const status=document.createElement('p');
-  const original=document.createElement('a');original.textContent='在来源站点打开';original.href=page.url;original.target='_blank';original.rel='noopener noreferrer';
-  const close=document.createElement('button');close.textContent='关闭';close.onclick=()=>dialog.close();
-  let dispose=()=>{};
-  dialog.onclose=()=>{dispose();dialog.remove();};
-  dialog.append(label,status,original,close);document.body.append(dialog);dialog.showModal();
-  if(direct) {
-    const video=document.createElement('video');video.controls=true;video.playsInline=true;video.playbackRate=playbackRate;dialog.insertBefore(video,status);
-    status.textContent='在线资源；无需 BT 节点。';
-    video.onerror=()=>{status.textContent='来源视频无法读取或浏览器不支持编码；可到来源站点播放。';};
-    if(/\.m3u8(?:$|[?#])/i.test(direct)&&!video.canPlayType('application/vnd.apple.mpegurl')) {
-      try {
-        if(!hlsScript)hlsScript=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='./vendor/hls.min.js?v=babfb6e08d91e8b1';script.onload=resolve;script.onerror=()=>reject(new Error('播放器加载失败'));document.head.append(script);}).catch(e=>{hlsScript=null;throw e;});
-        await hlsScript;if(!dialog.open)return;
-        if(!window.Hls?.isSupported())throw new Error('当前浏览器不支持 HLS');
-        const hls=new window.Hls();hls.on(window.Hls.Events.ERROR,(_event,data)=>{if(data.fatal){status.textContent='HLS 来源拒绝跨域或无法读取；可到来源站点播放。';hls.stopLoad();}});
-        hls.loadSource(direct);hls.attachMedia(video);dispose=()=>hls.destroy();
-      }catch(error){status.textContent=error.message;}
-    }else video.src=direct;
-    const cleanup=dispose;dispose=()=>{cleanup();video.pause();video.removeAttribute('src');video.load();};
-  }else {
-    const frame=document.createElement('iframe');frame.src=page.url;frame.title=title||'来源播放器';frame.allow='fullscreen';frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-presentation');
-    frame.style.cssText='width:100%;height:60vh;border:0;background:#000';dialog.insertBefore(frame,status);
-    status.textContent='此来源需要站点播放器，当前嵌入原站页面；若站点禁止嵌入，请使用下方入口。';dispose=()=>frame.remove();
-  }
+async function loadHls() {
+  if(!hlsScript)hlsScript=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');script.src='./vendor/hls.min.js?v=41351d16ee4c92fd';script.onload=resolve;
+    script.onerror=()=>{script.remove();reject(new Error('播放器加载失败'));};document.head.append(script);
+  }).catch(e=>{hlsScript=null;throw e;});
+  await hlsScript;
+  if(!window.Hls?.isSupported())throw new Error('当前浏览器不支持 HLS');
 }
+
+// HtmlElementView owns this surface. All visible controls are Compose components.
+export function createOnlineVideo(payload, emit) {
+  const {url,title,source,episodes=[],index=0}=payload;
+  const playlist=episodes.length?episodes:[{url,name:title}];
+  const host=document.createElement('div'),video=document.createElement('video');
+  host.style.cssText='width:100%;height:100%;background:#000;overflow:hidden';
+  video.style.cssText='display:block;width:100%;height:100%;object-fit:contain';
+  video.playsInline=true;video.preload='metadata';video.setAttribute('aria-label',title||'视频');host.append(video);
+  let position=Math.max(0,Math.min(index,playlist.length-1)),abort,dispose=()=>{},generation=0,closed=false;
+  let message='正在提取视频…',failed=false,loading=true;
+  let initialRate=1;try{initialRate=JSON.parse(localStorage.getItem('animecomic.web.mediaSettings')||'{}').playbackRate||1;}catch{}
+  video.defaultPlaybackRate=initialRate;video.playbackRate=initialRate;
+  function notify(){if(!closed)emit(JSON.stringify({position,time:video.currentTime||0,duration:Number.isFinite(video.duration)?video.duration:0,
+    paused:video.paused,muted:video.muted,loading,message,failed,rate:video.playbackRate,fullscreen:!!document.fullscreenElement}));}
+  function status(text,error=false){message=text;failed=error;notify();}
+  function cleanup(){abort?.abort();dispose();dispose=()=>{};video.pause();video.removeAttribute('src');video.load();}
+  async function play(){
+    cleanup();const id=++generation,controller=new AbortController();abort=controller;loading=true;status('正在提取视频…');
+    try {
+      const response=await fetch(globalThis.aniApi.base+'/online/resolve?'+new URLSearchParams({url:playlist[position].url,source}),{
+        credentials:'omit',signal:AbortSignal.any([controller.signal,AbortSignal.timeout(60000)])});
+      const result=await response.json();if(!response.ok)throw new Error(result.error||'视频提取失败');
+      if(id!==generation||closed)return;
+      const resolved=new URL(result.url,globalThis.aniApi.base);
+      if(resolved.origin!==new URL(globalThis.aniApi.base).origin)throw new Error('视频接口返回了无效地址');
+      status('视频已提取，正在加载…');
+      const start=()=>video.play().catch(()=>{if(id===generation&&!closed)status('点击播放开始观看');});
+      if(result.type==='hls'&&!video.canPlayType('application/vnd.apple.mpegurl')) {
+        await loadHls();if(id!==generation||closed)return;
+        const hls=new window.Hls();let recovered=false;
+        hls.on(window.Hls.Events.ERROR,(_event,data)=>{if(data.fatal&&id===generation&&!closed){
+          if(data.type===window.Hls.ErrorTypes.MEDIA_ERROR&&!recovered){recovered=true;hls.recoverMediaError();}
+          else {loading=false;status('来源暂时无法读取，请重试或切换数据源。',true);hls.stopLoad();}
+        }});
+        hls.on(window.Hls.Events.MANIFEST_PARSED,start);
+        hls.loadSource(resolved.href);hls.attachMedia(video);dispose=()=>hls.destroy();
+      }else{video.src=resolved.href;void start();}
+    }catch(e){if(!controller.signal.aborted&&id===generation&&!closed){loading=false;status(e.message||'视频提取失败，请切换线路',true);}}
+  }
+  video.onplaying=()=>{loading=false;status('');};
+  video.onwaiting=()=>{loading=true;notify();};
+  video.onerror=()=>{if(!closed&&video.getAttribute('src')){loading=false;status('视频无法播放，请重试或切换数据源。',true);}};
+  for(const name of ['timeupdate','durationchange','pause','play','volumechange','ratechange','loadedmetadata'])video.addEventListener(name,notify);
+  video.onclick=()=>host.aniCommand('toggle',0);
+  const toggleFullscreen=async()=>{
+    try {if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}
+    catch{status('浏览器未允许全屏，可使用系统全屏按钮。');}
+  };
+  video.ondblclick=toggleFullscreen;
+  host.aniCommand=(action,value)=>{
+    if(closed)return;
+    if(action==='toggle'){if(video.paused)video.play().catch(()=>status('当前视频尚未就绪'));else video.pause();}
+    if(action==='seek'&&Number.isFinite(video.duration))video.currentTime=Math.max(0,Math.min(value,video.duration));
+    if(action==='mute')video.muted=!video.muted;
+    if(action==='rate'&&[.5,.75,1,1.25,1.5,2].includes(value)){video.defaultPlaybackRate=value;video.playbackRate=value;}
+    if(action==='episode'&&Number.isInteger(value)&&value>=0&&value<playlist.length&&value!==position){position=value;void play();}
+    if(action==='retry')void play();
+    if(action==='fullscreen')void toggleFullscreen();
+    notify();
+  };
+  const keyboard=event=>{
+    if(event.defaultPrevented||event.ctrlKey||event.altKey||event.metaKey||/INPUT|TEXTAREA|SELECT/.test(event.target?.tagName)||event.target?.isContentEditable)return;
+    if(event.code==='Space'){event.preventDefault();host.aniCommand('toggle',0);}
+    if(event.code==='ArrowRight'||event.code==='ArrowLeft'){event.preventDefault();host.aniCommand('seek',video.currentTime+(event.code==='ArrowRight'?5:-5));}
+  };
+  document.addEventListener('fullscreenchange',notify);document.addEventListener('keydown',keyboard);
+  host.aniDispose=()=>{if(closed)return;closed=true;generation++;cleanup();document.removeEventListener('fullscreenchange',notify);document.removeEventListener('keydown',keyboard);if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});};
+  // Allow Compose to attach the element before state changes trigger recomposition.
+  queueMicrotask(()=>{if(!closed)void play();});
+  return host;
+}
+globalThis.aniCreateVideo=(json,callback)=>createOnlineVideo(JSON.parse(json),callback);

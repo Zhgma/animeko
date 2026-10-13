@@ -3,11 +3,20 @@
 (() => {
   const key = 'animecomic.web.session';
   let attempt = null, epoch = 0, refreshing = null, emailGeneration = 0;
-  const read = () => { try { return JSON.parse(sessionStorage.getItem(key) || 'null'); } catch { return null; } };
+  const read = () => {
+    try {
+      let stored = localStorage.getItem(key);
+      if (!stored) {
+        stored = sessionStorage.getItem(key);
+        if (stored) { localStorage.setItem(key, stored); sessionStorage.removeItem(key); }
+      }
+      return JSON.parse(stored || 'null');
+    } catch { return null; }
+  };
   function save(data) {
     const tokens = data?.tokens;
     if (!tokens || typeof tokens.refreshToken !== 'string' || !tokens.refreshToken || typeof tokens.accessToken !== 'string' || !tokens.accessToken || !Number.isFinite(tokens.expiresAtMillis) || (tokens.bangumiAccessToken != null && typeof tokens.bangumiAccessToken !== 'string')) throw new Error('授权结果无效，请重新登录。');
-    try { sessionStorage.setItem(key, JSON.stringify(data)); } catch { throw new Error('浏览器禁用了会话存储，无法保存登录状态。'); }
+    try { localStorage.setItem(key, JSON.stringify(data)); sessionStorage.removeItem(key); } catch { throw new Error('浏览器禁用了本地存储，无法保存登录状态。'); }
   }
   async function api(action, query = {}, body, authorization = '') {
     if (!['providers','email-otp','email-login','refresh','start','result'].includes(action)) throw new Error('不支持的账号操作');
@@ -118,8 +127,9 @@
     }
     return refreshing;
   };
+  window.addEventListener?.('storage', event => { if(event.key===key){epoch++;refreshing=null;window.aniOAuthCancel();} });
   window.aniAuthClear = () => {
     epoch++; refreshing = null; window.aniOAuthCancel();
-    try { sessionStorage.removeItem(key); sessionStorage.removeItem('animecomic.web.token'); } catch { /* No writable storage means there is no persisted browser session. */ }
+    try { localStorage.removeItem(key); sessionStorage.removeItem(key); sessionStorage.removeItem('animecomic.web.token'); } catch { /* No writable storage means there is no persisted browser session. */ }
   };
 })();

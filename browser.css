@@ -6,3 +6,4 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg)}*
 #boot img{margin:0 auto;border-radius:20px}
 
 #web-media-player{width:min(960px,94vw);border:1px solid var(--line);border-radius:24px;background:var(--surface);color:var(--ink);font:16px system-ui;padding:24px}#web-media-player::backdrop{background:#000b}#web-media-player video{width:100%;max-height:65vh;background:black}#web-media-player button{border:0;border-radius:24px;padding:12px 24px;background:var(--primary);color:var(--on-primary)}
+
