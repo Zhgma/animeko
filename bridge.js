@@ -82,9 +82,9 @@
   }
   window.aniMangaIdentity = token => fetchJson('/v0/me', {}, token, true);
   async function api(action, p) {
-    if (action.startsWith('config')) return (await import('./config-io.mjs?v=eb2885e68a4a1a64')).configAction(action, p, localStorage, prefix,
-      async settings => (await import('./browser-media.mjs?v=eb2885e68a4a1a64')).mediaAction('mediaSettings', {settings}));
-    if (/^(media|mangaSubscription|torrent|subscription)/.test(action)) return {raw:JSON.stringify(await (await import('./browser-media.mjs?v=eb2885e68a4a1a64')).mediaAction(action,p))};
+    if (action.startsWith('config')) return (await import('./config-io.mjs?v=a567236a4426cb2b')).configAction(action, p, localStorage, prefix,
+      async settings => (await import('./browser-media.mjs?v=a567236a4426cb2b')).mediaAction('mediaSettings', {settings}));
+    if (/^(media|mangaSubscription|torrent|subscription)/.test(action)) return {raw:JSON.stringify(await (await import('./browser-media.mjs?v=a567236a4426cb2b')).mediaAction(action,p))};
     if (action === 'networkCheck') {
       await fetchJson('/v0/subjects/355555', {}, '', true);
       return {raw:'App / 网页共享书籍 API 连接正常。此检查不代表浏览器授权页面的网络路径正常。'};

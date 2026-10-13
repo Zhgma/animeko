@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import './api-endpoints.js?v=eb2885e68a4a1a64';
-import {videoCandidates} from './video-extraction.mjs?v=eb2885e68a4a1a64';
+import './api-endpoints.js?v=a567236a4426cb2b';
+import {videoCandidates} from './video-extraction.mjs?v=a567236a4426cb2b';
 export async function onlineRead(url) {
   const target = new URL(url);
   if (target.protocol !== 'https:' || target.username || target.password) throw new Error('在线来源必须使用 HTTPS');
@@ -23,7 +23,7 @@ export function staticVideoUrl(text, pageUrl) { return videoCandidates(text,page
 let hlsScript;
 async function loadHls() {
   if(!hlsScript)hlsScript=new Promise((resolve,reject)=>{
-    const script=document.createElement('script');script.src='./vendor/hls.min.js?v=eb2885e68a4a1a64';script.onload=resolve;
+    const script=document.createElement('script');script.src='./vendor/hls.min.js?v=a567236a4426cb2b';script.onload=resolve;
     script.onerror=()=>{script.remove();reject(new Error('播放器加载失败'));};document.head.append(script);
   }).catch(e=>{hlsScript=null;throw e;});
   await hlsScript;
