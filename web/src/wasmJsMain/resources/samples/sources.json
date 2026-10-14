@@ -1,0 +1,110 @@
+{
+  "retrieved": "2026-10-11",
+  "description": "Public metadata and cover thumbnails from Bangumi; opt-in preview only, not live ranking.",
+  "sources": [
+    {
+      "file": "covers/18462.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/92/46/18462_30u1i.jpg"
+    },
+    {
+      "file": "covers/9640.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/6f/75/9640_gYJRJ.jpg"
+    },
+    {
+      "file": "covers/36752.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/5e/d6/36752_9tOt7.jpg"
+    },
+    {
+      "file": "covers/27684.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/69/20/27684_D4ySY.jpg"
+    },
+    {
+      "file": "covers/25896.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/af/6e/25896_FAsgz.jpg"
+    },
+    {
+      "file": "covers/44996.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/88/64/44996_Gg1JJ.jpg"
+    },
+    {
+      "file": "covers/25402.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/7f/39/61_ajp.jpg"
+    },
+    {
+      "file": "covers/172526.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/77/38/172526_AP1Kg.jpg"
+    },
+    {
+      "file": "covers/10787.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/93/d2/10787_vngD3.jpg"
+    },
+    {
+      "file": "covers/27466.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/67/31/27466_rQ7gG.jpg"
+    },
+    {
+      "file": "covers/32435.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/55/57/32435_6AJ3H.jpg"
+    },
+    {
+      "file": "covers/28842.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/ab/d1/28842_EZ32o.jpg"
+    },
+    {
+      "file": "1.json",
+      "url": "https://api.bgm.tv/v0/subjects?type=1&sort=rank&limit=12&cat=1001&series=true"
+    },
+    {
+      "file": "covers/876.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/67/d1/876_dCfrd.jpg"
+    },
+    {
+      "file": "covers/326.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/a6/66/326_D8wjw.jpg"
+    },
+    {
+      "file": "covers/25961.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/fd/60/25961_WDKz6.jpg"
+    },
+    {
+      "file": "covers/253.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/c2/4c/253_jJJj9.jpg"
+    },
+    {
+      "file": "covers/324.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/f2/fc/324_psuXk.jpg"
+    },
+    {
+      "file": "covers/1728.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/71/37/1728_HLsCr.jpg"
+    },
+    {
+      "file": "covers/6049.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/fe/45/6049_zy52O.jpg"
+    },
+    {
+      "file": "covers/10380.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/a9/79/10380_YwP4R.jpg"
+    },
+    {
+      "file": "covers/237.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/53/9f/237_78UdL.jpg"
+    },
+    {
+      "file": "covers/211567.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/5c/49/211567_pGm5Q.jpg"
+    },
+    {
+      "file": "covers/321.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/ca/f1/321_j3YWy.jpg"
+    },
+    {
+      "file": "covers/1428.jpg",
+      "url": "https://lain.bgm.tv/r/400/pic/cover/l/06/63/1428_xwkMI.jpg"
+    },
+    {
+      "file": "2.json",
+      "url": "https://api.bgm.tv/v0/subjects?type=2&sort=rank&limit=12"
+    }
+  ]
+}

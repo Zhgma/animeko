@@ -26,6 +26,12 @@
 不绕过登录、验证码或阅读额度。图片只对临时传输错误及服务器 5xx 自动重试一次。
 遇到访问限制时停止当前/下一话的批量请求，等待用户处理或换源。
 
+Komiic 阅读图片在所有详情会话与离线下载之间共用串行队列，每张请求结束后至少间隔一秒。
+429 响应中的 `komiic_reading_limit` 显示为源站阅读额度已用完，其余限流显示等待时间；
+图片队列遵守服务返回的 `Retry-After`（至少 30 秒），期间后续请求直接返回同一限制提示，
+不继续发送，也不自动恢复已停止的整话下载。已缓存图片仍可阅读，当前话和下一话完整预取保持启用。
+冷却结束只允许用户重新尝试，不代表源站阅读额度已恢复。
+
 ## API 地址与旧图片兼容
 
 App 的书籍和 Komiic API 使用 `https://43.131.255.74:8443`。
@@ -45,7 +51,7 @@ App 的书籍和 Komiic API 使用 `https://43.131.255.74:8443`。
 切换来源下拉框只浏览搜索结果，点击作品才改变阅读来源。
 
 搜索结果按来源保存；切到已有相同关键词的来源不重复请求，搜索/刷新按钮明确触发重试。
-`ManualSourceSelector` 和 `MediaSelectorWebSourcesColumn` 直接复用番剧选择器。
+选择器通过番剧的 `MediaSelectorModeChip` 区分“自动匹配”和“手动查找”。自动页使用 `MediaSelectorWebSourcesColumn` 展示全部来源及匹配作品，并提供手动查找入口。手动页使用 `ManualSourceSelector`、`MediaSelectorSearchField` 与 `ManualResultsList`，只展示当前来源的结果；进入手动页和换源时按当前关键词搜索，已有相同关键词的结果（包括失败）直接复用，编辑文字不发请求，提交或重试时重新搜索。点击结果绑定对应漫画并关闭选择器，保留本地来源记忆。弹窗顶栏共用 `MediaSelectorTopBar`，支持模式切换、关闭和漫画来源管理；容器沿用 `MediaSelectorDialog` 的宽窄屏布局。
 章节目录优先显示现有分组，只有单行本的作品不会停留在空的“章节”分组。
 
 整话重试会刷新图片目录，以取得有效的签名地址；后台缓存继续独立于列表项生命周期。
@@ -98,3 +104,9 @@ HTML 访问使用番剧的 `PageEvaluator` 判断验证码，`WebSessionManager`
 
 MangaDex 的枚举值仅用于兼容已保存的离线记录；不参与订阅导入、选源、搜索和网络读取。
 移除的来源绑定不自动恢复，已有离线文件保留。空订阅配置保持为空，用户删除的订阅不会自动补回。
+
+## Web 搜索宿主
+
+`MangaSourceModels` 与 `MangaSourceSearch` 提供跨平台来源模型、查询和解析；原生 `MangaSourceRepository.search` 委托同一适配器，保留原生 HTTP、Cookie、验证及图片限流。Web 编译这些文件并注入浏览器 HTTP。`WebMangaSourceSession` 管理每个来源的查询代次、缓存、取消和按 BGM 条目持久化的来源选择。来源禁用时立即移除结果；旧查询即使晚返回也不能覆盖新查询。自动页展示匹配候选，不探测正文可读性；选中后明确提供原站入口。
+
+`MediaSelectorTopBar` 和 `ManualResultsList` 是原生与 Web 直接共编译的纯展示文件。网页来源卡片和下拉框也复用番剧展示层。Web 的漫画搜索转发只接受固定适配器的 HTTPS 搜索路径，不转发用户凭据或跟随未知重定向。

@@ -15,6 +15,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
@@ -189,15 +190,7 @@ fun MediaSelectorDialogContent(
     }
     val topBarTitle = stringResource(Lang.media_selector_sources)
     val topBar: @Composable () -> Unit = {
-        TopAppBar(
-            title = { Text(topBarTitle) },
-            actions = {
-                MediaSelectorModeChip(mode, onModeChange, showBt = sourceResults.btSources.isNotEmpty())
-                closeButton()
-            },
-            windowInsets = WindowInsets.Zero,
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = BottomSheetDefaults.ContainerColor),
-        )
+        MediaSelectorTopBar(topBarTitle, mode, onModeChange, onClose, showBt = sourceResults.btSources.isNotEmpty())
     }
     val inlineTitle: @Composable (title: String) -> Unit = { title ->
         closeButton()
@@ -250,9 +243,4 @@ fun MediaSelectorDialogContent(
 
         MediaSelectorMode.AUTO -> {}
     }
-}
-
-object MediaSelectorDialogTestTags {
-    const val SURFACE = "media_selector_dialog_surface"
-    const val CLOSE = "media_selector_dialog_close"
 }

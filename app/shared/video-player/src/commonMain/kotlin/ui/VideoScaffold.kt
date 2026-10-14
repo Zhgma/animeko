@@ -465,18 +465,7 @@ enum class VideoScaffoldLayout {
     VerticalSplit,
 }
 
-internal fun Modifier.keepLayoutWhenHidden(hidden: Boolean): Modifier {
-    if (!hidden) return this
-    return alpha(0f)
-        .clearAndSetSemantics { }
-        .pointerInput(Unit) {
-            awaitPointerEventScope {
-                while (true) {
-                    awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }
-                }
-            }
-        }
-}
+
 
 
 @Stable

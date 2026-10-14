@@ -174,13 +174,7 @@ fun AiringLabel(
     }
 }
 
-fun renderEpAndSort(ep: EpisodeSort?, sort: EpisodeSort?) = when {
-    ep == null -> sort.toString()
-    sort == null -> ep.toString()
-    ep.number == 0f -> sort.toString() // 有些 SP 只有 sort, ep 为 0. #1677
-    ep != sort -> "$ep ($sort)"
-    else -> sort.toString()
-}
+
 
 
 @TestOnly

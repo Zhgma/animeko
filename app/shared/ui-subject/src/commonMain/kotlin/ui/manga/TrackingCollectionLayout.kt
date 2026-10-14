@@ -2,7 +2,9 @@
 package me.him188.ani.app.ui.manga
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Card
@@ -14,8 +16,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 /** Shared collection tabs; labels are supplied by each platform's localization layer. */
 @Composable
@@ -56,7 +61,21 @@ fun MangaCollectionCard(
         image()
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(progress, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val style = MaterialTheme.typography.bodySmall
+                val measurer = rememberTextMeasurer()
+                val availableWidth = with(LocalDensity.current) { maxWidth.roundToPx() }
+                var fontSize = style.fontSize.value
+                // Measure the complete line; ellipsized layout does not expose its natural width.
+                while (fontSize > 8f && measurer.measure(
+                        progress, style.copy(fontSize = fontSize.sp), softWrap = false, maxLines = 1,
+                    ).size.width >= availableWidth) {
+                    fontSize = (fontSize - 0.25f).coerceAtLeast(8f)
+                }
+                Text(progress, modifier = Modifier.fillMaxWidth(), style = style.copy(fontSize = fontSize.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+            }
             annotations()
         }
     }

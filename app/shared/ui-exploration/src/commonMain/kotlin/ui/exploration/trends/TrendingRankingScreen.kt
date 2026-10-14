@@ -219,63 +219,6 @@ fun TrendingRankingItem(
     )
 }
 
-/**
- * 封面左上角的名次. 前三名用主题色突出.
- */
-@Composable
-private fun TrendingRankBadge(
-    rank: Int,
-    modifier: Modifier = Modifier,
-) {
-    val highlighted = rank <= 3
-    Surface(
-        modifier,
-        // 左上角由封面的圆角裁剪, 只需要右下角是圆的
-        shape = RoundedCornerShape(bottomEnd = 12.dp),
-        color = if (highlighted) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.9f)
-        },
-        contentColor = if (highlighted) {
-            MaterialTheme.colorScheme.onPrimary
-        } else {
-            MaterialTheme.colorScheme.onSurface
-        },
-    ) {
-        Text(
-            rank.toString(),
-            Modifier
-                .defaultMinSize(minWidth = 32.dp)
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-        )
-    }
-}
-
-@Composable
-private fun TrendingHeatText(
-    heat: Int,
-    modifier: Modifier = Modifier,
-) {
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            Icons.Rounded.LocalFireDepartment,
-            contentDescription = null,
-            Modifier.size(16.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        Spacer(Modifier.size(4.dp))
-        Text(
-            stringResource(Lang.exploration_trending_ranking_heat, heat.toString()),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
-
 @TestOnly
 internal val TestTrendingRankingItems
     get() = TestSubjectPreviewItemInfos.let { infos ->

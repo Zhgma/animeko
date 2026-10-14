@@ -491,90 +491,17 @@ internal fun SettingsScope.MediaSourceItem(
     onToggleSelected: () -> Unit = {},
     actions: @Composable RowScope.() -> Unit,
 ) {
-    Item(
-        modifier = modifier,
-        supportingContent = {
-            SelectionContainer {
-                val fromSubscriptionText = stringResource(Lang.settings_media_source_from_subscription)
-                Text(
-                    remember(item, fromSubscriptionText) {
-                        buildString {
-                            val desc = item.info.description.orEmpty()
-                            val subUrl = item.ownerSubscriptionUrl
-                            if (subUrl != null) {
-                                if (desc.isNotBlank()) {
-                                    appendLine(desc)
-                                }
-                                append(fromSubscriptionText)
-                                append(subUrl)
-                            } else {
-                                append(desc)
-                            }
-                        }
-                    },
-                    Modifier.ifThen(!isEnabled) { alpha(DISABLED_ALPHA) },
-                )
-            }
-        },
-        leadingContent = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (selectionMode) {
-                    Checkbox(
-                        checked = selected,
-                        onCheckedChange = { onToggleSelected() },
-                        modifier = Modifier.padding(end = 8.dp),
-                    )
-                }
-                Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) {
-                    Box(
-                        Modifier
-                            .ifThen(!isEnabled) { alpha(DISABLED_ALPHA) }
-                            .clip(MaterialTheme.shapes.extraSmall)
-                            .size(48.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        MediaSourceIcon(item.info, Modifier.size(48.dp))
-                    }
-                }
-            }
-        },
-        trailingContent = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                actions()
-            }
-        },
-        headlineContent = {
-            val disabledText = stringResource(Lang.settings_media_source_disabled)
-            val name = if (!isEnabled) {
-                item.info.displayName + disabledText
-            } else {
-                item.info.displayName
-            }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                item.instance.source.apply {
-                    Icon(
-                        imageVector = MediaSourceIcons.location(this.location, this.kind),
-                        contentDescription = this.info.description,
-                        modifier = Modifier.size(20.dp).ifThen(!isEnabled) { alpha(DISABLED_ALPHA) },
-                    )
-                }
-                Text(
-                    name,
-                    Modifier.ifThen(!isEnabled) { alpha(DISABLED_ALPHA) }.basicMarquee(),
-                    textAlign = TextAlign.Center,
-                )
-                item.info.tier?.let { tier ->
-                    MediaSourceTierTag(
-                        tier = tier,
-                        modifier = Modifier.ifThen(!isEnabled) { alpha(DISABLED_ALPHA) },
-                    )
-                }
-            }
-        },
-    )
+    val fromSubscriptionText = stringResource(Lang.settings_media_source_from_subscription)
+    val description = buildString {
+        append(item.info.description.orEmpty())
+        item.ownerSubscriptionUrl?.let { if (isNotEmpty()) appendLine(); append(fromSubscriptionText); append(it) }
+    }
+    MediaSourceItemContent(item.info.displayName, description, isEnabled, modifier,
+        sourceIcon = { MediaSourceIcon(item.info, Modifier.size(48.dp)) },
+        kindIcon = { Icon(MediaSourceIcons.location(item.instance.source.location, item.instance.source.kind),
+            item.info.description, Modifier.size(20.dp).ifThen(!isEnabled) { alpha(DISABLED_ALPHA) }) },
+        tier = item.info.tier?.let { tier -> { MediaSourceTierTag(tier, Modifier.ifThen(!isEnabled) { alpha(DISABLED_ALPHA) }) } },
+        selectionMode = selectionMode, selected = selected, onToggleSelected = onToggleSelected, actions = actions)
 }
 
 @Composable

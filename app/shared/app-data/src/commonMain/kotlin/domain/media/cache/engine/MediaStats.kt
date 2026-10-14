@@ -11,12 +11,11 @@ package me.him188.ani.app.domain.media.cache.engine
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import me.him188.ani.app.domain.media.cache.storage.MediaCacheStorage
 import me.him188.ani.datasources.api.topic.FileSize
 import me.him188.ani.datasources.api.topic.FileSize.Companion.bytes
 
 /**
- * 供 [MediaCacheEngine] 与 [MediaCacheStorage] 使用的统计数据.
+ * 供 [MediaCacheEngine] 与 缓存存储 使用的统计数据.
  */
 data class MediaStats(
     /**

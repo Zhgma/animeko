@@ -249,23 +249,7 @@ fun SubjectCommentsSheet(
         },
     ) {
         Column(Modifier.fillMaxWidth()) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    stringResource(Lang.subject_details_tab_comments),
-                    Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleLarge,
-                )
-                TextButton(onClickWriteReview) {
-                    Icon(Icons.Rounded.AddComment, contentDescription = null, Modifier.size(18.dp))
-                    Text(
-                        stringResource(Lang.subject_details_write_review),
-                        Modifier.padding(start = 8.dp),
-                    )
-                }
-            }
+            SubjectCommentsHeader(onClickWriteReview)
             SubjectDetailsDefaults.SubjectCommentColumn(
                 state = state,
                 onClickUrl = onClickUrl,

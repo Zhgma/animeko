@@ -29,9 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import me.him188.ani.app.ui.foundation.ProvideCompositionLocalsForPreview
 import me.him188.ani.app.ui.lang.*
 import me.him188.ani.datasources.api.topic.UnifiedCollectionType
 import org.jetbrains.compose.resources.*
@@ -62,6 +60,9 @@ fun SubjectCollectionTypeButton(
     onEdit: (newType: UnifiedCollectionType) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    currentLabel: String? = null,
+    actions: List<SubjectCollectionAction> = SubjectCollectionActionsForEdit,
+    showDelete: Boolean = true,
 ) {
     val action = remember(type) {
         SubjectCollectionActionsForCollect.find { it.type == type }
@@ -90,7 +91,7 @@ fun SubjectCollectionTypeButton(
                 if (action != null) {
                     action.icon()
                     Row(Modifier.padding(start = 8.dp)) {
-                        Text(renderCollectionTypeAsCurrent(type))
+                        Text(currentLabel ?: renderCollectionTypeAsCurrent(type))
                     }
                 } else {
                     Text("Loading") // Placeholder to preserve layout
@@ -104,7 +105,7 @@ fun SubjectCollectionTypeButton(
                 if (action != null) {
                     action.icon()
                     Row(Modifier.padding(start = 8.dp)) {
-                        action.title()
+                        if (currentLabel != null) Text(currentLabel) else action.title()
                     }
                 } else {
                     Text("Loading") // Placeholder to preserve layout
@@ -120,6 +121,8 @@ fun SubjectCollectionTypeButton(
                 showDropdown = false
                 onEdit(it.type)
             },
+            actions = actions,
+            showDelete = showDelete,
         )
     }
 }
@@ -134,23 +137,5 @@ private fun renderCollectionTypeAsCurrent(type: UnifiedCollectionType): String {
         UnifiedCollectionType.ON_HOLD -> stringResource(Lang.subject_collection_current_on_hold)
         UnifiedCollectionType.DROPPED -> stringResource(Lang.subject_collection_current_dropped)
         UnifiedCollectionType.NOT_COLLECTED -> stringResource(Lang.subject_collection_not_collected)
-    }
-}
-
-
-@Composable
-@Preview
-fun PreviewCollectionActionButton() = ProvideCompositionLocalsForPreview {
-    Surface {
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Column {
-                for (entry in UnifiedCollectionType.entries) {
-                    SubjectCollectionTypeButton(
-                        type = entry,
-                        onEdit = {},
-                    )
-                }
-            }
-        }
     }
 }

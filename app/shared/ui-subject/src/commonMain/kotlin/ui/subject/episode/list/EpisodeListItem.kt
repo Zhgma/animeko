@@ -10,8 +10,6 @@
 package me.him188.ani.app.ui.subject.episode.list
 
 import androidx.compose.runtime.Immutable
-import me.him188.ani.app.data.models.episode.EpisodeCollectionInfo
-import me.him188.ani.app.data.models.subject.preferredDisplayName as subjectPreferredDisplayName
 import me.him188.ani.datasources.api.EpisodeSort
 import me.him188.ani.datasources.api.topic.UnifiedCollectionType
 import me.him188.ani.utils.platform.annotations.TestOnly
@@ -51,37 +49,14 @@ data class EpisodeListItem(
     val nameOrNameCn: String get() = name.ifBlank { nameCn }
 
     /**
-     * 根据用户偏好选择的显示名称, 与 [subjectPreferredDisplayName] 同一约定.
+     * 根据用户偏好选择的显示名称, 与条目标题采用同一约定.
      * @param useOriginalTitle 为 `true` 时优先显示原名 ([name]), 为 `false` 时行为与 [displayName] 一致.
      */
     fun preferredDisplayName(useOriginalTitle: Boolean): String =
         if (useOriginalTitle) nameOrNameCn else displayName
 
     companion object {
-        /**
-         * @param isBroadcast 是否已经开播, 见 [EpisodeListUiState.isEpisodeBroadcast]
-         */
-        fun from(
-            collection: EpisodeCollectionInfo,
-            isBroadcast: Boolean,
-//            cacheStatus: EpisodeCacheStatus?,
-            playProgress: Float? = null,
-        ): EpisodeListItem {
-            return EpisodeListItem(
-                episodeId = collection.episodeId,
-                sort = collection.episodeInfo.sort,
-                ep = collection.episodeInfo.ep,
-                name = collection.episodeInfo.name,
-                nameCn = collection.episodeInfo.nameCn,
-                collectionType = collection.collectionType,
-//                cacheStatus = cacheStatus,
-//                airTime = collection.episodeInfo.airDate.toLocalDateOrNull()?,
-                isBroadcast = isBroadcast,
-                imageMedium = collection.episodeInfo.imageMedium,
-                imageLarge = collection.episodeInfo.imageLarge,
-                playProgress = playProgress,
-            )
-        }
+
     }
 }
 

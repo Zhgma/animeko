@@ -13,11 +13,16 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.daysUntil
+import kotlinx.datetime.toLocalDateTime
 import me.him188.ani.app.data.models.subject.ContinueWatchingStatus
 import me.him188.ani.app.data.models.subject.SubjectProgressInfo
 import me.him188.ani.app.tools.WeekFormatter
 import me.him188.ani.app.ui.foundation.stateOf
 import me.him188.ani.datasources.api.toLocalDateOrNull
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * 条目的观看进度, 用于例如 "看到 12" 的按钮
@@ -57,14 +62,18 @@ class SubjectProgressState(
         info.value?.nextEpisodeIdToPlay
     }
 
-    fun buttonText(strings: SubjectStatusStrings): String {
+    fun buttonText(
+        strings: SubjectStatusStrings,
+        now: Instant = Clock.System.now(),
+        timeZone: TimeZone = TimeZone.currentSystemDefault(),
+    ): String {
         return when (val s = continueWatchingStatus) {
             is ContinueWatchingStatus.Continue -> strings.continueWatching(renderEpAndSort(s.episodeEp, s.episodeSort))
             ContinueWatchingStatus.Done -> strings.done
             is ContinueWatchingStatus.NotOnAir -> {
                 val date = s.airDate.toLocalDateOrNull()
                 if (date != null) {
-                    val week = weekFormatter.format(date)
+                    val week = weekFormatter.format(date, timeZone)
                     strings.startsOn(week)
                 } else {
                     strings.notOnAir
@@ -73,9 +82,17 @@ class SubjectProgressState(
 
             ContinueWatchingStatus.Start -> strings.startWatching
             is ContinueWatchingStatus.Watched -> {
+                s.nextEpisodeAirTime?.let { time ->
+                    val localTime = time.toLocalDateTime(timeZone)
+                    val daysAhead = now.toLocalDateTime(timeZone).date.daysUntil(localTime.date)
+                    if (daysAhead == 0 || (daysAhead == 1 && localTime.hour < 6)) {
+                        val hour = localTime.hour + daysAhead * 24
+                        return "${hour.toString().padStart(2, '0')}:${localTime.minute.toString().padStart(2, '0')}"
+                    }
+                }
                 val date = s.nextEpisodeAirDate.toLocalDateOrNull()
                 if (date != null) {
-                    val week = weekFormatter.format(date)
+                    val week = weekFormatter.format(date, timeZone)
                     strings.updatesOn(week)
                 } else {
                     strings.watched(renderEpAndSort(s.episodeEp, s.episodeSort))

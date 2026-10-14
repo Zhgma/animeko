@@ -890,10 +890,11 @@ fun SubjectDetailsSingleColumnPage(
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun SubjectDetailsContentTabRow(
+internal fun SubjectDetailsContentTabRow(
     pagerState: PagerState,
     modifier: Modifier = Modifier,
-    compact: Boolean = currentWindowAdaptiveInfo1().isWidthCompact
+    compact: Boolean = currentWindowAdaptiveInfo1().isWidthCompact,
+    tabs: List<SubjectDetailsTab> = SubjectDetailsTab.entries,
 ) {
     val scope = rememberCoroutineScope()
     Box(
@@ -913,7 +914,7 @@ private fun SubjectDetailsContentTabRow(
             edgePadding = if (compact) 0.dp else TabRowDefaults.ScrollableTabRowEdgeStartPadding,
             divider = {},
         ) {
-            SubjectDetailsTab.entries.forEachIndexed { index, tabId ->
+            tabs.forEachIndexed { index, tabId ->
                 Tab(
                     selected = pagerState.currentPage == index,
                     modifier = Modifier.widthIn(min = TabRowDefaults.ScrollableTabRowMinTabWidth),

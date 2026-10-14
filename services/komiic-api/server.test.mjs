@@ -30,7 +30,7 @@ test('search, chapters, pages, signed cover and page bytes use fixed anonymous u
   assert.equal(f.calls[0].body.variables.keyword, 'book');
   assert.ok(f.calls[0].body.query.startsWith('query Search'));
   const cover = new URL(search.data.searchComicsAndAuthors.comics[0].imageUrl);
-  assert.equal(cover.hostname, '119.28.149.19');
+  assert.equal(cover.hostname, '43.131.255.74');
   assert.equal((await fetch(f.origin + cover.pathname)).status, 200);
   assert.equal(f.calls[1].host, 'public.komiic.com');
   assert.equal((await f.post({ operation: 'Chapters', variables: { comicId: '115' } })).status, 200);

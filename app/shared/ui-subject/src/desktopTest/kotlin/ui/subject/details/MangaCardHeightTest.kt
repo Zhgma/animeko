@@ -8,14 +8,47 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.unit.dp
 import me.him188.ani.app.ui.foundation.ProvideCompositionLocalsForPreview
 import me.him188.ani.app.ui.framework.runAniComposeUiTest
 import me.him188.ani.app.ui.manga.MangaCollectionCard
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class MangaCardHeightTest {
+    @Test
+    fun progressShrinksToOneCompleteLineAndRecoversWhenWidened() = runAniComposeUiTest {
+        val width = mutableStateOf(220.dp)
+        val progress = "204 / — 话 · 24 / — 卷"
+        setContent {
+            ProvideCompositionLocalsForPreview {
+                MangaCollectionCard("漫画", progress, {}, Modifier.width(width.value), image = {})
+            }
+        }
+        fun layout(): TextLayoutResult {
+            val results = mutableListOf<TextLayoutResult>()
+            onNodeWithText(progress, useUnmergedTree = true)
+                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(results) }
+            return results.single()
+        }
+        val originalWidth = layout().getLineRight(0)
+        runOnIdle { width.value = 140.dp }
+        val narrow = layout()
+        assertEquals(1, narrow.lineCount)
+        assertFalse(narrow.isLineEllipsized(0))
+        assertFalse(narrow.didOverflowWidth)
+        assertTrue(narrow.getLineRight(0) < originalWidth)
+        runOnIdle { width.value = 220.dp }
+        assertEquals(originalWidth, layout().getLineRight(0))
+    }
+
     @Test
     fun longTitleDoesNotIncreaseCardHeight() = runAniComposeUiTest {
         setContent {

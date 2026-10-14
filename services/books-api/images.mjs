@@ -43,7 +43,7 @@ export function fetchBookImage(path) {
 }
 
 /** Only image fields in validated book responses can issue a signed image URL. */
-export function createBookImages({ secret = randomBytes(32), baseUrl = 'https://119.28.149.19:8443/api/books',
+export function createBookImages({ secret = randomBytes(32), baseUrl = 'https://43.131.255.74:8443/api/books',
   upstream = fetchBookImage, now = Date.now } = {}) {
   if (!Buffer.isBuffer(secret) || secret.length < 32) throw new Error('Image signing key must contain at least 32 bytes');
   const cache = new Map(), pending = new Map(); let cacheBytes = 0;

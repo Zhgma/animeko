@@ -21,8 +21,11 @@ import me.him188.ani.app.ui.framework.runAniComposeUiTest
 import kotlin.test.Test
 
 class MangaSubscriptionSelectionTest {
-    @Test
-    fun removingLastSubscriptionHidesCachedResultsAndDisablesSearchUntilRestored() = runAniComposeUiTest {
+    @Test fun removingLastSubscriptionDisablesAutomaticSelection() = checkRemovedSubscription(false)
+    @Test fun removingLastSubscriptionDisablesManualSearch() = checkRemovedSubscription(true)
+
+    private fun checkRemovedSubscription(manual: Boolean) = runAniComposeUiTest {
+        val actionTag = if (manual) "manga-source-query" else "manga-auto-source"
         val source = MangaSource.GODA
         val subscription = MangaSubscription("one", "Source", "https://source.test/a", sources = listOf(source))
         var settings by mutableStateOf(MangaSourceSettings(subscriptions = listOf(subscription)))
@@ -32,18 +35,17 @@ class MangaSubscriptionSelectionTest {
                 Box(Modifier.requiredSize(600.dp, 800.dp)) {
                     MangaSourcePanel(MangaDetailsUiState(sourceSettings = settings, source = source,
                         sourceSearches = mapOf(source to MangaSourceSearchState("Query", listOf(book)))),
-                        "Query", {}, { _, _ -> }, {}, {})
+                        "Query", {}, { _, _ -> }, {}, {}, manual = manual)
                 }
             }
         }
         onNodeWithText("Saved manga").assertExists()
-        onNodeWithTag("manga-source-search").assertIsEnabled()
+        onNodeWithTag(actionTag).assertIsEnabled()
         runOnIdle { settings = settings.copy(subscriptions = emptyList()) }
         onNodeWithText("Saved manga").assertDoesNotExist()
-        onNodeWithTag("manga-source-search").assertIsNotEnabled()
-        onNodeWithTag("manga-auto-source").assertIsNotEnabled()
+        onNodeWithTag(actionTag).assertIsNotEnabled()
         runOnIdle { settings = settings.copy(subscriptions = listOf(subscription)) }
-        onNodeWithTag("manga-source-search").assertIsEnabled()
+        onNodeWithTag(actionTag).assertIsEnabled()
         onNodeWithText("Saved manga").assertExists()
     }
 }

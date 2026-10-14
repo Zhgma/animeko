@@ -425,18 +425,7 @@ private fun ManualWideSubjectHeader(
     }
 }
 
-object ManualBrowsePageTestTags {
-    const val ROOT = "manual_browse_page"
-    const val SOURCE_SELECTOR = "manual_source_selector"
-    fun sourceItem(instanceId: String) = "manual_source_item_$instanceId"
-    const val SEARCH_FIELD = "manual_search_field"
-    fun result(index: Int) = "manual_result_$index"
-    const val BACK = "manual_back"
-    fun channelChip(index: Int) = "manual_channel_$index"
-    fun episode(index: Int) = "manual_episode_$index"
-    const val REMEMBER_SWITCH = "manual_remember_switch"
-    const val RETRY = "manual_retry"
-}
+
 
 @OptIn(TestOnly::class)
 @PreviewLightDark

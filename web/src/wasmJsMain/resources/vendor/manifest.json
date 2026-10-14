@@ -1,0 +1,17 @@
+{
+  "webtorrent": {
+    "version": "3.0.21",
+    "source": "https://cdn.jsdelivr.net/npm/webtorrent@3.0.21/dist/webtorrent.min.js",
+    "sha256": "db4dca98cd135c732eeffdede3cf5f8febd0585a0eba4dc4d1effa1b901f4c3d"
+  },
+  "hls.js": {
+    "version": "1.7.3",
+    "source": "https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js",
+    "sha256": "a12e7ee1cd64a69dcdb314157e45dafcba705bfb0b1440b7935cb265d374423e"
+  },
+  "webtorrent-service-worker": {
+    "version": "3.0.21",
+    "source": "https://cdn.jsdelivr.net/npm/webtorrent@3.0.21/dist/sw.min.js",
+    "sha256": "9aa1f71d26b4d4eb51786baa575309ca550fdfd9c96842fe25a3b643f2173da2"
+  }
+}

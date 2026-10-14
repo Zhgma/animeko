@@ -11,6 +11,7 @@ package me.him188.ani.app.data.models
 
 import me.him188.ani.app.data.models.episode.EpisodeInfo
 import me.him188.ani.app.data.models.subject.SubjectAiringInfo
+import me.him188.ani.app.data.models.subject.computeFromEpisodeList
 import me.him188.ani.app.data.models.subject.SubjectAiringKind
 import me.him188.ani.datasources.api.EpisodeSort
 import me.him188.ani.datasources.api.EpisodeType

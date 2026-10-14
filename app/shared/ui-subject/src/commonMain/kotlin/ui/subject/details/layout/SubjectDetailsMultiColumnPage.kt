@@ -9,55 +9,36 @@
 
 package me.him188.ani.app.ui.subject.details.layout
 
-import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.rounded.StarOutline
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -66,21 +47,16 @@ import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItemsWithLifecycle
 import com.kmpalette.color
 import com.kmpalette.palette.graphics.Palette
-import kotlinx.collections.immutable.toImmutableList
 import me.him188.ani.app.data.models.subject.RatingInfo
 import me.him188.ani.app.data.models.subject.RelatedSubjectInfo
 import me.him188.ani.app.data.models.subject.SubjectInfo
 import me.him188.ani.app.data.models.subject.Tag
 import me.him188.ani.app.data.models.subject.preferredDisplayName
-import me.him188.ani.app.tools.ColorUtils
 import me.him188.ani.app.ui.external.placeholder.placeholder
 import me.him188.ani.app.ui.foundation.AniImageLoadSuccess
 import me.him188.ani.app.ui.foundation.AsyncImage
 import me.him188.ani.app.ui.foundation.LocalSubjectAppearanceSettings
-import me.him188.ani.app.ui.foundation.animation.AniAnimatedVisibility
-import me.him188.ani.app.ui.foundation.ifThen
 import me.him188.ani.app.ui.foundation.text.ProvideContentColor
-import me.him188.ani.app.ui.foundation.theme.AniThemeDefaults
 import me.him188.ani.app.ui.lang.Lang
 import me.him188.ani.app.ui.lang.rating_self_score
 import me.him188.ani.app.ui.lang.subject_details_episodes
@@ -92,10 +68,8 @@ import me.him188.ani.app.ui.lang.subject_details_related_subjects
 import me.him188.ani.app.ui.subject.AiringLabel
 import me.him188.ani.app.ui.subject.collection.components.EditableSubjectCollectionTypeButton
 import me.him188.ani.app.ui.subject.collection.progress.SubjectProgressButton
-import me.him188.ani.app.ui.subject.details.components.AnimatedGradientBackground
 import me.him188.ani.app.ui.subject.details.components.COVER_WIDTH_TO_HEIGHT_RATIO
 import me.him188.ani.app.ui.subject.details.components.RatingHistogram
-import me.him188.ani.app.ui.subject.details.components.SUBJECT_COVER_IMAGE_TEST_TAG
 import me.him188.ani.app.ui.subject.details.components.RelatedSubjectsGrid
 import me.him188.ani.app.ui.subject.details.components.rememberNavigateToRelatedSubject
 import me.him188.ani.app.ui.subject.details.components.rememberNavigateToRelationGraph
@@ -171,22 +145,7 @@ internal fun SubjectDetailsMultiColumnPage(
         navigationIcon,
         onClickOpenExternal,
         topBarTitle = info.preferredDisplayName(LocalSubjectAppearanceSettings.current.useOriginalTitle),
-        backgroundOverlay = {
-            val surfaceColor = MaterialTheme.colorScheme.surface
-            val colors = remember(backgroundPalette) {
-                backgroundPalette?.swatches
-                    ?.map { ColorUtils.blendColor(it.color, surfaceColor, 0.85f) }
-                    ?.toImmutableList()
-            }
-            if (colors != null) {
-                AnimatedGradientBackground(
-                    colors,
-                    speed = 0.05,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-
-        },
+        backgroundOverlay = { SubjectDetailsGradientBackground(backgroundPalette) },
     ) {
         // 左侧信息栏
         SubjectSidebar(
@@ -404,18 +363,7 @@ private fun SubjectSidebar(
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(itemSpacing)) {
         // 封面: 固定海报比例 (849:1200) + 圆角 16, 对齐定稿 340×482, 不随图片本征尺寸变形.
-        AsyncImage(
-            info.imageLarge,
-            contentDescription = null,
-            Modifier
-                .fillMaxWidth()
-                .aspectRatio(COVER_WIDTH_TO_HEIGHT_RATIO)
-                .clip(RoundedCornerShape(16.dp))
-                .ifThen(onClickCover != null) { clickable(onClick = checkNotNull(onClickCover)) }
-                .testTag(SUBJECT_COVER_IMAGE_TEST_TAG),
-            contentScale = ContentScale.Crop,
-            onSuccess = onCoverImageSuccess,
-        )
+        SubjectDetailsCover(info, onCoverImageSuccess = onCoverImageSuccess, onClickCover = onClickCover)
         // 播放按钮 (定稿: 全宽 Filled; 无选集列表小按钮, 选集操作走中栏网格)
         SubjectProgressButton(
             uiState.rememberSubjectProgressState(),
@@ -452,29 +400,7 @@ private fun SubjectSidebar(
 
 @Composable
 private fun SubjectTitleBlock(info: SubjectInfo, uiState: SubjectDetailsUiState) {
-    val useOriginalTitle = LocalSubjectAppearanceSettings.current.useOriginalTitle
-    val primaryTitle = info.preferredDisplayName(useOriginalTitle)
-    val secondaryTitle = if (useOriginalTitle) info.displayName else info.name
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SelectionContainer {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    primaryTitle,
-                    style = MaterialTheme.typography.headlineSmall,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (secondaryTitle.isNotBlank() && secondaryTitle != primaryTitle) {
-                    Text(
-                        secondaryTitle,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-        }
+    SubjectDetailsTitleBlock(info) {
         // 元数据行 (对齐定稿的内联文本, 非 chip): 季度 · 播出状态 · 总集数
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(6.dp),

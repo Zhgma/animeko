@@ -53,6 +53,19 @@ class MangaReadAheadCacheTest {
     }
 
     @Test
+    fun catalogQuotaStopsBeforeRequestingNextChapter() = runTest {
+        var catalogs = 0
+        val cache = MangaReadAheadCache(backgroundScope,
+            { _, _ -> catalogs++; throw MangaSourceAccessException("额度用完") },
+            { error("Images must not be requested") }, {})
+        val progress = mutableMapOf<Int, MangaDownloadProgress>()
+        cache.prefetch(book, chapters.take(2)) { i, p -> progress[i] = p }
+        assertEquals(1, catalogs)
+        assertEquals(listOf("额度用完", "额度用完"), (0..1).map { progress[it]?.error })
+        cache.clear()
+    }
+
+    @Test
     fun downloadsBothWholeChaptersAndReusesNextChapterWithoutNetwork() = runTest {
         var catalogs = 0
         var downloads = 0

@@ -94,14 +94,6 @@ import me.him188.ani.app.ui.richtext.UIRichElement
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
-object CommentItemTestTags {
-    const val LikeButton = "CommentItem:like"
-    const val DislikeButton = "CommentItem:dislike"
-    const val EmojiButton = "CommentItem:emoji"
-    const val MoreButton = "CommentItem:more"
-    const val Actions = "CommentItem:actions"
-    const val RepliesBlock = "CommentItem:replies"
-}
 
 /**
  * 上下文菜单的回调. 均可为 `null` 表示隐藏对应菜单项.
@@ -375,74 +367,6 @@ fun CommentItem(
  * 结构对应 Figma "CommentItem": 头像 36dp 在左, 右侧主列从上到下为
  * 头行 ([title] + [titleTrailing]) / [content] / [reactions] / [replies] / 底行 ([timestamp] + [actions]).
  */
-@Composable
-fun CommentItemLayout(
-    avatar: @Composable () -> Unit,
-    title: @Composable RowScope.() -> Unit,
-    content: @Composable () -> Unit,
-    timestamp: @Composable RowScope.() -> Unit,
-    modifier: Modifier = Modifier,
-    titleTrailing: (@Composable RowScope.() -> Unit)? = null,
-    reactions: (@Composable () -> Unit)? = null,
-    replies: (@Composable () -> Unit)? = null,
-    actions: (@Composable RowScope.() -> Unit)? = null,
-) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Box(Modifier.clip(CircleShape)) {
-            avatar()
-        }
-        Column(
-            Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(Modifier.weight(1f, fill = false)) {
-                    title()
-                }
-                titleTrailing?.invoke(this)
-            }
-
-            Box(Modifier.padding(vertical = 3.dp)) {
-                content()
-            }
-
-            reactions?.invoke()
-
-            replies?.invoke()
-
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(Modifier.weight(1f, fill = false)) {
-                    timestamp()
-                }
-                if (actions != null) {
-                    CompositionLocalProvider(
-                        LocalMinimumInteractiveComponentSize provides Dp.Unspecified,
-                    ) {
-                        Row(
-                            Modifier.testTag(CommentItemTestTags.Actions),
-                            horizontalArrangement = Arrangement.spacedBy(2.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            actions()
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 
 object CommentItemDefaults {
     val ContentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)

@@ -194,7 +194,7 @@ fun SubjectCollectionItem(
         },
         content = {
             SubjectCollectionItemContent(item, editableSubjectCollectionTypeState, onShowEpisodeList, playButton,
-                Modifier.padding(start = 12.dp).fillMaxSize())
+                Modifier.fillMaxSize())
         },
         modifier = modifier, height = height, shape = shape, colors = colors,
     )
@@ -221,68 +221,21 @@ private fun SubjectCollectionItemContent(
 ) {
     var showEditCollectionTypeMenu by remember { mutableStateOf(false) }
 
-    Column(modifier) {
-        // 标题和右上角菜单
-        Row(
-            Modifier.fillMaxWidth()
-                .height(IntrinsicSize.Min),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                item.subjectInfo.preferredDisplayName(LocalSubjectAppearanceSettings.current.useOriginalTitle),
-                style = MaterialTheme.typography.titleMedium,
-                overflow = TextOverflow.Ellipsis,
-                maxLines = 1,
-                modifier = Modifier.weight(1f),
-            )
-
-            Box {
-                IconButton(
-                    { showEditCollectionTypeMenu = true },
-                    Modifier.fillMaxHeight().padding().testTag(SubjectCollectionItemTestTags.MoreButton),
-                ) {
-                    Icon(Icons.Outlined.MoreVert, null, Modifier.size(24.dp))
-                }
-
-                EditCollectionTypeDropDown(
-                    editableSubjectCollectionTypeState,
-                    expanded = showEditCollectionTypeMenu,
-                    onDismissRequest = { showEditCollectionTypeMenu = false },
-                    modifier = Modifier.testTag(SubjectCollectionItemTestTags.EditCollectionTypeMenu),
-                )
-            }
-        }
-
-        Row(
-            Modifier.padding(top = 0.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // 连载至第 28 话 · 全 34 话
-            AiringLabel(
-                remember(item) {
-                    AiringLabelState(stateOf(item.airingInfo), stateOf(item.progressInfo))
-                },
-                style = MaterialTheme.typography.labelLarge,
-            )
-        }
-
-        Spacer(Modifier.weight(1f))
-
-
-        Row(
-            Modifier
-                .padding(vertical = 12.dp)
-                .padding(horizontal = 12.dp)
-                .align(Alignment.End),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            TextButton(onShowEpisodeList) {
-                Text(stringResource(Lang.video_player_select_episode))
-            }
-
-            Box(Modifier.width(IntrinsicSize.Min)) { playButton() }
-        }
-    }
+    SubjectCollectionItemLayout(
+        title = item.subjectInfo.preferredDisplayName(LocalSubjectAppearanceSettings.current.useOriginalTitle),
+        airingLabel = {
+            AiringLabel(remember(item) { AiringLabelState(stateOf(item.airingInfo), stateOf(item.progressInfo)) },
+                style = MaterialTheme.typography.labelLarge)
+        },
+        onShowEpisodeList = onShowEpisodeList,
+        playButton = playButton,
+        onShowMenu = { showEditCollectionTypeMenu = true },
+        menu = {
+            EditCollectionTypeDropDown(editableSubjectCollectionTypeState, showEditCollectionTypeMenu,
+                { showEditCollectionTypeMenu = false }, Modifier.testTag(SubjectCollectionItemTestTags.EditCollectionTypeMenu))
+        },
+        modifier = modifier,
+    )
 }
 
 object SubjectCollectionItemTestTags {

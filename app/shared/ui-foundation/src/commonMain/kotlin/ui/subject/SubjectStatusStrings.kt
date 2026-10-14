@@ -9,6 +9,7 @@
 
 package me.him188.ani.app.ui.subject
 
+import me.him188.ani.datasources.api.EpisodeSort
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import me.him188.ani.app.ui.lang.Lang
@@ -72,28 +73,14 @@ fun rememberSubjectStatusStrings(): SubjectStatusStrings = SubjectStatusStrings(
     totalEpisodesScheduledFormat = stringResource(Lang.subject_airing_total_episodes_scheduled),
 )
 
-fun renderTotalEpisodeText(
-    airingInfo: me.him188.ani.app.data.models.subject.SubjectAiringInfo,
-    strings: SubjectStatusStrings,
-): String? {
-    return if (
-        airingInfo.kind == me.him188.ani.app.data.models.subject.SubjectAiringKind.UPCOMING &&
-        airingInfo.mainEpisodeCount == 0
-    ) {
-        null
-    } else {
-        when (airingInfo.kind) {
-            me.him188.ani.app.data.models.subject.SubjectAiringKind.COMPLETED ->
-                strings.totalEpisodesCompleted(airingInfo.mainEpisodeCount)
-
-            me.him188.ani.app.data.models.subject.SubjectAiringKind.UPCOMING,
-            me.him188.ani.app.data.models.subject.SubjectAiringKind.ON_AIR,
-                ->
-                strings.totalEpisodesScheduled(airingInfo.mainEpisodeCount)
-        }
-    }
-}
-
 private fun String.replacePlaceholder(value: String): String {
     return replace("%1\$s", value).replace("%s", value)
+}
+
+fun renderEpAndSort(ep: EpisodeSort?, sort: EpisodeSort?) = when {
+    ep == null -> sort.toString()
+    sort == null -> ep.toString()
+    ep.number == 0f -> sort.toString() // 有些 SP 只有 sort, ep 为 0. #1677
+    ep != sort -> "$ep ($sort)"
+    else -> sort.toString()
 }

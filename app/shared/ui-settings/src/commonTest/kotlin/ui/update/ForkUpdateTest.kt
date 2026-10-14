@@ -2,6 +2,7 @@
 package me.him188.ani.app.ui.update
 
 import me.him188.ani.app.data.network.protocol.ReleaseClass
+import me.him188.ani.app.ui.settings.tabs.AniHelperDestination
 import me.him188.ani.utils.platform.Arch
 import me.him188.ani.utils.platform.Platform
 import kotlin.test.Test
@@ -11,25 +12,33 @@ import kotlin.test.assertTrue
 
 class ForkUpdateTest {
     private val android = Platform.Android(Arch.ARMV8A)
+    @Test fun unprefixedReleaseTagsWorkForUpdatesDownloadsAndChangelogs() {
+        val version = "0.2.0-beta.2"
+        val detailsUrl = "$FORK_RELEASES_URL/tag/$version"
+        for (debug in listOf(false, true)) {
+            val asset = forkAssetNames(version, android, debug, "default").first()
+            val downloadUrl = "$FORK_RELEASES_URL/download/$version/$asset"
+            val release = ForkRelease(version, prerelease = true, assets = listOf(ForkAsset(asset, downloadUrl)))
+            val selected = selectForkRelease(listOf(release), "0.2.0-beta.1", ReleaseClass.BETA, android, debug, "default")!!
+            assertEquals(version, selected.name)
+            assertEquals(detailsUrl, selected.detailsUrl)
+            assertEquals(listOf(downloadUrl), selected.downloadUrlAlternatives)
+        }
+        assertEquals(detailsUrl, NewVersion(version, emptyList(), emptyList(), "").detailsUrl)
+        assertEquals(detailsUrl, AniHelperDestination.RELEASE_PREFIX + version)
+    }
+
+    @Test fun remotePrefixedTagsRetainTheirExactReleaseAndDownloadUrls() {
+        val release = release("0.2.0-beta.2", prerelease = true)
+        val selected = selectForkRelease(listOf(release), "0.2.0-beta.1", ReleaseClass.BETA, android, false, "default")!!
+        assertEquals("$FORK_RELEASES_URL/tag/v0.2.0-beta.2", selected.detailsUrl)
+        assertEquals(listOf(release.assets.single().url), selected.downloadUrlAlternatives)
+    }
+
     private fun release(version: String, debug: Boolean = false, prerelease: Boolean = false, draft: Boolean = false): ForkRelease {
         val tag = "v$version"
         val asset = forkAssetNames(version, android, debug, "default").first()
         return ForkRelease(tag, draft, prerelease, "Changes", "2026-10-10", listOf(ForkAsset(asset, "$FORK_RELEASES_URL/download/$tag/$asset")))
-    }
-    @Test fun betaPublicationUpgradesBothPackagesOnlyOnTestingChannels() {
-        val tag = "0.2.0-beta.1"
-        val assets = listOf(false, true).map { debug ->
-            val name = forkAssetNames(tag, android, debug, "default").first()
-            ForkAsset(name, "$FORK_RELEASES_URL/download/$tag/$name")
-        }
-        val beta = ForkRelease(tag, prerelease = true, assets = assets)
-        for (debug in listOf(false, true)) {
-            assertNull(selectForkRelease(listOf(beta), "0.1.0", ReleaseClass.STABLE, android, debug, "default"))
-            val update = selectForkRelease(listOf(beta), "0.1.0", ReleaseClass.BETA, android, debug, "default")!!
-            assertEquals(tag, update.name)
-            assertEquals(assets[if (debug) 1 else 0].url, update.downloadUrlAlternatives.single())
-            assertNull(selectForkRelease(listOf(beta), tag, ReleaseClass.BETA, android, debug, "default"))
-        }
     }
     @Test fun comparesNumbersAndPrereleaseIdentifiersWithoutDowngrades() {
         assertTrue(ForkVersion.parse("4.10.0")!! > ForkVersion.parse("4.9.9")!!)

@@ -63,87 +63,29 @@ fun TrendingSubjectsCarousel(
         items.itemCount
     }
 ) {
-    val size = CarouselItemDefaults.itemSize()
-    val interactionSource = remember { MutableInteractionSource() }
-    val isHovered by interactionSource.collectIsHoveredAsState()
-    Box(modifier.padding(contentPadding).hoverable(interactionSource)) {
-        val content: @Composable CarouselItemScope.(Int) -> Unit = { index ->
-            val item = if (items.isLoadingFirstPageOrRefreshing) null else items[index]
-            CarouselItem(
-                label = { CarouselItemDefaults.Text(item?.nameCn ?: "") },
-                Modifier.placeholder(item == null, shape = rememberMaskShape(CarouselItemDefaults.shape)),
-            ) {
-                if (item != null) {
-                    Surface({ onClick(item) }) {
-                        AsyncImage(
-                            item.imageLarge,
-                            // 必须撑满 item. 只给高度时宽度取决于解码后的 bitmap, 窗口变宽后会留空白且空白处无法点击
-                            modifier = Modifier.height(size.imageHeight).fillMaxWidth(),
-                            contentDescription = item.nameCn,
-                            contentScale = ContentScale.Crop,
-                        )
+    TrendingSubjectsCarouselContent(
+        itemCount = items.itemCount,
+        itemAt = { index ->
+            if (items.isLoadingFirstPageOrRefreshing) null else items[index]?.let {
+                TrendingCarouselEntry(it.bangumiId, it.nameCn, it.imageLarge)
+            }
+        },
+        onClick = { entry -> items.itemSnapshotList.items.firstOrNull { it.bangumiId == entry.id }?.let(onClick) },
+        contentPadding = contentPadding, itemSpacing = itemSpacing, modifier = modifier,
+        carouselState = carouselState,
+        itemModifier = { loading -> Modifier.placeholder(loading, shape = rememberMaskShape(CarouselItemDefaults.shape)) },
+        autoAdvance = { enabled -> CarouselAutoAdvanceEffect(enabled, carouselState) },
+        overlay = {
+            if (items.loadState.hasError) {
+                Box(Modifier.height(CarouselItemDefaults.itemSize().imageHeight).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                    Box(Modifier.minimumHairlineSize()) {
+                        val problem by items.rememberLoadErrorState()
+                        LoadErrorCard(problem, onRetry = { items.refresh() })
                     }
-                } else {
-                    Box(Modifier.height(size.imageHeight).fillMaxWidth())
                 }
             }
-        }
-
-        HorizontalCenteredHeroCarousel(
-            carouselState,
-            //            preferredItemWidth = size.preferredWidth,
-            Modifier.fillMaxWidth(),
-            maxItemWidth = 300.dp,
-            itemSpacing = itemSpacing,
-            flingBehavior = CarouselDefaults.multiBrowseFlingBehavior(
-                carouselState,
-                snapAnimationSpec = spring(stiffness = Spring.StiffnessMedium),
-            ),
-            content = content,
-        )
-
-//        if (currentWindowAdaptiveInfo1().isWidthAtLeastMedium) {
-//            HorizontalMultiBrowseCarousel(
-//                carouselState,
-//                preferredItemWidth = size.preferredWidth,
-//                Modifier.fillMaxWidth(),
-//                itemSpacing = itemSpacing,
-//                flingBehavior = CarouselDefaults.multiBrowseFlingBehavior(
-//                    carouselState,
-//                    snapAnimationSpec = spring(stiffness = Spring.StiffnessMedium),
-//                ),
-//                content = content,
-//            )
-//        } else {
-//            HorizontalCenteredHeroCarousel(
-//                carouselState,
-//                //            preferredItemWidth = size.preferredWidth,
-//                Modifier.fillMaxWidth(),
-//                maxItemWidth = size.preferredWidth,
-//                itemSpacing = itemSpacing,
-//                flingBehavior = CarouselDefaults.multiBrowseFlingBehavior(
-//                    carouselState,
-//                    snapAnimationSpec = spring(stiffness = Spring.StiffnessMedium),
-//                ),
-//                content = content,
-//            )
-//        }
-        CarouselAutoAdvanceEffect(enabled = !isHovered, carouselState)
-
-        if (items.loadState.hasError) {
-            Box(Modifier.height(size.imageHeight).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                Box(Modifier.minimumHairlineSize()) {
-                    val problem by items.rememberLoadErrorState()
-                    LoadErrorCard(
-                        problem,
-                        onRetry = {
-                            items.refresh()
-                        },
-                    )
-                }
-            }
-        }
-    }
+        },
+    )
 }
 
 

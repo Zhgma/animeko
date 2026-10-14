@@ -19,6 +19,7 @@ import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
 import io.ktor.http.Url
 import io.ktor.http.contentType
@@ -37,52 +38,19 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import io.ktor.utils.io.errors.IOException
 
-const val KOMIIC_API_BASE_URL = "https://43.131.255.74:8443/api/komiic"
-
-enum class MangaSource(val title: String, val subscriptionUrl: String, val home: String) {
-    KOMIIC("Komiic", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/komiic.js", "https://komiic.com"),
-    MANHUAGUI("漫画柜", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manhuagui.js", "https://www.manhuagui.com"),
-    BAOZI("包子漫画", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/baozi.js", "https://cn.bzmgcn.com"),
-    GODA("G站漫画", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/goda.js", "https://godamh.com"),
-    MANHUAREN("漫画人", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manhuaren.js", "https://www.manhuaren.com"),
-    YKMH("优酷漫画", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/ykmh.js", "https://www.ykmh.net"),
-    CCC("CCC追漫台", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/ccc.js", "https://www.creative-comic.tw"),
-    COMICK("Comick", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/comick.js", "https://comick.art"),
-    // Kept for decoding saved offline records. No network adapter is registered.
-    MANGADEX("MangaDex", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manga_dex.js", "https://mangadex.org");
-
-    val iconUrl: String get() = if (this == KOMIIC) "$KOMIIC_API_BASE_URL/icon" else "$home/favicon.ico"
-
-    companion object {
-        val available = entries.filter { it != MANGADEX }
-        val maintained = available.filter { it != BAOZI }
-    }
-}
-@Serializable
-data class MangaSourceBook(val source: MangaSource, val id: String, val title: String, val cover: String = "")
-@Serializable
-data class MangaChapter(val id: String, val title: String, val number: Double?, val group: String, val pageCount: Int = 0)
-data class MangaPage(val url: String, val referer: String, val width: Int = 0, val height: Int = 0, val cccImageId: Int? = null)
-
 /** Native adapters for the previously selected Venera source subscriptions. No remote script execution. */
-class MangaSourceRepository(private val client: ScopedHttpClient, private val cookies: WebSourceCookieJar? = null, private val identities: WebSourceIdentityRegistry? = null) {
+class MangaSourceRepository internal constructor(
+    private val client: ScopedHttpClient,
+    private val cookies: WebSourceCookieJar?,
+    private val identities: WebSourceIdentityRegistry?,
+    private val komiicImages: KomiicImageRequests,
+) {
+    constructor(client: ScopedHttpClient, cookies: WebSourceCookieJar? = null, identities: WebSourceIdentityRegistry? = null) :
+        this(client, cookies, identities, sharedKomiicImageRequests)
     private val additional = AdditionalMangaSources(::fetchText)
     private val verified = VerifiedMangaSources(::fetchText)
-    suspend fun search(source: MangaSource, keyword: String): List<MangaSourceBook> {
-        require(keyword.isNotBlank()) { "请输入作品名称" }
-        return when (source) {
-            MangaSource.KOMIIC -> komiic(
-                "Search",
-                buildJsonObject { put("keyword", keyword) },
-            ).obj("searchComicsAndAuthors").array("comics").map {
-                val b = it.jsonObject
-                MangaSourceBook(source, b.text("id"), b.text("title"), migrateMangaApiImageUrl(b.text("imageUrl")))
-            }
-            MangaSource.MANHUAGUI -> parseBookLinks(fetchText("${source.home}/s/${keyword.encodeURLPathPart()}_p1.html"))
-            MangaSource.CCC, MangaSource.COMICK -> verified.search(source, keyword)
-            else -> additional.search(source, keyword)
-        }
-    }
+    private val searchAdapter = MangaSourceSearch(::fetchText, ::komiic)
+    suspend fun search(source: MangaSource, keyword: String): List<MangaSourceBook> = searchAdapter.search(source, keyword)
 
     /** A pasted book URL makes source selection explicit and also works for ambiguous search titles. */
     fun bookFromUrl(url: String): MangaSourceBook? {
@@ -153,13 +121,19 @@ class MangaSourceRepository(private val client: ScopedHttpClient, private val co
     }.also { check(it.isNotEmpty()) { "该章节没有返回图片" } }
 
     suspend fun image(page: MangaPage): ByteArray = retryTransient {
+        if (page.url.startsWith("$KOMIIC_API_BASE_URL/images/")) {
+            komiicImages.request { fetchImage(page) }
+        } else fetchImage(page)
+    }
+
+    private suspend fun fetchImage(page: MangaPage): ByteArray {
         val cccKey = page.cccImageId?.let { id ->
             require(id > 0 && page.url == "https://storage.googleapis.com/ccc-www/fs/chapter_content/encrypt/$id/2")
             val key = Json.parseToJsonElement(fetchText("${VerifiedMangaSources.CCC_API}/book/chapter/image/$id")).jsonObject
             check(key.number("code") == 0) { "CCC：该图片需要登录或购买" }
             key.obj("data").text("key").also { check(it.isNotBlank()) { "CCC 未返回图片密钥" } }
         }
-        client.use {
+        return client.use {
             val url = migrateMangaApiImageUrl(page.url)
             val response = get(url) {
                 expectSuccess = false
@@ -169,7 +143,8 @@ class MangaSourceRepository(private val client: ScopedHttpClient, private val co
                 header("Accept", "image/avif,image/webp,image/png,image/jpeg,*/*;q=0.8")
                 timeout { requestTimeoutMillis = 45_000; connectTimeoutMillis = 15_000; socketTimeoutMillis = 20_000 }
             }
-            checkStatus(response.status.value, "图片")
+            if (url.startsWith("$KOMIIC_API_BASE_URL/")) checkKomiicStatus(response)
+            else checkStatus(response.status.value, "图片")
             if (cccKey == null && response.contentType()?.contentType != "image") throw MangaSourceAccessException(
                 "来源返回的不是图片，可能需要登录、网页验证或阅读额度已用完；请切换来源")
             response.body<ByteArray>().also { check(it.size in 1..25_000_000) { "图片大小异常" } }
@@ -187,7 +162,7 @@ class MangaSourceRepository(private val client: ScopedHttpClient, private val co
             timeout { requestTimeoutMillis = 25_000; connectTimeoutMillis = 10_000 }
             setBody(buildJsonObject { put("operation", operation); put("variables", variables) }.toString())
         }
-        checkStatus(response.status.value, "Komiic")
+        checkKomiicStatus(response)
         val root = Json.parseToJsonElement(response.bodyAsText()).jsonObject
         check(root.array("errors").isEmpty()) { "Komiic：${root.array("errors").first().jsonObject.text("message")}" }
         check(root["data"] is JsonObject) { "Komiic 返回格式有变" }
@@ -221,16 +196,7 @@ class MangaSourceRepository(private val client: ScopedHttpClient, private val co
         internal fun cleanHtml(text: String): String = text.replace(Regex("<[^>]*>"), "").replace("&amp;", "&")
             .replace("&quot;", "\"").replace("&#39;", "'").replace("&nbsp;", " ").trim()
 
-        internal fun parseBookLinks(html: String): List<MangaSourceBook> =
-            Ksoup.parse(html, MangaSource.MANHUAGUI.home).select("a[href^=/comic/]").mapNotNull { link ->
-                val id = Regex("/comic/(\\d+)/").matchEntire(link.attr("href"))?.groupValues?.get(1) ?: return@mapNotNull null
-                val image = link.selectFirst("img")
-                val title = link.attr("title").ifBlank { image?.attr("alt").orEmpty() }
-                    .ifBlank { if (image == null) link.text() else "" }.trim()
-                title.takeIf { it.isNotBlank() && it !in listOf("详情", "开始阅读") }?.let {
-                    MangaSourceBook(MangaSource.MANHUAGUI, id, it, image?.absUrl("src").orEmpty())
-                }
-            }.distinctBy { it.id }
+        internal fun parseBookLinks(html: String): List<MangaSourceBook> = MangaSourceSearch.parseBookLinks(html)
 
         internal fun parseChapters(bookId: String, html: String): List<MangaChapter> =
             Ksoup.parse(html).select("a[href]").mapNotNull { link ->
@@ -255,7 +221,22 @@ class MangaSourceRepository(private val client: ScopedHttpClient, private val co
 }
 
 private class MangaTransientHttpError(message: String) : IOException(message)
-class MangaSourceAccessException(message: String) : IllegalStateException(message)
+class MangaSourceAccessException(message: String, val retryAfterMillis: Long? = null) : IllegalStateException(message)
+
+private suspend fun checkKomiicStatus(response: HttpResponse) {
+    if (response.status.value == 429) {
+        val body = response.bodyAsText()
+        val code = runCatching { Json.parseToJsonElement(body).jsonObject.text("error") }.getOrDefault("")
+        val seconds = (response.headers["Retry-After"]?.toLongOrNull() ?: 30).coerceIn(30, 86_400)
+        val message = if (code == "komiic_reading_limit") {
+            "Komiic 源站阅读额度已用完，已暂停图片下载；请等待源站额度恢复或切换来源"
+        } else {
+            "Komiic 请求过于频繁，已暂停图片下载；请至少 $seconds 秒后重试"
+        }
+        throw MangaSourceAccessException(message, seconds * 1_000)
+    }
+    checkStatus(response.status.value, "Komiic")
+}
 
 private fun checkStatus(status: Int, source: String) {
     when (status) {

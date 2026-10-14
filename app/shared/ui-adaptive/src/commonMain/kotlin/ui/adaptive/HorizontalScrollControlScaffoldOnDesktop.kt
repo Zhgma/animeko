@@ -16,7 +16,7 @@ import me.him188.ani.app.ui.foundation.HorizontalScrollControlDefaults
 import me.him188.ani.app.ui.foundation.HorizontalScrollControlScaffold
 import me.him188.ani.app.ui.foundation.HorizontalScrollControlState
 import me.him188.ani.app.ui.foundation.LocalPlatform
-import me.him188.ani.utils.platform.Platform
+import me.him188.ani.utils.platform.isDesktop
 
 @Composable
 fun HorizontalScrollControlScaffoldOnDesktop(
@@ -32,7 +32,7 @@ fun HorizontalScrollControlScaffoldOnDesktop(
 ) {
     val currentPlatform = LocalPlatform.current
 
-    if (currentPlatform is Platform.Desktop) {
+    if (currentPlatform.isDesktop()) {
         HorizontalScrollControlScaffold(
             state = state,
             modifier = modifier,

@@ -64,7 +64,7 @@ class MangaAlignmentTest {
                 }
             }
         }
-        onNodeWithText("管理来源").performClick()
+        onNodeWithTag("manga-source-manage").performClick()
         onNodeWithTag("manga-source-up-MANHUAGUI").performScrollTo().performClick()
         assertEquals(MangaSource.MANHUAGUI, saved?.all?.first())
         onNodeWithTag("manga-source-enabled-KOMIIC").performClick()

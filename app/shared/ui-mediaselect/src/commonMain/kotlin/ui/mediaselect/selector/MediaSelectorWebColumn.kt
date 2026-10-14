@@ -141,26 +141,8 @@ fun MediaSelectorWebSourcesColumn(
 //            card(source)
 //        }
 //    }
-    val (failedSources, otherSources) = list.partition { it.isError }
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        // not scrollable. 否则会跟 bottom sheet 的 scroll 冲突. 
-        otherSources.forEach { source ->
-            card(source)
-        }
+    WebSourcesColumnContent(list, { it.isError }, onRequestManualSearch, modifier, card)
 
-        if (onRequestManualSearch != null) {
-            Box(Modifier.fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
-                ManualSearchRescueButton(
-                    onClick = onRequestManualSearch,
-                    Modifier.testTag(AutoMatchPageTestTags.RESCUE_BUTTON),
-                )
-            }
-        }
-
-        failedSources.forEach { source ->
-            card(source)
-        }
-    }
 }
 
 /**
@@ -186,44 +168,12 @@ private fun WebSourceCard(
     modifier: Modifier = Modifier,
 
     ) {
-    val minHeight = 48.dp
     val waitingCaptchaText = stringResource(Lang.media_selector_web_waiting_captcha)
     val captchaUnsupportedText = stringResource(Lang.media_selector_web_captcha_unsupported)
     val refreshText = stringResource(Lang.settings_mediasource_refresh)
-    Row(
-        modifier,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Row(
-            Modifier.heightIn(min = minHeight),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SourceIcon(
-                source.iconUrl, source.name,
-                Modifier.size(24.dp),
-            )
-            Box(Modifier.padding(start = 8.dp)) {
-                Text(
-                    source.name,
-                    Modifier.alpha(0f).width(IntrinsicSize.Max),
-                    softWrap = true,
-                    maxLines = 2,
-                )
-                Text(
-                    source.name,
-                    Modifier.matchParentSize(),
-                    softWrap = true,
-                    maxLines = 2,
-                    overflow = TextOverflow.Clip,
-                )
-            }
-        }
-
-        FlowRow(
-            Modifier.weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy((-8).dp),
-        ) {
+    WebSourceCardContent(source.name, icon = {
+        SourceIcon(source.iconUrl, source.name, Modifier.size(24.dp))
+    }, channels = {
             if (source.isCaptchaRequired) {
                 if (source.isCaptchaSupported) {
                     Text(
@@ -254,45 +204,16 @@ private fun WebSourceCard(
                 RateLimitedCountdownText(until)
             }
 
-            for (channel in source.channels) {
-                InputChip(
-                    selected = channel == selectedChannel(),
-                    onClick = { onSelect(channel) },
-                    label = { Text(channel.name) },
-                )
-            }
-
-            if (source.isLoading) {
-                Box(
-                    Modifier.minimumInteractiveComponentSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(
-                        Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                    )
-                }
-            }
-
-            if (source.isError) {
-                Box(
-                    Modifier.minimumInteractiveComponentSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Rounded.Close, null,
-                        tint = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
-        }
-
+            WebSourceChannelsContent(source.channels.map { it.name },
+                source.channels.indexOf(selectedChannel()).takeIf { it >= 0 },
+                source.isLoading, source.isError, { onSelect(source.channels[it]) })
+    }, trailing = {
         if (source.isError) {
             IconButton(onRefresh) {
                 Icon(Icons.Rounded.Refresh, refreshText)
             }
         }
-    }
+    }, modifier = modifier)
 }
 
 @Composable

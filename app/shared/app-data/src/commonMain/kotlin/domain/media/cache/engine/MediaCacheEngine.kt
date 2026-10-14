@@ -11,16 +11,12 @@ package me.him188.ani.app.domain.media.cache.engine
 
 import androidx.compose.runtime.Composable
 import kotlinx.coroutines.flow.Flow
-import kotlinx.serialization.Serializable
 import me.him188.ani.app.domain.media.cache.MediaCache
-import me.him188.ani.app.domain.media.cache.storage.MediaCacheSave
 import me.him188.ani.app.domain.media.cache.storage.MediaCacheStorage
 import me.him188.ani.app.domain.media.resolver.EpisodeMetadata
-import me.him188.ani.app.domain.torrent.TorrentEngineType
 import me.him188.ani.datasources.api.Media
 import me.him188.ani.datasources.api.MediaCacheMetadata
 import kotlin.coroutines.CoroutineContext
-import kotlin.jvm.JvmInline
 
 /**
  * 资源缓存引擎, 负责 [MediaCache] 的创建.
@@ -96,22 +92,4 @@ interface MediaCacheEngine {
      * 删除所有未在 [all] 中找到对应 [MediaCache] 的文件. 这通常包括在线播放的视频. 不会包括通过缓存功能创建的.
      */
     suspend fun deleteUnusedCaches(all: List<MediaCache>)
-}
-
-/**
- * 每个 [MediaCacheEngine] 使用独一无二的 key，存储于 [MediaCacheSave] 用于区分不同的引擎创建的 [MediaCache].
- */
-@Serializable
-@JvmInline
-value class MediaCacheEngineKey(val key: String) {
-    /**
-     * 云盘引擎按需从服务商取流, 没有磁力链解析、节点和上传, 展示层据此区分本地 BT.
-     */
-    val isCloud: Boolean get() = this == PikPak
-
-    companion object {
-        val Anitorrent = MediaCacheEngineKey(TorrentEngineType.Anitorrent.id)
-        val PikPak = MediaCacheEngineKey(TorrentEngineType.PikPak.id)
-        val WebM3u = MediaCacheEngineKey("web-m3u")
-    }
 }

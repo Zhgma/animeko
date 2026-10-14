@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Explicit live verification: node services/books-api/smoke.mjs
 import assert from 'node:assert/strict';
-const base = 'https://119.28.149.19:8443/api/books';
+const base = 'https://43.131.255.74:8443/api/books';
 const results = [];
 async function call(path, options = {}) {
   const start = Date.now();

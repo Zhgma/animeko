@@ -83,7 +83,7 @@ try {
         $tlsReady = $false
         for ($i = 0; $i -lt 15; $i++) {
             Start-Sleep -Seconds 1
-            $code = & curl.exe -q --noproxy '*' --connect-timeout 2 --max-time 4 -s -o NUL -w '%{http_code}' 'https://119.28.149.19:8443/api/komiic/health'
+            $code = & curl.exe -q --noproxy '*' --connect-timeout 2 --max-time 4 -s -o NUL -w '%{http_code}' 'https://43.131.255.74:8443/api/komiic/health'
             if ($LASTEXITCODE -eq 0 -and $code -eq '200') { $tlsReady = $true; break }
         }
         if (-not $tlsReady) { throw 'Komiic HTTPS health check failed' }
@@ -102,5 +102,5 @@ try {
     }
     throw
 }
-Write-Output 'DEPLOYED: https://119.28.149.19:8443/api/komiic/health'
+Write-Output 'DEPLOYED: https://43.131.255.74:8443/api/komiic/health'
 Write-Output "BACKUP: $backupDir"

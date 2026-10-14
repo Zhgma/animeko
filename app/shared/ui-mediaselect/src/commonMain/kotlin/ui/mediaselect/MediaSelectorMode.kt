@@ -13,10 +13,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.Serializable
-import me.him188.ani.app.data.models.episode.EpisodeInfo
-import me.him188.ani.app.data.models.episode.displayName
-import me.him188.ani.datasources.api.EpisodeSort
-import me.him188.ani.datasources.api.source.MediaFetchRequest
+import me.him188.ani.datasources.api.source.MediaSourceKind
 
 /**
  * 选择器的展示模式. 会话内保持 (放在 EpisodeViewModel), 不持久化, 不改 `MediaSelectorSettings.preferKind`.
@@ -27,16 +24,6 @@ enum class MediaSelectorMode {
     MANUAL,
     BT,
 }
-
-/**
- * `EpisodeSort.Normal.toString()` 已补零 ("01").
- */
-fun EpisodeInfo.toWatchingEpisode(): WatchingEpisode = watchingEpisode(sort, ep, displayName)
-
-fun MediaFetchRequest.toWatchingEpisode(): WatchingEpisode = watchingEpisode(episodeSort, episodeEp, episodeName)
-
-private fun watchingEpisode(sort: EpisodeSort, ep: EpisodeSort?, name: String): WatchingEpisode =
-    WatchingEpisode(sort.toString(), name, ep?.takeIf { it != sort }?.toString())
 
 object MediaSelectorLayoutDefaults {
     /**
@@ -60,3 +47,7 @@ object MediaSelectorLayoutDefaults {
  */
 fun MediaSelectorMode.needsContainer(sideSheetHeight: Dp): Boolean =
     this != MediaSelectorMode.AUTO && sideSheetHeight < MediaSelectorLayoutDefaults.CompactDialogMaxHeight
+
+/** Initial presentation follows the persisted preference; changing modes is session-local. */
+fun initialMediaSelectorMode(preferKind: MediaSourceKind?, hasBt: Boolean): MediaSelectorMode =
+    if (preferKind == MediaSourceKind.BitTorrent && hasBt) MediaSelectorMode.BT else MediaSelectorMode.AUTO

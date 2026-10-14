@@ -44,7 +44,7 @@ fun interface GetAnimeScheduleFlowUseCase : UseCase {
     operator fun invoke(today: LocalDate, timeZone: TimeZone): Flow<List<AiringScheduleForDate>>
 
     companion object {
-        val OFFSET_DAYS_RANGE = (-7..7)
+        val OFFSET_DAYS_RANGE = AiringScheduleDateRange.OFFSETS
     }
 }
 

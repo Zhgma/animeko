@@ -119,19 +119,6 @@ data class ManualBrowseSource(
     val info: MediaSourceInfo,
 )
 
-sealed interface ManualLoadState<out T> {
-    data object Idle : ManualLoadState<Nothing>
-    data object Loading : ManualLoadState<Nothing>
-    data class Success<T>(val value: T) : ManualLoadState<T>
-
-    /**
-     * 限流、网络错误、验证码交互解决一次仍失败都归此; 页面显示错误文本 + 重试.
-     * [captchaUnsupported] = 被验证码挡且 WebSessionManager.isInteractiveSupported == false (iOS):
-     * 文案 media_selector_manual_captcha_unsupported, 无重试按钮.
-     */
-    data class Failed(val error: Throwable, val captchaUnsupported: Boolean = false) : ManualLoadState<Nothing>
-}
-
 @Immutable
 data class ManualBrowsePresentation(
     /**

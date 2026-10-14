@@ -1,9 +1,6 @@
 package me.him188.ani.datasources.api.source
 
 import kotlinx.serialization.Serializable
-import me.him188.ani.datasources.api.Media
-import me.him188.ani.datasources.api.topic.EpisodeRange
-import me.him188.ani.datasources.api.topic.ResourceLocation
 
 /**
  * 数据源类型.

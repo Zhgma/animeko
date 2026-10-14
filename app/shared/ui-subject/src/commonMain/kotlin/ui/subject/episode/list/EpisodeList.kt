@@ -60,143 +60,37 @@ fun EpisodeListDialog(
     onSubjectDetailsClick: (() -> Unit)? = null,
     properties: DialogProperties = DialogProperties(),
 ) {
-    val scrollState = rememberScrollState()
-    val scrollbarEndPadding = if (scrollState.hasScrollableContent()) 16.dp else 0.dp
-    Dialog(onDismissRequest, properties) {
-        Card {
-            Box {
-                Column(Modifier.padding(16.dp)) {
-                    Row {
-                        Text(
-                            stringResource(Lang.subject_episode_select_play),
-                            style = MaterialTheme.typography.titleLarge,
-                        )
-                        Spacer(Modifier.weight(1f))
-                    }
+    val useOriginalTitle = LocalSubjectAppearanceSettings.current.useOriginalTitle
+    EpisodeListDialogContent(
+        subjectTitle = if (useOriginalTitle) state.subjectOriginalTitle else state.subjectTitle,
+        onDismissRequest = onDismissRequest, onCacheClick = onCacheClick,
+        onSubjectDetailsClick = onSubjectDetailsClick, properties = properties,
+        showMarkWatchedHint = true, showScrollbar = true,
+        scrollbar = { scrollState ->
+            ScrollStateVerticalScrollbar(scrollState, Modifier.align(Alignment.CenterEnd).fillMaxHeight())
+        },
+        episodes = {
+            EpisodeListFlowRow(
+                state.mainEpisodes,
+                onEpisodeClick,
+                onCollectionUpdate,
+            )
 
-                    Row(Modifier.padding(top = 8.dp)) {
-                        ProvideTextStyle(MaterialTheme.typography.bodyLarge) {
-                            val useOriginalTitle = LocalSubjectAppearanceSettings.current.useOriginalTitle
-                            Text(if (useOriginalTitle) state.subjectOriginalTitle else state.subjectTitle)
-                        }
-                    }
+            if (state.otherEpisodes.isNotEmpty()) {
+                HorizontalDivider(Modifier.padding(vertical = 16.dp))
 
-                    Spacer(Modifier.height(16.dp))
-
-                    Box(
-                        Modifier.weight(1f, fill = false)
-                            .heightIn(max = 360.dp), // 特别长需要限制高度并且滚动, #182
-                    ) {
-                        Column(
-                            Modifier.verticalScroll(scrollState).padding(end = scrollbarEndPadding),
-                        ) {
-                            EpisodeListFlowRow(
-                                state.mainEpisodes,
-                                onEpisodeClick,
-                                onCollectionUpdate,
-                            )
-
-                            if (state.otherEpisodes.isNotEmpty()) {
-                                HorizontalDivider(Modifier.padding(vertical = 16.dp))
-
-                                EpisodeListFlowRow(
-                                    state.otherEpisodes,
-                                    onEpisodeClick,
-                                    onCollectionUpdate,
-                                )
-                            }
-
-                            Spacer(Modifier.height(16.dp))
-                        }
-
-                        Box(Modifier.matchParentSize()) {
-                            ScrollStateVerticalScrollbar(
-                                state = scrollState,
-                                modifier = Modifier
-                                    .align(Alignment.CenterEnd)
-                                    .fillMaxHeight(),
-                            )
-                        }
-                    }
-
-                    HorizontalDivider()
-                    Spacer(Modifier.height(16.dp))
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.Lightbulb, null)
-
-                        Text(
-                            stringResource(Lang.subject_episode_long_press_mark_watched),
-                            Modifier.padding(start = 4.dp),
-                        )
-                    }
-
-                    Row(Modifier.padding(top = 16.dp).align(Alignment.End)) {
-                        onSubjectDetailsClick?.let {
-                            TextButton(
-                                {
-                                    onDismissRequest()
-                                    it()
-                                },
-                            ) {
-                                Text(stringResource(Lang.subject_episode_details))
-                            }
-                        }
-
-                        TextButton(onDismissRequest, Modifier.padding(start = 8.dp)) {
-                            Text(stringResource(Lang.subject_episode_close))
-                        }
-                    }
-                }
-
-                IconButton(onCacheClick, Modifier.align(Alignment.TopEnd).padding(8.dp)) {
-                    Icon(Icons.Rounded.Download, stringResource(Lang.subject_episode_cache))
-                }
+                EpisodeListFlowRow(
+                    state.otherEpisodes,
+                    onEpisodeClick,
+                    onCollectionUpdate,
+                )
             }
-        }
-    }
+
+        },
+    )
 }
 
 
-@Immutable
-class EpisodeListColors(
-    /**
-     * 看过或抛弃的颜色
-     */
-    val doneOrDroppedColor: Color,
-    /**
-     * 可以看但还没看
-     */
-    val canWatchColor: Color,
-    /**
-     * 未开播颜色
-     */
-    val notPublishedColor: Color,
-)
-
-object EpisodeListDefaults {
-    @Composable
-    fun colors(
-        theme: EpisodeListProgressTheme = EpisodeListProgressTheme.Default,
-        action: Color = MaterialTheme.colorScheme.primary,
-        disabled: Color = MaterialTheme.colorScheme.onSurface.stronglyWeaken(),
-    ): EpisodeListColors {
-        val dark = action.weaken()
-        return when (theme) {
-            EpisodeListProgressTheme.ACTION -> EpisodeListColors(
-                doneOrDroppedColor = dark,
-                canWatchColor = action,
-                notPublishedColor = disabled,
-            )
-
-            EpisodeListProgressTheme.LIGHT_UP -> EpisodeListColors(
-                doneOrDroppedColor = action,
-                canWatchColor = dark,
-                notPublishedColor = disabled,
-            )
-        }
-    }
-}
 
 ///////////////////////////////////////////////////////////////////////////
 // Previews

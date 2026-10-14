@@ -1,6 +1,7 @@
 /* Copyright (C) 2026 OpenAni and contributors. SPDX-License-Identifier: AGPL-3.0-only */
 package me.him188.ani.app.data.repository.manga
 
+import me.him188.ani.app.data.repository.media.DefaultMediaSubscriptions
 import io.ktor.client.plugins.expectSuccess
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
@@ -42,7 +43,7 @@ data class MangaSubscription(
 ) {
     companion object {
         const val REPOSITORY_ID = "animecomic-manga-sub"
-        const val REPOSITORY_URL = "https://raw.githubusercontent.com/Zhgma/animeko/main/subs/manga.json"
+        const val REPOSITORY_URL = DefaultMediaSubscriptions.MANGA
 
         fun defaults() = listOf(MangaSubscription(
             REPOSITORY_ID, "Animecomic 漫画源", REPOSITORY_URL,

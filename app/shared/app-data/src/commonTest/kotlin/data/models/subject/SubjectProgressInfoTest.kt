@@ -20,11 +20,34 @@ import me.him188.ani.datasources.api.topic.UnifiedCollectionType.DROPPED
 import me.him188.ani.datasources.api.topic.UnifiedCollectionType.WISH
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Instant
 
 /**
  * @see me.him188.ani.app.data.models.subject.SubjectProgressInfo
  */
 class SubjectProgressInfoTest {
+    @Test
+    fun `waiting episode carries only exact airing time and keeps playback target`() {
+        val episodes = listOf(
+            ep(DONE, 1, true, PackedDate(2026, 10, 5)),
+            ep(WISH, 2, false, PackedDate(2026, 10, 12)),
+        )
+        val exact = SubjectRecurrence(Instant.parse("2026-10-05T17:00:00Z"), 7.days)
+        for ((recurrence, expected) in listOf(
+            exact to Instant.parse("2026-10-12T17:00:00Z"),
+            null to null,
+            exact.copy(interval = 0.days) to null,
+            exact.copy(startTime = Instant.parse("2026-10-07T17:00:00Z")) to null,
+        )) {
+            val result = SubjectProgressInfo.compute(true, episodes, PackedDate(2026, 10, 5), recurrence)
+            val status = result.continueWatchingStatus as ContinueWatchingStatus.Watched
+            assertEquals(expected, status.nextEpisodeAirTime)
+            assertEquals(PackedDate(2026, 10, 12), status.nextEpisodeAirDate)
+            assertEquals(1, result.nextEpisodeIdToPlay)
+        }
+    }
+
     private fun ep(
         type: UnifiedCollectionType,
         sort: Int,

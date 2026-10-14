@@ -1,6 +1,6 @@
 # AnimeComic 书籍 API
 
-公网入口：`https://119.28.149.19:8443/api/books`。TLS 使用服务器现有的 IP 证书。
+公网入口：`https://43.131.255.74:8443/api/books`。TLS 使用服务器现有的 IP 证书。
 独立 Node.js 24 服务只监听 `127.0.0.1:4180`，Caddy 转发 `/api/books/*`。
 
 ## 接口

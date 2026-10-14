@@ -104,6 +104,13 @@ internal class MangaReadAheadCache(
                     onProgress(index, MangaDownloadProgress(chapter.title, completed, total, failure))
                 }
             } catch (e: CancellationException) { throw e }
+            catch (e: MangaSourceAccessException) {
+                onProgress(index, MangaDownloadProgress(chapter.title, completed, total, e.message))
+                chapters.drop(index + 1).forEachIndexed { remaining, next ->
+                    onProgress(index + remaining + 1, MangaDownloadProgress(next.title, error = e.message))
+                }
+                return
+            }
             catch (e: Exception) { allCatalogsLoaded = false; failure = e.message ?: "章节加载失败" }
             onProgress(index, MangaDownloadProgress(chapter.title, completed, total, failure))
         }

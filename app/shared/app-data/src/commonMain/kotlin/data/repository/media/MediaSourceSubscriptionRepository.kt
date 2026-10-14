@@ -78,16 +78,9 @@ data class MediaSourceSubscriptionsSaveData(
         private const val CURRENT_VERSION = 1
 
         val Default = MediaSourceSubscriptionsSaveData(
-            listOf(
-                MediaSourceSubscription(
-                    subscriptionId = Uuid.randomString(),
-                    url = "https://sub.creamycake.org/v1/bt1.json",
-                ),
-                MediaSourceSubscription(
-                    subscriptionId = Uuid.randomString(),
-                    url = "https://sub.creamycake.org/v1/css1.json",
-                ),
-            ),
+            DefaultMediaSubscriptions.anime.map { url ->
+                MediaSourceSubscription(subscriptionId = Uuid.randomString(), url = url)
+            },
             version = CURRENT_VERSION,
         )
     }

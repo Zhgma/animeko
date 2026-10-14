@@ -22,6 +22,10 @@ import me.him188.ani.app.ui.framework.runAniComposeUiTest
 import me.him188.ani.app.ui.subject.collection.components.createTestEditableSubjectCollectionTypeState
 import me.him188.ani.utils.platform.annotations.TestOnly
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.ui.test.onNodeWithText
 
 @OptIn(TestOnly::class)
 class SubjectCollectionItemTest {
@@ -56,5 +60,27 @@ class SubjectCollectionItemTest {
         runOnIdle { recompositionTrigger.intValue++ }
 
         onNodeWithTag(SubjectCollectionItemTestTags.EditCollectionTypeMenu).assertIsDisplayed()
+    }
+    @Test
+    fun `shared card episode and play buttons do not open subject details`() = runAniComposeUiTest {
+        var details=0
+        var episodes=0
+        var plays=0
+        setContent {
+            ProvideCompositionLocalsForPreview {
+                SubjectCollectionCard({details++},cover={},content={
+                    SubjectCollectionItemLayout("Long collection title",airingLabel={Text("On air")},
+                        onShowEpisodeList={episodes++},playButton={Button({plays++}) {Text("Play test episode")}},
+                        menu={},onShowMenu={})
+                })
+            }
+        }
+        onNodeWithText("选集").performClick()
+        onNodeWithText("Play test episode").performClick()
+        runOnIdle {
+            assertEquals(1,episodes)
+            assertEquals(1,plays)
+            assertEquals(0,details)
+        }
     }
 }

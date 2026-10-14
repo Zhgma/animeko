@@ -46,7 +46,7 @@ export function upstreamRequest({ host = 'komiic.com', path = '/api/query', body
 }
 
 export function createKomiicServer({ upstream = upstreamRequest, secret = randomBytes(32), now = Date.now,
-  baseUrl = 'https://119.28.149.19:8443/api/komiic', trustLoopbackProxy = false,
+  baseUrl = 'https://43.131.255.74:8443/api/komiic', trustLoopbackProxy = false,
   jsonBurst = 30, jsonPerMinute = 60, imageBurst = 90, imagePerMinute = 240,
   globalJsonBurst = 60, globalImageBurst = 180 } = {}) {
   if (!Buffer.isBuffer(secret) || secret.length < 32) throw new Error('Komiic signing key must contain 32 bytes');

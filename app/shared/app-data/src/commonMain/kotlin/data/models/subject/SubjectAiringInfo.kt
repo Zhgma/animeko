@@ -11,13 +11,8 @@ package me.him188.ani.app.data.models.subject
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
-import me.him188.ani.app.data.models.episode.EpisodeInfo
-import me.him188.ani.app.domain.episode.EpisodeCompletionContext.isKnownCompleted
-import me.him188.ani.app.domain.episode.EpisodeCompletionContext.isKnownOnAir
 import me.him188.ani.datasources.api.EpisodeSort
-import me.him188.ani.datasources.api.EpisodeType
 import me.him188.ani.datasources.api.PackedDate
-import me.him188.ani.datasources.api.ifInvalid
 
 /**
  * 一个条目自身连载进度, 与用户是否观看无关
@@ -64,112 +59,7 @@ data class SubjectAiringInfo(
             upcomingSort = null,
         )
 
-//        /**
-//         * 在有剧集信息的时候使用, 计算最准确的结果
-//         */
-//        fun computeFromFirstAndLastEpisode(
-//            firstEpisode: EpisodeInfo?,
-//            lastEpisode: EpisodeInfo?,
-//            episodeCount: Int,
-//            airDate: PackedDate,
-//        ): SubjectAiringInfo {
-//            // See test SubjectAiringInfoTest
-//            // Change with care!
-//            val kind = if (firstEpisode == null && lastEpisode == null) {
-//                SubjectAiringKind.UPCOMING
-//            } else {
-//                check(firstEpisode != null && lastEpisode != null) {
-//                    "firstEpisode and lastEpisode must be both null or both not null"
-//                }
-//                when {
-//                    firstEpisode.isKnownCompleted && lastEpisode.isKnownCompleted -> SubjectAiringKind.COMPLETED
-//                    firstEpisode.isKnownOnAir && lastEpisode.isKnownOnAir -> SubjectAiringKind.UPCOMING
-//                    firstEpisode.isKnownCompleted || lastEpisode.isKnownCompleted -> SubjectAiringKind.ON_AIR
-//                    airDate.isValid -> when {
-//                        airDate <= PackedDate.now() -> SubjectAiringKind.COMPLETED
-//                        PackedDate.now() - airDate > 10 * 30 * 365.days -> SubjectAiringKind.COMPLETED // 播出 10 年后判定为完结, 一些老番缺失信息
-//                        else -> SubjectAiringKind.UPCOMING
-//                    }
-//
-//                    else -> SubjectAiringKind.UPCOMING
-//                }
-//            }
-//            return SubjectAiringInfo(
-//                kind = kind,
-//                episodeCount = episodeCount,
-//                airDate = airDate.ifInvalid { list.firstOrNull()?.airDate ?: PackedDate.Invalid },
-//                firstSort = list.firstOrNull()?.sort,
-//                latestSort = list.lastOrNull { it.isKnownCompleted }?.sort,
-//                upcomingSort = if (kind == SubjectAiringKind.COMPLETED) null else list.firstOrNull { it.isKnownOnAir }?.sort
-//                    ?: list.firstOrNull { it.airDate.isInvalid }?.sort,
-//            )
-//        }
 
-        /**
-         * 在有剧集信息的时候使用, 计算最准确的结果
-         */
-        fun computeFromEpisodeList(
-            list: List<EpisodeInfo>,
-            airDate: PackedDate,
-            recurrence: SubjectRecurrence?,
-        ): SubjectAiringInfo {
-            // See test SubjectAiringInfoTest
-            // Change with care!
-
-            // 仅保留正片
-            val mainStoryEpisodes = list.filter { it.type == EpisodeType.MainStory }
-
-            val kind = when {
-                mainStoryEpisodes.isEmpty() -> SubjectAiringKind.UPCOMING
-                mainStoryEpisodes.all { it.isKnownCompleted(recurrence) } -> SubjectAiringKind.COMPLETED
-                mainStoryEpisodes.all { it.isKnownOnAir(recurrence) } -> SubjectAiringKind.UPCOMING
-                mainStoryEpisodes.any { it.isKnownCompleted(recurrence) } -> SubjectAiringKind.ON_AIR
-                // airDate 有效且不晚于当前时间 => 已完结; 否则即将开播.
-                // (原先此处还有一条"播出 10 年后判完结"的分支, 但 `airDate <= now()` 已覆盖所有过去日期,
-                //  且其 `10 * 30 * 365.days` ≈ 300 年与注释不符, 属不可达死代码, 已删除.)
-                airDate.isValid && airDate <= PackedDate.now() -> SubjectAiringKind.COMPLETED
-
-                else -> SubjectAiringKind.UPCOMING
-            }
-
-            return SubjectAiringInfo(
-                kind = kind,
-                mainEpisodeCount = mainStoryEpisodes.size,
-                airDate = airDate.ifInvalid { mainStoryEpisodes.firstOrNull()?.airDate ?: PackedDate.Invalid },
-                firstSort = mainStoryEpisodes.firstOrNull()?.sort,
-                latestEp = mainStoryEpisodes.lastOrNull { it.isKnownCompleted(recurrence) }?.sort,
-                latestSort = mainStoryEpisodes.lastOrNull { it.isKnownCompleted(recurrence) }?.sort,
-                upcomingSort = if (kind == SubjectAiringKind.COMPLETED) {
-                    null
-                } else {
-                    mainStoryEpisodes.firstOrNull { it.isKnownOnAir(recurrence) }?.sort
-                        ?: mainStoryEpisodes.firstOrNull { it.airDate.isInvalid }?.sort
-                },
-            )
-        }
-
-        /**
-         * 在无剧集信息的时候使用, 估算
-         */
-        fun computeFromSubjectInfo(
-            info: SubjectInfo,
-            mainEpisodeCount: Int,
-        ): SubjectAiringInfo {
-            val kind = when {
-                info.completeDate.isValid -> SubjectAiringKind.COMPLETED
-                info.airDate < PackedDate.now() -> SubjectAiringKind.ON_AIR
-                else -> SubjectAiringKind.UPCOMING
-            }
-            return SubjectAiringInfo(
-                kind = kind,
-                mainEpisodeCount = mainEpisodeCount,
-                airDate = info.airDate,
-                firstSort = null,
-                latestEp = null,
-                latestSort = null,
-                upcomingSort = null,
-            )
-        }
     }
 }
 

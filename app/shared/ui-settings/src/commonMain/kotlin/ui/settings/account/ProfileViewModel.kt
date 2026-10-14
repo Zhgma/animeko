@@ -178,21 +178,7 @@ class ProfileViewModel : AbstractViewModel(), KoinComponent {
         }
     }
 
-    fun validateNickname(nickname: String): Boolean {
-        if (nickname.isEmpty()) {
-            return true
-        }
-
-        if (nickname.isBlank() || !NICKNAME_MATCHER.matches(nickname)) {
-            return false
-        }
-
-        val length = nickname.foldRight(0) { char, acc ->
-            acc + if (char.code < 256) 1 else 2 // ASCII characters count as 1, others count as 2
-        }
-
-        return length in 6..20
-    }
+    fun validateNickname(nickname: String): Boolean = isValidProfileNickname(nickname)
 
     suspend fun saveProfile(profile: EditProfileState) {
         val selfInfo = stateFlow.value.selfInfo.selfInfo
@@ -236,9 +222,6 @@ class ProfileViewModel : AbstractViewModel(), KoinComponent {
         userRepo.deleteAccount()
     }
 
-    companion object {
-        private val NICKNAME_MATCHER = Regex("^[\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FFa-zA-Z\\d_]+$")
-    }
 }
 
 @Immutable

@@ -107,138 +107,22 @@ fun DownloadRow(
         )
     }
 
-    val containerColor by animateColorAsState(
-        if (selectionMode && selected) MaterialTheme.colorScheme.surfaceContainer else Color.Transparent,
+    DownloadRowContent(
+        episode = episode,
+        title = if (showSubjectTitle) episode.subjectName else stringResource(Lang.cache_management_episode_label, episode.sort, episode.displayName),
+        supportingText = cacheEpisodeMetaText(episode, mediaSourceInfoProvider),
+        selectionMode = selectionMode, selected = selected,
+        onToggleSelected = onToggleSelected, onEnterSelection = onEnterSelection,
+        onShowMenu = { showMenu = true },
+        primaryAction = { DownloadPrimaryAction(episode, onPlay, onResume, onPause) },
+        moreActions = {
+            IconButton(onClick = { showMenu = true }) {
+                Icon(Icons.Rounded.MoreVert, stringResource(Lang.cache_management_more_actions))
+            }
+            DownloadActionDropdown(showMenu, { showMenu = false }, episode,
+                onPlay, onResume, onPause, onDelete = { showConfirmDelete = true }, onViewDetail = onViewDetail)
+        }, modifier = modifier, shape = shape,
     )
-    Surface(
-        modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .combinedClickable(
-                onClick = {
-                    if (selectionMode) {
-                        onToggleSelected()
-                    } else {
-                        showMenu = true
-                    }
-                },
-                onLongClick = onEnterSelection,
-            ),
-        shape = shape,
-        color = containerColor,
-    ) {
-        Column(
-            Modifier.padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // 设计稿: 多选模式下复选框在行首, 行尾单项操作隐藏.
-                if (selectionMode) {
-                    Checkbox(
-                        checked = selected,
-                        onCheckedChange = { onToggleSelected() },
-                    )
-                }
-
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    val title = if (showSubjectTitle) {
-                        episode.subjectName
-                    } else {
-                        stringResource(Lang.cache_management_episode_label, episode.sort, episode.displayName)
-                    }
-                    Text(
-                        title,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        cacheEpisodeMetaText(episode, mediaSourceInfoProvider),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-
-                if (!selectionMode) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        DownloadPrimaryAction(episode, onPlay = onPlay, onResume = onResume, onPause = onPause)
-
-                        Box {
-                            IconButton(onClick = { showMenu = true }) {
-                                Icon(Icons.Rounded.MoreVert, stringResource(Lang.cache_management_more_actions))
-                            }
-                            DownloadActionDropdown(
-                                show = showMenu,
-                                onDismiss = { showMenu = false },
-                                episode = episode,
-                                onPlay = {
-                                    onPlay()
-                                    showMenu = false
-                                },
-                                onResume = {
-                                    onResume()
-                                    showMenu = false
-                                },
-                                onPause = {
-                                    onPause()
-                                    showMenu = false
-                                },
-                                onViewDetail = onViewDetail?.let {
-                                    {
-                                        it()
-                                        showMenu = false
-                                    }
-                                },
-                                onDelete = { showConfirmDelete = true },
-                            )
-                        }
-                    }
-                }
-            }
-
-            AniAnimatedVisibility(!episode.isFinished) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    val progress by animateFloatAsState(episode.progress.getOrZero())
-                    LinearProgressIndicator(
-                        progress = { progress },
-                        modifier = Modifier.weight(1f),
-                        strokeCap = StrokeCap.Round,
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        val statusText = when {
-                            episode.isFailed -> stringResource(Lang.cache_episode_download_failed)
-                            episode.isPaused -> stringResource(Lang.cache_episode_status_paused)
-                            else -> episode.speedText
-                        }
-                        statusText?.let {
-                            Text(
-                                it,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (episode.isFailed) MaterialTheme.colorScheme.error else Color.Unspecified,
-                            )
-                        }
-                        episode.progressText?.let { Text(it, style = MaterialTheme.typography.labelMedium) }
-                    }
-                }
-            }
-        }
-    }
 }
 
 /**

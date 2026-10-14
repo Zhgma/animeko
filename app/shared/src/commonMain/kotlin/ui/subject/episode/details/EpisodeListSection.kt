@@ -432,162 +432,20 @@ private fun NarrowEpisodeListSection(
  * 有剧照 (且 [showImage]) 时剧照作背景 ([EpisodeStillBackground])，亮度不随观看状态变化，文字改用深色配色前景 ([EpisodeStillDefaults])，播放中用 primary 描边表示；尺寸与有无图无关。
  */
 @Composable
-private fun EpisodeCard(
-    episode: EpisodeCollectionInfo,
-    isPlaying: Boolean,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    showImage: Boolean = true,
-    playProgress: Float? = null,
-) {
-    val isWatched = episode.collectionType.isDoneOrDropped()
-    val isDone = episode.collectionType == UnifiedCollectionType.DONE
-    val interactionSource = remember { MutableInteractionSource() }
-    val still = episode.episodeInfo.imageMedium?.takeIf { showImage }
-    // 播放中且有剧照时的描边宽度, 进度条按它内缩
-    val stillBorder = if (still != null && isPlaying) 2.dp else 0.dp
-    val sortColor = when {
-        still != null -> EpisodeStillDefaults.contentColor
-        isPlaying -> MaterialTheme.colorScheme.primary
-        isWatched -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-        else -> LocalContentColor.current
-    }
-    val nameColor = when {
-        still != null -> EpisodeStillDefaults.secondaryContentColor
-        isWatched -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = if (isPlaying) {
-                MaterialTheme.colorScheme.secondaryContainer
-            } else if (isWatched) {
-                MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.6f)
-            } else {
-                MaterialTheme.colorScheme.surfaceContainer
-            },
-        ),
-        border = if (still != null && isPlaying) BorderStroke(stillBorder, MaterialTheme.colorScheme.primary) else null,
-        modifier = modifier
-            .height(72.dp)
-            .aspectRatio(16f / 9)
-            .combinedClickable(
-                interactionSource = interactionSource,
-                indication = LocalIndication.current,
-                onClick = onClick,
-                onLongClick = onLongClick,
-            ),
-    ) {
-        Box(Modifier.fillMaxSize()) {
-            if (still != null) {
-                EpisodeStillBackground(
-                    imageUrl = still,
-                    highlighted = isPlaying,
-                    modifier = Modifier.matchParentSize(),
-                )
-            }
-            LongClickProgressFill(
-                interactionSource = interactionSource,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
-                modifier = Modifier.matchParentSize(),
-            )
-            EpisodeCellLabel(
-                sort = episode.episodeInfo.sort.toString(),
-                name = episode.episodeInfo.preferredDisplayName(LocalSubjectAppearanceSettings.current.useOriginalTitle),
-                sortColor = sortColor,
-                nameColor = nameColor,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                playingIndicator = if (isPlaying) {
-                    { PlayingIcon(width = 20.dp, height = 12.dp, color = sortColor) }
-                } else {
-                    null
-                },
-            )
-            if (isDone) {
-                EpisodeWatchedBadge(
-                    onStill = still != null,
-                    onClick = onLongClick,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
-                )
-            } else if (playProgress != null) {
-                EpisodePlayProgressBar(
-                    progress = playProgress,
-                    onStill = still != null,
-                    // 播放中的有图卡片有 primary 描边, 进度条缩到描边内侧, 不被盖住
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(start = stillBorder, end = stillBorder, bottom = stillBorder),
-                )
-            }
-        }
-    }
+private fun EpisodeCard(episode: EpisodeCollectionInfo, isPlaying: Boolean, onClick: () -> Unit,
+    onLongClick: () -> Unit, modifier: Modifier = Modifier, showImage: Boolean = true, playProgress: Float? = null) {
+    EpisodePlaybackCard(episode.episodeInfo.sort.toString(),
+        episode.episodeInfo.preferredDisplayName(LocalSubjectAppearanceSettings.current.useOriginalTitle),
+        episode.episodeInfo.imageMedium?.takeIf { showImage }, episode.collectionType.isDoneOrDropped(),
+        episode.collectionType == UnifiedCollectionType.DONE, isPlaying,onClick,onLongClick,modifier,playProgress)
 }
 
-/**
- * 剧集详情页专用的列表项组件。
- */
 @Composable
-private fun EpisodeListSectionItem(
-    episode: EpisodeCollectionInfo,
-    isPlaying: Boolean,
-    isWatched: Boolean,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val shape = MaterialTheme.shapes.small
-    val containerColor = when {
-        isPlaying -> MaterialTheme.colorScheme.primaryContainer
-        isWatched -> MaterialTheme.colorScheme.surfaceContainer
-        else -> MaterialTheme.colorScheme.surfaceContainer
-    }
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(containerColor)
-            .combinedClickable(
-                interactionSource = interactionSource,
-                indication = LocalIndication.current,
-                onClick = onClick,
-                onLongClick = onLongClick,
-            ),
-    ) {
-        LongClickProgressFill(
-            interactionSource = interactionSource,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
-            modifier = Modifier.matchParentSize(),
-        )
-        ListItem(
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            headlineContent = {
-                Text(
-                    text = "${episode.episodeInfo.sort}  " +
-                        episode.episodeInfo.preferredDisplayName(LocalSubjectAppearanceSettings.current.useOriginalTitle),
-                    color = when {
-                        isPlaying -> MaterialTheme.colorScheme.primary
-                        isWatched -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                        else -> LocalContentColor.current
-                    },
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            },
-            trailingContent = {
-                if (isPlaying) {
-                    PlayingIcon()
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
+private fun EpisodeListSectionItem(episode: EpisodeCollectionInfo, isPlaying: Boolean, isWatched: Boolean,
+    onClick: () -> Unit, onLongClick: () -> Unit, modifier: Modifier = Modifier) {
+    EpisodePlaybackListItem(episode.episodeInfo.sort.toString(),
+        episode.episodeInfo.preferredDisplayName(LocalSubjectAppearanceSettings.current.useOriginalTitle),
+        isPlaying,isWatched,onClick,onLongClick,modifier)
 }
 
 /**

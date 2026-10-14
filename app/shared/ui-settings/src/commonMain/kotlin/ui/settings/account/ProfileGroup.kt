@@ -343,15 +343,7 @@ internal fun SettingsScope.ProfileGroupImpl(
                         }
                     } else null,
                 )
-                TextItem(
-                    title = {
-                        SelectionContainer {
-                            Text(currentInfo?.id.toString())
-                        }
-                    },
-                    description = { Text(userIdText) },
-                    modifier = Modifier.placeholder(isPlaceholder),
-                )
+                ProfileUserIdItem(currentInfo?.id.toString(), Modifier.placeholder(isPlaceholder))
 
                 if (onQrLoginClick != null && currentState.isSessionValid == true) {
                     TextItem(
@@ -364,12 +356,9 @@ internal fun SettingsScope.ProfileGroupImpl(
                 }
 
                 Group(title = { Text(thirdPartyAccountsText) }) {
-                    TextItem(
-                        title = { Text("Bangumi") },
-                        description = { Text(currentInfo?.bangumiUsername ?: notBoundText) },
-                        icon = {
-                            Image(Icons.Default.BangumiNext, contentDescription = "Bangumi Icon")
-                        },
+                    ProfileLinkedAccountItem(
+                        platform = OAuthPlatform.BANGUMI,
+                        username = currentInfo?.bangumiUsername,
                         onClick = onBangumiClick,
                         action = if (!currentInfo?.bangumiUsername.isNullOrEmpty()) {
                             {
@@ -384,10 +373,9 @@ internal fun SettingsScope.ProfileGroupImpl(
                         .distinct().filter { it != OAuthPlatform.BANGUMI }
                     for (platform in knownPlatforms) {
                         val account = boundAccounts.firstOrNull { it.provider == platform.id }
-                        TextItem(
-                            title = { Text(platform.displayName) },
-                            description = { Text(account?.username ?: notBoundText) },
-                            icon = { OAuthPlatformIcon(platform, Modifier.size(24.dp)) },
+                        ProfileLinkedAccountItem(
+                            platform = platform,
+                            username = account?.username,
                             onClick = when {
                                 account == null -> {
                                     { onExternalAccountClick(platform) }

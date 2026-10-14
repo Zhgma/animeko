@@ -4,7 +4,7 @@ info:
   version: 5.0.0
   description: Bangumi type=1 search, metadata, public comments, relations and authenticated own book collection state/progress/rating. All upstream traffic is direct HTTPS.
 servers:
-  - url: https://119.28.149.19:8443/api/books
+  - url: https://43.131.255.74:8443/api/books
 paths:
   /images/{payload}/{signature}:
     get:

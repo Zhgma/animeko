@@ -16,10 +16,8 @@ import me.him188.ani.app.data.models.subject.SubjectRecurrence
 import me.him188.ani.app.domain.episode.EpisodeCompletionContext.isKnownCompleted
 import me.him188.ani.datasources.api.EpisodeType
 import me.him188.ani.datasources.api.PackedDate
-import me.him188.ani.datasources.api.minus
 import kotlin.math.absoluteValue
 import kotlin.math.sign
-import kotlin.time.Duration.Companion.days
 
 object EpisodeCollections {
     fun isSubjectCompleted(
@@ -33,11 +31,7 @@ object EpisodeCollections {
     }
 
     fun isSubjectCompleted(dates: Sequence<PackedDate>, now: PackedDate = PackedDate.now()): Boolean {
-        val maxAirDate = dates
-            .filter { it.isValid }
-            .maxOrNull()
-
-        return maxAirDate != null && now - maxAirDate >= 365.days
+        return areEpisodeDatesCompleted(dates, now)
     }
 
     /**

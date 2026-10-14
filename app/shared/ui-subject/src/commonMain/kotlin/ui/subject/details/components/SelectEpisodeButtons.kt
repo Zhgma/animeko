@@ -38,21 +38,20 @@ fun SubjectDetailsDefaults.SelectEpisodeButtons(
     onPlay: (episodeId: Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        IconButton(onShowEpisodeList) {
-            Icon(Icons.Outlined.Dataset, null)
-        }
-
-        Box(Modifier.weight(1f)) {
-            SubjectProgressButton(
-                state,
-                onPlay = {
-                    state.episodeIdToPlay?.let(onPlay)
-                },
-                Modifier.fillMaxWidth(),
-            )
-        }
+    SelectEpisodeButtons(onShowEpisodeList, modifier) {
+        SubjectProgressButton(state, { state.episodeIdToPlay?.let(onPlay) }, Modifier.fillMaxWidth())
     }
+}
+
+@Suppress("UnusedReceiverParameter")
+@Composable
+internal fun SubjectDetailsDefaults.SelectEpisodeButtons(
+    onShowEpisodeList: () -> Unit,
+    modifier: Modifier = Modifier,
+    listContentDescription: String? = null,
+    progressButton: @Composable () -> Unit,
+) {
+    SelectEpisodeButtonsContent(onShowEpisodeList, modifier, listContentDescription, progressButton)
 }
 
 @OptIn(TestOnly::class)

@@ -1,6 +1,6 @@
 # AnimeComic Komiic API
 
-入口：`https://119.28.149.19:8443/api/komiic`。独立进程监听 `127.0.0.1:4181`，计划任务 `AnimeComic-KomiicApi` 使用 LOCAL SERVICE 账号。BGM 书籍 API 的进程、缓存和限流独立。
+入口：`https://43.131.255.74:8443/api/komiic`。独立进程监听 `127.0.0.1:4181`，计划任务 `AnimeComic-KomiicApi` 使用 LOCAL SERVICE 账号。BGM 书籍 API 的进程、缓存和限流独立。
 
 ## 契约
 

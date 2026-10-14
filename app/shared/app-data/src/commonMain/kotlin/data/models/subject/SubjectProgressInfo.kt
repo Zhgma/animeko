@@ -11,15 +11,14 @@ package me.him188.ani.app.data.models.subject
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
-import me.him188.ani.app.data.models.episode.EpisodeCollectionInfo
-import me.him188.ani.app.data.models.episode.EpisodeInfo
 import me.him188.ani.app.data.models.subject.SubjectProgressInfo.Companion.compute
-import me.him188.ani.app.domain.episode.EpisodeCompletionContext.isKnownCompleted
+import me.him188.ani.app.domain.episode.EpisodeBroadcastSchedule.resolveEpisodeAirTime
 import me.him188.ani.datasources.api.EpisodeSort
 import me.him188.ani.datasources.api.PackedDate
 import me.him188.ani.datasources.api.ifInvalid
 import me.him188.ani.datasources.api.topic.UnifiedCollectionType
 import me.him188.ani.utils.platform.annotations.TestOnly
+import kotlin.time.Instant
 
 /**
  * 用户对一个条目的观看进度
@@ -48,7 +47,7 @@ data class SubjectProgressInfo(
         val airDate: PackedDate,
         /**
          * 是否一定已经播出了
-         * @see EpisodeInfo.isKnownCompleted
+         * @see me.him188.ani.app.domain.episode.EpisodeBroadcastSchedule
          */
         val isKnownCompleted: Boolean,
     )
@@ -61,31 +60,10 @@ data class SubjectProgressInfo(
         )
 
         fun compute(
-            subjectInfo: SubjectInfo,
-            episodes: List<EpisodeCollectionInfo>,
-            currentDate: PackedDate,
-            recurrence: SubjectRecurrence?,
-        ): SubjectProgressInfo {
-            return compute(
-                subjectStarted = currentDate > subjectInfo.airDate,
-                episodes = episodes.map {
-                    Episode(
-                        it.episodeId,
-                        it.collectionType,
-                        it.episodeInfo.ep,
-                        it.episodeInfo.sort,
-                        it.episodeInfo.airDate,
-                        it.episodeInfo.isKnownCompleted(recurrence),
-                    )
-                },
-                subjectAirDate = subjectInfo.airDate,
-            )
-        }
-
-        fun compute(
             subjectStarted: Boolean,
             episodes: List<Episode>,
             subjectAirDate: PackedDate,
+            recurrence: SubjectRecurrence? = null,
         ): SubjectProgressInfo {
             // 进度应该仅考虑普通剧集，并且按 sort 排序
             val sortedNormalEpisodes = episodes
@@ -140,6 +118,9 @@ data class SubjectProgressInfo(
                                 sortedNormalEpisodes.getOrNull(lastWatchedEpIndex)?.sort,
                                 sortedNormalEpisodes.getOrNull(lastWatchedEpIndex + 1)?.airDate
                                     ?: PackedDate.Invalid,
+                                sortedNormalEpisodes.getOrNull(lastWatchedEpIndex + 1)?.let {
+                                    resolveEpisodeAirTime(it.airDate, recurrence)?.takeIf { time -> time.exact }?.instant
+                                },
                             )
                         }
                     }
@@ -209,6 +190,8 @@ sealed class ContinueWatchingStatus {
          * Might be [PackedDate.Invalid]
          */
         val nextEpisodeAirDate: PackedDate,
+        /** 精确的计划播出时刻; 只有日期或播出周期与日期不一致时为 null. */
+        val nextEpisodeAirTime: Instant? = null,
     ) : ContinueWatchingStatus()
 
     data object Done : ContinueWatchingStatus()

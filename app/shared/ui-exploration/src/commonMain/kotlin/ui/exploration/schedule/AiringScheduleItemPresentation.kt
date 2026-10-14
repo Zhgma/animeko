@@ -9,23 +9,18 @@
 
 package me.him188.ani.app.ui.exploration.schedule
 
+import me.him188.ani.app.domain.episode.AiringScheduleDateRange
+
 import androidx.compose.runtime.Immutable
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
-import kotlinx.datetime.toLocalDateTime
-import me.him188.ani.app.data.models.subject.displayName
-import me.him188.ani.app.data.models.subject.nameOrNameCn
-import me.him188.ani.app.domain.episode.EpisodeWithAiringTime
-import me.him188.ani.app.domain.episode.GetAnimeScheduleFlowUseCase
 import me.him188.ani.datasources.api.EpisodeSort
 import me.him188.ani.datasources.api.topic.UnifiedCollectionType
 import me.him188.ani.utils.platform.annotations.TestOnly
-import me.him188.ani.utils.platform.collections.ImmutableEnumMap
 
 @Immutable
 data class AiringScheduleItemPresentation(
@@ -97,90 +92,8 @@ data class ScheduleDay(
     }
 }
 
-@TestOnly
-val TestAiringScheduleItemPresentations
-    get() = buildList {
-        var id = 0
-        repeat(50) { i ->
-            repeat(if (i % 8 == 0) 2 else 1) {
-                add(
-                    AiringScheduleItemPresentation(
-                        subjectId = ++id,
-                        subjectTitle = "Subject $id",
-                        subjectOriginalTitle = "オリジナル $id",
-                        imageUrl = "https://example.com/image.jpg",
-                        episodeId = id,
-                        episodeSort = EpisodeSort(if (i % 3 == 0) 13 else 1),
-                        episodeEp = EpisodeSort(1),
-                        episodeName = "Episode 1",
-                        episodeOriginalName = "エピソード 1",
-                        subjectCollectionType = UnifiedCollectionType.entries[i % UnifiedCollectionType.entries.size],
-                        dayOfWeek = DayOfWeek.entries[i % DayOfWeek.entries.size],
-                        // 每隔几个放一个时间未定的项目, 预览里能看到 "时间未定" 的样式
-                        time = if (i % 11 == 10) null else LocalTime(i % 24, 0),
-                    ),
-                )
-
-            }
-        }
-    }
-
-/**
- * 时间未定 (`time == null`) 的项目排在已知时间的项目之后.
- */
-private val testPresentationComparator =
-    compareBy<AiringScheduleItemPresentation, LocalTime?>(nullsLast()) { it.time }
-        .thenBy { it.subjectTitle }
-
-/**
- * @see TestSchedulePageData
- */
-@TestOnly
-val TestAiringScheduleItemPresentationData: ImmutableEnumMap<DayOfWeek, List<AiringScheduleItemPresentation>>
-    get() = ImmutableEnumMap<DayOfWeek, List<AiringScheduleItemPresentation>> { day ->
-        TestAiringScheduleItemPresentations.filter { it.dayOfWeek == day }
-            .sortedWith(testPresentationComparator)
-    }
-
-
-@TestOnly
-val TestSchedulePageData: List<AiringSchedule>
-    get() {
-        val currentTime = LocalTime(12, 0)
-        val list = TestAiringScheduleItemPresentations.filter { it.dayOfWeek == DayOfWeek.MONDAY }
-            .sortedWith(testPresentationComparator)
-
-
-        return ScheduleDay.generateForRecentTwoWeeks(LocalDate(2025, 12, 10)).map {
-            AiringSchedule(
-                date = it.date,
-                SchedulePageDataHelper.toColumnItems(list, addIndicator = true, currentTime),
-            )
-        }
-    }
-
-fun EpisodeWithAiringTime.toPresentation(timeZone: TimeZone): AiringScheduleItemPresentation {
-    // 时间未定时 airingTime 是放送日期在 timeZone 的 00:00, 日期仍然可用, 只是不显示时刻.
-    val dateTime = airingTime.toLocalDateTime(timeZone)
-    // Return the item
-    return AiringScheduleItemPresentation(
-        subjectId = subject.subjectId,
-        subjectTitle = subject.displayName,
-        subjectOriginalTitle = subject.nameOrNameCn,
-        imageUrl = subject.imageLarge,
-        episodeId = episode.episodeId,
-        episodeSort = episode.sort,
-        episodeEp = episode.ep,
-        episodeName = episode.displayName,
-        episodeOriginalName = episode.nameOrNameCn,
-        subjectCollectionType = UnifiedCollectionType.NOT_COLLECTED,
-        dayOfWeek = dateTime.dayOfWeek,
-        time = if (timeKnown) dateTime.time else null,
-    )
-}
-
 object SchedulePageDataHelper {
-    val OFFSET_DAYS_RANGE = GetAnimeScheduleFlowUseCase.OFFSET_DAYS_RANGE
+    val OFFSET_DAYS_RANGE = AiringScheduleDateRange.OFFSETS
 
     /**
      * 把一天的项目转换为列表项:

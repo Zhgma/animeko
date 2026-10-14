@@ -17,6 +17,9 @@ import me.him188.ani.utils.platform.Platform
 import me.him188.ani.utils.platform.currentPlatform
 
 internal const val FORK_RELEASES_URL = "https://github.com/Zhgma/animeko/releases"
+internal const val FORK_RELEASE_TAG_PREFIX = "$FORK_RELEASES_URL/tag/"
+
+internal fun forkReleaseDetailsUrl(tag: String): String = "$FORK_RELEASE_TAG_PREFIX$tag"
 
 /** Uses the configured application network client and the fork's published release assets. */
 class UpdateChecker(private val client: ScopedHttpClient) {
@@ -78,7 +81,7 @@ internal fun selectForkRelease(releases: List<ForkRelease>, current: String, cha
     val (_, latest, asset) = eligible.firstOrNull() ?: return null
     return NewVersion(latest.tag.removePrefix("v"), eligible.take(10).map { (_, release, _) ->
         Changelog(release.tag.removePrefix("v"), release.publishedAt.orEmpty(), release.body.orEmpty())
-    }, listOf(asset.url), latest.publishedAt.orEmpty(), "$FORK_RELEASES_URL/tag/${latest.tag}")
+    }, listOf(asset.url), latest.publishedAt.orEmpty(), forkReleaseDetailsUrl(latest.tag))
 }
 
 /** Release names match ci-helper; Android debug packages are explicitly separated by suffix. */

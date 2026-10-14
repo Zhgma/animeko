@@ -23,6 +23,7 @@ import me.him188.ani.app.videoplayer.ui.VideoScaffold
 import me.him188.ani.app.videoplayer.ui.PlayerControllerState
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
@@ -304,6 +305,12 @@ internal fun MangaReaderPages(
         }
         LaunchedEffect(Unit) { focusRequester.requestFocus() }
         fun move(delta: Int) { interaction++; scope.launch { listState.animateScrollToItem((currentRow + delta).coerceIn(rows.indices)) } }
+        val tapPage: (Float) -> Unit = { fraction ->
+            if (fullscreen && (fraction < 1f / 3f || fraction > 2f / 3f)) {
+                controller.toggleFullVisible(false)
+                if (!listState.isScrollInProgress && currentRow < rows.lastIndex) move(1)
+            } else toggleControls()
+        }
         Box(Modifier.fillMaxSize().focusRequester(focusRequester).onPreviewKeyEvent {
             if (it.type != KeyEventType.KeyDown) false
             else when (it.key) {
@@ -327,6 +334,7 @@ internal fun MangaReaderPages(
                     IconButton({ onFullscreen(!fullscreen) }, Modifier.testTag("manga-reader-fullscreen")) {
                         Icon(if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen, if (fullscreen) "退出全屏" else "全屏")
                     }
+
                 },
                 video = {
             BoxWithConstraints(Modifier.fillMaxSize().pointerInput(controller) { detectTapGestures(onTap = { toggleControls() }) }
@@ -335,15 +343,33 @@ internal fun MangaReaderPages(
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize().testTag("manga-reader-scroll").semantics { onClick { toggleControls(); true } },
                 verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 itemsIndexed(rows, key = { _, row -> row.joinToString("-") }) { rowIndex, row ->
-                    Row(Modifier.fillMaxWidth().heightIn(min = if (rowIndex == rows.lastIndex) viewportHeight else 0.dp)
-                        .testTag("manga-reader-row-$rowIndex"), verticalAlignment = Alignment.Top) {
+                    var imageRowHeight by remember { mutableStateOf<Int?>(null) }
+                    val density = LocalDensity.current
+                    Column(Modifier.fillMaxWidth().heightIn(min = if (rowIndex == rows.lastIndex) viewportHeight else 0.dp)
+                        .testTag("manga-reader-row-$rowIndex")) {
+                    Row(Modifier.fillMaxWidth().onSizeChanged { imageRowHeight = it.height }, verticalAlignment = Alignment.Top) {
                         val visualOrder = if (rightToLeft) row.reversed() else row
-                        if (spread && row.size == 1 && rightToLeft) Spacer(Modifier.weight(1f))
-                        visualOrder.forEach { index ->
+                        val needsEmptySlot = spread && row.size == 1 && !(firstPageSingle && rowIndex == 0)
+                        if (needsEmptySlot && rightToLeft) Spacer(Modifier.weight(1f))
+                        visualOrder.forEachIndexed { slot, index ->
                             MangaReaderImage(pages[index], index + 1, currentRow == rowIndex, loadImage,
-                                Modifier.weight(1f).testTag("manga-reader-page-slot-${index + 1}"), onTap = toggleControls, onDecoded = { decodedPages = decodedPages + index })
+                                Modifier.weight(1f).testTag("manga-reader-page-slot-${index + 1}"), onTap = { fraction ->
+                                    val slots = if (needsEmptySlot) 2 else row.size
+                                    val offset = if (needsEmptySlot && rightToLeft) 1 else 0
+                                    tapPage((offset + slot + fraction) / slots)
+                                }, onDecoded = { decodedPages = decodedPages + index })
                         }
-                        if (spread && row.size == 1 && !rightToLeft) Spacer(Modifier.weight(1f))
+                        if (needsEmptySlot && !rightToLeft) Spacer(Modifier.weight(1f))
+                    }
+                    if (rowIndex == rows.lastIndex) {
+                        val minimumGap = if (fullscreen) 96.dp else 0.dp
+                        val gapHeight = imageRowHeight?.let { (viewportHeight - with(density) { it.toDp() }).coerceAtLeast(minimumGap) } ?: minimumGap
+                        if (gapHeight > 0.dp) Box(Modifier.fillMaxWidth().height(gapHeight)
+                            .testTag("manga-reader-bottom-gap")
+                            .then(if (fullscreen && onNextChapter != null) Modifier.clickable(
+                                interactionSource = null, indication = null, onClickLabel = "下一话", onClick = onNextChapter,
+                            ) else Modifier))
+                    }
                     }
                 }
             }
@@ -366,6 +392,7 @@ internal fun MangaReaderPages(
                     }
                 }
             })
+
         }
     }
     if (showSettings) AlertDialog(onDismissRequest = { showSettings = false }, title = { Text("阅读设置") },
@@ -378,16 +405,15 @@ internal fun MangaReaderPages(
 }
 
 @Composable
-private fun MangaReaderImage(page: MangaPage, number: Int, active: Boolean,
-    loadImage: suspend (MangaPage) -> String, modifier: Modifier = Modifier, onTap: () -> Unit = {}, onDecoded: () -> Unit = {},
+internal fun MangaReaderImage(page: MangaPage, number: Int, active: Boolean,
+    loadImage: suspend (MangaPage) -> String, modifier: Modifier = Modifier, onTap: (Float) -> Unit = {}, onDecoded: () -> Unit = {},
 ) {
     val currentOnTap by rememberUpdatedState(onTap)
     var uri by remember(page) { mutableStateOf<String?>(null) }
     var error by remember(page) { mutableStateOf<String?>(null) }
     var loaded by remember(page) { mutableStateOf(false) }
     var revision by remember { mutableIntStateOf(0) }
-    var scale by remember { mutableFloatStateOf(1f) }
-    var offset by remember { mutableStateOf(Offset.Zero) }
+    var transform by remember(page) { mutableStateOf(MangaImageTransform()) }
     var viewport by remember { mutableStateOf(IntSize.Zero) }
     var aspect by remember(page) { mutableFloatStateOf(if (page.width > 0 && page.height > 0) page.width.toFloat() / page.height else 0.707f) }
     LaunchedEffect(page, revision) {
@@ -396,27 +422,35 @@ private fun MangaReaderImage(page: MangaPage, number: Int, active: Boolean,
         catch (e: CancellationException) { throw e }
         catch (e: Exception) { error = e.message ?: "图片加载失败" }
     }
-    LaunchedEffect(active) { if (!active) { scale = 1f; offset = Offset.Zero } }
-    Box(modifier.fillMaxWidth().aspectRatio(aspect).onSizeChanged { viewport = it }.clipToBounds().background(Color(0xff101014)), contentAlignment = Alignment.Center) {
+    LaunchedEffect(active) { if (!active) transform = MangaImageTransform() }
+    val gestures = rememberTransformableState { centroid: Offset, zoom: Float, pan: Offset, _: Float ->
+        transform = transform.transform(viewport, centroid, zoom, pan)
+    }
+    val gestureModifier = if (uri != null) Modifier.pointerInput(page) {
+            detectTapGestures(onTap = { currentOnTap((it.x / size.width.coerceAtLeast(1)).coerceIn(0f, 1f)) }, onDoubleTap = { position ->
+                transform = if (transform.scale > 1f) MangaImageTransform()
+                else transform.transform(viewport, position, 2.5f)
+            })
+
+        }.transformable(gestures, canPan = { transform.scale > 1f }) else Modifier
+    // Gestures use the untransformed viewport so an existing zoom never rescales touch coordinates.
+    Box(modifier) {
+    Box(Modifier.fillMaxWidth().aspectRatio(aspect).onSizeChanged { viewport = it }
+        .testTag("manga-page-viewport-$number")
+        .semantics { this[MangaImageScale] = transform.scale; this[MangaImageTranslation] = transform.translation }
+        .clipToBounds().background(Color(0xff101014)).then(gestureModifier), contentAlignment = Alignment.Center) {
         val imageUri = uri
         if (imageUri != null) key(revision) {
             AsyncImage(imageUri, "漫画第 $number 页", Modifier.fillMaxSize().testTag("manga-page-image-$number")
                 .semantics { stateDescription = if (loaded) "decoded" else "loading" }
-                .pointerInput(Unit) { detectTapGestures(onTap = { currentOnTap() }, onDoubleTap = { scale = if (scale > 1f) 1f else 2.5f; offset = Offset.Zero }) }
-                .transformable(rememberTransformableState { zoom, pan, _ ->
-                    scale = (scale * zoom).coerceIn(1f, 5f)
-                    val limitX = viewport.width * (scale - 1) / 2
-                    val limitY = viewport.height * (scale - 1) / 2
-                    offset = if (scale == 1f) Offset.Zero else Offset(
-                        (offset.x + pan.x).coerceIn(-limitX, limitX), (offset.y + pan.y).coerceIn(-limitY, limitY),
-                    )
-                }, canPan = { scale > 1f })
-                .graphicsLayer { scaleX = scale; scaleY = scale; translationX = offset.x; translationY = offset.y },
+                .graphicsLayer { scaleX = transform.scale; scaleY = transform.scale
+                    translationX = transform.translation.x; translationY = transform.translation.y },
                 contentScale = ContentScale.Fit, onSuccess = { loaded = true; onDecoded(); if (it.width > 0 && it.height > 0) aspect = it.width.toFloat() / it.height },
                 onError = { error = "图片解码失败，请重试" })
         }
         if (error != null) Surface(Modifier.padding(24.dp), shape = MaterialTheme.shapes.medium) {
             Box(Modifier.padding(20.dp)) { MangaInlineError(error.orEmpty()) { revision++ } }
         } else if (!loaded) CircularProgressIndicator()
+    }
     }
 }

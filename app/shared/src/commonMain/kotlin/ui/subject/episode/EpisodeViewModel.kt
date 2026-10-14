@@ -65,6 +65,7 @@ import me.him188.ani.app.data.models.preference.VideoScaffoldConfig
 import me.him188.ani.app.data.models.preference.parseMpvOptions
 import me.him188.ani.app.data.models.subject.SubjectInfo
 import me.him188.ani.app.data.models.subject.SubjectProgressInfo
+import me.him188.ani.app.data.models.subject.compute
 import me.him188.ani.app.data.models.subject.nameCnOrName
 import me.him188.ani.app.data.models.subject.nameOrNameCn
 import me.him188.ani.app.data.network.AniCommentReportService
@@ -153,6 +154,7 @@ import me.him188.ani.app.ui.mediafetch.MediaSourceResultListPresentation
 import me.him188.ani.app.ui.mediafetch.MediaSourceResultListPresenter
 import me.him188.ani.app.ui.mediafetch.MediaSourceResultPresentation
 import me.him188.ani.app.ui.mediafetch.createTestMediaSelectorState
+import me.him188.ani.app.ui.mediaselect.initialMediaSelectorMode
 import me.him188.ani.app.ui.mediaselect.MediaSelectorMode
 import me.him188.ani.app.ui.mediaselect.WatchingEpisode
 import me.him188.ani.app.ui.mediaselect.bt.BtFilterState
@@ -567,11 +569,7 @@ open class EpisodeViewModel(
         settingsRepository.mediaSelectorSettings.flow,
         mediaSourceResultsFlow,
     ) { settings, results ->
-        if (settings.preferKind == MediaSourceKind.BitTorrent && results.any { it.kind == MediaSourceKind.BitTorrent }) {
-            MediaSelectorMode.BT
-        } else {
-            MediaSelectorMode.AUTO
-        }
+        initialMediaSelectorMode(settings.preferKind, results.any { it.kind == MediaSourceKind.BitTorrent })
     }.distinctUntilChanged()
 
 

@@ -11,7 +11,6 @@ package me.him188.ani.app.domain.mediasource.web.format
 
 import androidx.compose.runtime.Immutable
 import kotlinx.serialization.Serializable
-import me.him188.ani.app.domain.mediasource.web.SelectorMediaSourceEngine
 import me.him188.ani.app.domain.mediasource.web.WebSearchEpisodeInfo
 import me.him188.ani.datasources.api.EpisodeSort
 import me.him188.ani.utils.xml.Element

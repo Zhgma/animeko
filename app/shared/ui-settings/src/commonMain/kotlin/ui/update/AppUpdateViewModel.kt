@@ -293,7 +293,7 @@ class NewVersion(
      */
     val downloadUrlAlternatives: List<String>,
     val publishedAt: String,
-    val detailsUrl: String = "$FORK_RELEASES_URL/tag/v$name",
+    val detailsUrl: String = forkReleaseDetailsUrl(name),
 ) {
     val majorChanges = changelogs.asSequence().flatMap { changelog ->
         changelog.changes.lineSequence()

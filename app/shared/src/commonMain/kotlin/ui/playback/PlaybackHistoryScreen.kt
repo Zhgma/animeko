@@ -132,19 +132,6 @@ import me.him188.ani.datasources.api.topic.UnifiedCollectionType
 import org.koin.core.component.inject
 import kotlin.math.floor
 
-@Immutable
-data class PlaybackHistoryUiItem(
-    val episodeId: Int,
-    val subjectId: Int?,
-    val episodeSort: Float?,
-    val subjectName: String?,
-    val subjectImageUrl: String?,
-    val episodeName: String?,
-    val positionMillis: Long,
-    val durationMillis: Long?,
-    val updatedAtMillis: Long,
-)
-
 /**
  * 同步状态页面的一张卡: 一集的所有待同步操作 (播放进度、看过状态) 合在一起显示.
  */
@@ -657,131 +644,6 @@ private fun PlaybackHistorySyncPendingItem(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun PlaybackHistoryListItem(
-    item: PlaybackHistoryUiItem,
-    selected: Boolean,
-    selectionMode: Boolean,
-    topAppBarContainerColor: Color,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val subjectName = item.subjectName?.takeIf { it.isNotBlank() }
-        ?: stringResource(Lang.playback_history_unknown_subject)
-    val coverContentDescription = stringResource(Lang.playback_history_cover, subjectName)
-
-    Surface(
-        modifier
-            .clip(MaterialTheme.shapes.large)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .testTag("${PlaybackHistoryTestTags.ITEM_PREFIX}${item.episodeId}"),
-        shape = MaterialTheme.shapes.large,
-        tonalElevation = if (selected) 6.dp else 1.dp,
-        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else topAppBarContainerColor,
-    ) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            PlaybackHistoryCover(
-                imageUrl = item.subjectImageUrl,
-                contentDescription = coverContentDescription,
-                modifier = Modifier.size(width = 72.dp, height = 96.dp),
-            )
-            Column(
-                Modifier.weight(1f).animateContentSize(),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Text(
-                    subjectName,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.testTag(PlaybackHistoryTestTags.SUBJECT_NAME),
-                )
-                Text(
-                    episodeText(item),
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.testTag(PlaybackHistoryTestTags.EPISODE_NAME),
-                )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        formatDateTime(item.updatedAtMillis),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        modifier = Modifier.testTag(PlaybackHistoryTestTags.DATE),
-                    )
-                    Text(
-                        progressText(item),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        modifier = Modifier.testTag(PlaybackHistoryTestTags.PROGRESS_TEXT),
-                    )
-                }
-                val progress = item.durationMillis?.takeIf { it > 0L }?.let {
-                    item.positionMillis.toFloat() / it
-                }
-                if (progress != null) {
-                    LinearProgressIndicator(
-                        progress = { progress.coerceIn(0f, 1f) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-            if (selectionMode) {
-                Checkbox(
-                    checked = selected,
-                    onCheckedChange = { onClick() },
-                    modifier = Modifier.testTag("${PlaybackHistoryTestTags.CHECKBOX_PREFIX}${item.episodeId}"),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun PlaybackHistoryCover(
-    imageUrl: String?,
-    contentDescription: String,
-    modifier: Modifier = Modifier,
-) {
-    if (imageUrl.isNullOrBlank()) {
-        Box(
-            modifier
-                .aspectRatio(3f / 4f)
-                .clip(MaterialTheme.shapes.medium)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                Icons.Rounded.History,
-                contentDescription = contentDescription,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    } else {
-        AsyncImage(
-            model = imageUrl,
-            contentDescription = contentDescription,
-            modifier = modifier
-                .aspectRatio(3f / 4f)
-                .clip(MaterialTheme.shapes.medium),
-            contentScale = ContentScale.Crop,
-        )
-    }
-}
-
-@Composable
 private fun EmptyPlaybackHistory(modifier: Modifier = Modifier) {
     Box(modifier, contentAlignment = Alignment.Center) {
         Text(
@@ -811,24 +673,6 @@ private fun PlaybackHistoryDeleteDialog(
             TextButton(onDismiss) { Text(stringResource(Lang.cache_subject_cancel)) }
         },
     )
-}
-
-@Composable
-private fun episodeText(item: PlaybackHistoryUiItem): String {
-    val episodeLabel = item.episodeSort?.let { sort ->
-        stringResource(Lang.playback_history_episode_label, sort.formatEpisodeSort())
-    }
-    val episodeName = item.episodeName?.takeIf { it.isNotBlank() }
-        ?: stringResource(Lang.playback_history_unknown_episode)
-    return if (episodeLabel == null) episodeName else "$episodeLabel · $episodeName"
-}
-
-@Composable
-private fun progressText(item: PlaybackHistoryUiItem): String {
-    val position = item.positionMillis.formatDuration()
-    val duration = item.durationMillis?.takeIf { it > 0L }?.formatDuration()
-        ?: stringResource(Lang.playback_history_progress_unknown_duration)
-    return "$position / $duration"
 }
 
 private fun List<EpisodeHistory>.toUiItems(): List<PlaybackHistoryUiItem> {
@@ -894,34 +738,6 @@ internal fun List<PendingSyncEpisode>.toSyncStatusUiItems(
 
 private fun Set<Int>.toggle(id: Int): Set<Int> {
     return if (id in this) this - id else this + id
-}
-
-private fun Float.formatEpisodeSort(): String {
-    return if (this == floor(this)) this.toInt().toString() else toString()
-}
-
-private fun Long.formatDuration(): String {
-    val totalSeconds = (this / 1000).coerceAtLeast(0)
-    val hours = totalSeconds / 3600
-    val minutes = totalSeconds % 3600 / 60
-    val seconds = totalSeconds % 60
-    return if (hours > 0) {
-        "${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
-    } else {
-        "${minutes}:${seconds.toString().padStart(2, '0')}"
-    }
-}
-
-object PlaybackHistoryTestTags {
-    const val LIST = "playbackHistoryList"
-    const val ITEM_PREFIX = "playbackHistoryItem-"
-    const val CHECKBOX_PREFIX = "playbackHistoryCheckbox-"
-    const val SYNC_PENDING_LIST = "playbackHistorySyncPendingList"
-    const val SYNC_PENDING_ITEM_PREFIX = "playbackHistorySyncPendingItem-"
-    const val SUBJECT_NAME = "playbackHistorySubjectName"
-    const val EPISODE_NAME = "playbackHistoryEpisodeName"
-    const val DATE = "playbackHistoryDate"
-    const val PROGRESS_TEXT = "playbackHistoryProgressText"
 }
 
 @Composable

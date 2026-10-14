@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 import assert from 'node:assert/strict';
-const base = 'https://119.28.149.19:8443/api/komiic';
+const base = 'https://43.131.255.74:8443/api/komiic';
 const results = [];
 async function operation(name, variables) {
   const response = await fetch(base + '/query', { method: 'POST', headers: { 'Content-Type': 'application/json' },

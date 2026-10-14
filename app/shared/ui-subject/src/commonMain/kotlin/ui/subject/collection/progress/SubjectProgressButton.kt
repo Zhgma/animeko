@@ -32,17 +32,5 @@ fun SubjectProgressButton(
     onPlay: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val requiredWidth = Modifier.requiredWidth(IntrinsicSize.Max)
-    val strings = rememberSubjectStatusStrings()
-    Crossfade(state.buttonIsPrimary) { isPrimary ->
-        if (isPrimary) {
-            Button(onClick = onPlay, modifier) {
-                Text(state.buttonText(strings), requiredWidth, softWrap = false)
-            }
-        } else {
-            FilledTonalButton(onClick = onPlay, modifier) {
-                Text(state.buttonText(strings), requiredWidth, softWrap = false)
-            }
-        }
-    }
+    SubjectProgressButtonContent(state.buttonText(rememberSubjectStatusStrings()), state.buttonIsPrimary, onPlay, modifier)
 }

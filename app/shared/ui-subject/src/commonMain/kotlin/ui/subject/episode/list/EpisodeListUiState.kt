@@ -14,7 +14,7 @@ import me.him188.ani.app.data.models.subject.SubjectCollectionInfo
 import me.him188.ani.app.data.models.subject.SubjectRecurrence
 import me.him188.ani.app.data.models.subject.nameOrNameCn
 import me.him188.ani.app.domain.episode.EpisodeCompletionContext
-import me.him188.ani.app.domain.episode.EpisodeCompletionContext.mapAirDate
+import me.him188.ani.app.domain.episode.EpisodeBroadcastSchedule
 import me.him188.ani.datasources.api.EpisodeSort
 import me.him188.ani.datasources.api.EpisodeType
 import me.him188.ani.datasources.api.PackedDate
@@ -71,7 +71,7 @@ data class EpisodeListUiState(
             recurrence: SubjectRecurrence?,
             airDate: PackedDate,
             currentTime: Instant,
-        ): Boolean = recurrence.mapAirDate(airDate)?.let { it <= currentTime } ?: (recurrence == null)
+        ): Boolean = EpisodeBroadcastSchedule.isBroadcast(recurrence, airDate, currentTime)
 
         val Placeholder = EpisodeListUiState(
             subjectTitle = "",

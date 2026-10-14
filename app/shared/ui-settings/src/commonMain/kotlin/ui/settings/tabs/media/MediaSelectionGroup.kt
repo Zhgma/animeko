@@ -160,102 +160,7 @@ internal fun SettingsScope.MediaSelectionGroup(
             }
         },
     ) {
-        val textAny = stringResource(Lang.settings_media_any)
-        val textNone = stringResource(Lang.settings_media_none)
-
-        SorterItem(
-            values = { state.sortedLanguages },
-            onSort = { list ->
-                state.defaultMediaPreferenceState.update(
-                    state.defaultMediaPreference.copy(
-                        fallbackSubtitleLanguageIds = list.filter { it.selected }
-                            .map { it.item },
-                    ),
-                )
-            },
-            exposed = { list ->
-                Text(
-                    remember(list, mediaDetailsStrings) {
-                        if (list.fastAll { it.selected }) {
-                            textAny
-                        } else if (list.fastAll { !it.selected }) {
-                            textNone
-                        } else
-                            list.asSequence().filter { it.selected }
-                                .joinToString { renderSubtitleLanguage(it.item, mediaDetailsStrings) }
-                    },
-                    softWrap = false,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            },
-            item = { Text(renderSubtitleLanguage(it, mediaDetailsStrings)) },
-            key = { it },
-            dialogDescription = {
-                Text(
-                    stringResource(Lang.settings_media_sort_tip),
-                )
-            },
-            icon = { Icon(Icons.Outlined.Language, null) },
-            title = { Text(stringResource(Lang.settings_media_subtitle_language)) },
-        )
-
-        HorizontalDividerItem()
-
-        SorterItem(
-            values = { state.sortedResolutions },
-            onSort = { list ->
-                state.defaultMediaPreferenceState.update(
-                    state.defaultMediaPreference.copy(
-                        fallbackResolutions = list.filter { it.selected }
-                            .map { it.item },
-                    ),
-                )
-            },
-            exposed = { list ->
-                Text(
-                    remember(list) {
-                        if (list.fastAll { it.selected }) {
-                            textAny
-                        } else if (list.fastAll { !it.selected }) {
-                            textNone
-                        } else
-                            list.asSequence().filter { it.selected }
-                                .joinToString { renderResolution(it.item) }
-                    },
-                    softWrap = false,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            },
-            item = { Text(renderResolution(it)) },
-            key = { it },
-            dialogDescription = { Text(stringResource(Lang.settings_media_sort_tip)) },
-            icon = { Icon(Icons.Outlined.Hd, null) },
-            title = { Text(stringResource(Lang.settings_media_resolution)) },
-            description = { Text(stringResource(Lang.settings_media_resolution_description)) },
-        )
-
-        HorizontalDividerItem()
-
-        val allianceRegexes by remember(state) {
-            derivedStateOf { state.defaultMediaPreference.alliancePatterns?.joinToString() ?: "" }
-        }
-        TextFieldItem(
-            value = allianceRegexes,
-            title = { Text(stringResource(Lang.settings_media_alliance)) },
-            description = {
-                Text(stringResource(Lang.settings_media_alliance_description))
-            },
-            icon = { Icon(Icons.Outlined.Subtitles, null) },
-            placeholder = { Text(textAny) },
-            onValueChangeCompleted = { new ->
-                state.defaultMediaPreferenceState.update(
-                    state.defaultMediaPreference.copy(
-                        alliancePatterns = new.split(",", "，").map { it.trim() },
-                    ),
-                )
-            },
-            sanitizeValue = { it.replace("，", ",") },
-        )
+        MediaPreferenceItems(state.defaultMediaPreference) { state.defaultMediaPreferenceState.update(it) }
 
         Group(
             title = { Text(stringResource(Lang.settings_media_advanced_settings)) },
@@ -265,34 +170,8 @@ internal fun SettingsScope.MediaSelectionGroup(
             val mediaSelectorSettings by state.mediaSelectorSettingsState
             val videoResolverSettings by state.videoResolverSettingsState
 
-            kotlin.run {
-                val values = remember {
-                    MediaSourceKind.selectableEntries + null
-                }
-                DropdownItem(
-                    selected = { mediaSelectorSettings.preferKind },
-                    values = { values },
-                    itemText = {
-                        Text(
-                            when (it) {
-                                MediaSourceKind.WEB -> stringResource(Lang.settings_media_source_web)
-                                MediaSourceKind.BitTorrent -> stringResource(Lang.settings_media_source_bt)
-                                null -> stringResource(Lang.settings_media_source_no_preference)
-                                MediaSourceKind.LocalCache -> "" // not possible
-                            },
-                        )
-                    },
-                    onSelect = {
-                        state.mediaSelectorSettingsState.update(mediaSelectorSettings.copy(preferKind = it))
-                    },
-                    itemIcon = {
-                        it?.let {
-                            Icon(MediaSourceIcons.kind(it), null)
-                        }
-                    },
-                    title = { Text(stringResource(Lang.settings_media_prefer_source_type)) },
-                    description = { Text(stringResource(Lang.settings_media_prefer_source_type_description)) },
-                )
+            SourceKindPreferenceItem(mediaSelectorSettings.preferKind) {
+                state.mediaSelectorSettingsState.update(mediaSelectorSettings.copy(preferKind = it))
             }
 
             if (mediaSelectorSettings.preferKind != MediaSourceKind.WEB) {
@@ -454,68 +333,9 @@ internal fun SettingsScope.MediaSelectionGroup(
                 }
             }
 
-            SwitchItem(
-                checked = mediaSelectorSettings.showDisabled,
-                onCheckedChange = {
-                    state.mediaSelectorSettingsState.update(
-                        mediaSelectorSettings.copy(showDisabled = it),
-                    )
-                },
-                title = { Text(stringResource(Lang.settings_media_show_disabled)) },
-                description = { Text(stringResource(Lang.settings_media_show_disabled_description)) },
-            )
+            BtPreferenceItems(state.defaultMediaPreference, mediaSelectorSettings,
+                { state.defaultMediaPreferenceState.update(it) }, { state.mediaSelectorSettingsState.update(it) })
 
-            HorizontalDividerItem()
-
-            SwitchItem(
-                checked = !state.defaultMediaPreference.showWithoutSubtitle,
-                onCheckedChange = {
-                    state.defaultMediaPreferenceState.update(
-                        state.defaultMediaPreference.copy(showWithoutSubtitle = !it),
-                    )
-                },
-                title = { Text(stringResource(Lang.settings_media_hide_no_subtitle)) },
-                description = { Text(stringResource(Lang.settings_media_hide_no_subtitle_description)) },
-            )
-
-            HorizontalDividerItem()
-
-            SwitchItem(
-                checked = mediaSelectorSettings.hideSingleEpisodeForCompleted,
-                onCheckedChange = {
-                    state.mediaSelectorSettingsState.update(
-                        mediaSelectorSettings.copy(hideSingleEpisodeForCompleted = it),
-                    )
-                },
-                title = { Text(stringResource(Lang.settings_media_hide_single_episode)) },
-                description = { Text(stringResource(Lang.settings_media_hide_single_episode_description)) },
-            )
-
-            HorizontalDividerItem()
-
-            SwitchItem(
-                checked = mediaSelectorSettings.preferSeasons,
-                onCheckedChange = {
-                    state.mediaSelectorSettingsState.update(
-                        mediaSelectorSettings.copy(preferSeasons = it),
-                    )
-                },
-                title = { Text(stringResource(Lang.settings_media_prefer_seasons)) },
-                description = { Text(stringResource(Lang.settings_media_prefer_seasons_description)) },
-            )
-
-            HorizontalDividerItem()
-
-            SwitchItem(
-                checked = mediaSelectorSettings.autoEnableLastSelected,
-                onCheckedChange = {
-                    state.mediaSelectorSettingsState.update(
-                        mediaSelectorSettings.copy(autoEnableLastSelected = it),
-                    )
-                },
-                title = { Text(stringResource(Lang.settings_media_auto_enable_last)) },
-                description = { Text(stringResource(Lang.settings_media_auto_enable_last_description)) },
-            )
         }
     }
 }

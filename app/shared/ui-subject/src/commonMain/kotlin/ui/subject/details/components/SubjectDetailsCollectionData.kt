@@ -29,12 +29,13 @@ import org.jetbrains.compose.resources.stringResource
 fun SubjectDetailsDefaults.CollectionData(
     collectionStats: SubjectCollectionStats,
     modifier: Modifier = Modifier,
+    summary: String? = null,
 ) {
     // 数据
     Row(modifier) {
         val collection = collectionStats
         Text(
-            stringResource(
+            summary ?: stringResource(
                 Lang.subject_details_collection_summary,
                 collection.collect.toString(),
                 collection.doing.toString(),

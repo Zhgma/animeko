@@ -66,24 +66,10 @@ fun MediaSelectorSummaryBanner(
         }
     }
 
-    Card(
-        onClick = onClickSwitchSource,
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        ),
-        shape = MaterialTheme.shapes.medium,
-    ) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = 40.dp)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+    MediaSelectorSummaryBannerContent(onClickSwitchSource, modifier) {
             AnimatedContent(
                 summary,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxWidth(),
                 transitionSpec = transitionSpec,
                 contentAlignment = Alignment.CenterStart,
             ) { state ->
@@ -154,12 +140,6 @@ fun MediaSelectorSummaryBanner(
                 }
             }
 
-            Icon(
-                Icons.Rounded.SyncAlt,
-                contentDescription = "切换数据源",
-                Modifier.size(20.dp),
-            )
-        }
     }
 }
 

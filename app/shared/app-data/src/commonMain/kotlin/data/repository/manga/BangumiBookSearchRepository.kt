@@ -11,10 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.put
 import me.him188.ani.app.data.models.subject.RatingCounts
 import me.him188.ani.app.data.models.subject.RatingInfo
 import me.him188.ani.app.data.repository.RepositoryException
@@ -36,7 +33,7 @@ class BangumiBookSearchRepository(private val http: MangaBangumiHttp) {
         searchPage(query, token, 0, 10).items.map { it.title }.distinct()
 
     fun search(query: SubjectSearchQuery, token: suspend () -> String?): Flow<PagingData<BangumiBookSearchItem>> =
-        Pager(PagingConfig(pageSize = 20, initialLoadSize = 20), initialKey = 0) { pagingSource(query, token) }.flow
+        Pager(PagingConfig(pageSize = BOOK_SEARCH_PAGE_SIZE, initialLoadSize = BOOK_SEARCH_PAGE_SIZE), initialKey = 0) { pagingSource(query, token) }.flow
 
     internal fun pagingSource(query: SubjectSearchQuery, token: suspend () -> String?) =
         object : PagingSource<Int, BangumiBookSearchItem>() {
@@ -49,20 +46,8 @@ class BangumiBookSearchRepository(private val http: MangaBangumiHttp) {
         }
 
     internal suspend fun searchPage(query: SubjectSearchQuery, token: String?, offset: Int, limit: Int): BangumiBookSearchPage {
-        val body = buildJsonObject {
-                put("keyword", query.keywords.trim())
-                put("sort", when (query.sort) {
-                    SearchSort.MATCH -> "match"
-                    SearchSort.RANK -> "rank"
-                    SearchSort.COLLECTION -> "heat"
-                    SearchSort.DATE -> error("Bangumi book search does not support date sorting")
-                })
-                put("filter", buildJsonObject {
-                    put("type", buildJsonArray { add(JsonPrimitive(1)) })
-                    query.nsfw?.let { put("nsfw", it) }
-                })
-            }.toString()
-        val root = Json.parseToJsonElement(http.search(body, token, offset, limit.coerceIn(1, 20))).jsonObject
+        val body = bookSearchBody(query.keywords, query.sort, query.nsfw)
+        val root = Json.parseToJsonElement(http.search(body, token, offset, limit.coerceIn(1, BOOK_SEARCH_PAGE_SIZE))).jsonObject
         val data = root.array("data")
         val items = data.map { it.jsonObject }.filter { it.number("type") == 1 }.map { book ->
             val rating = book.obj("rating")

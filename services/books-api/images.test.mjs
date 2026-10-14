@@ -14,7 +14,7 @@ const parts = url => new URL(url).pathname.split('/').slice(-2);
 test('only fixed BGM image fields receive signed URLs, never user comments or arbitrary origins', () => {
   const images = createBookImages({ secret });
   const result = images.rewrite({ images: { large: cover }, image: cover, comment: cover, user: { avatar: { medium: avatar } } });
-  assert.match(result.images.large, /^https:\/\/119\.28\.149\.19:8443\/api\/books\/images\//);
+  assert.match(result.images.large, /^https:\/\/43\.131\.255\.74:8443\/api\/books\/images\//);
   assert.equal(result.image, result.images.large);
   assert.equal(result.comment, cover);
   assert.match(result.user.avatar.medium, /\/images\//);

@@ -422,7 +422,7 @@ private fun Map<String, ServiceConnectionTester.TestState>.toUIState(): List<Pro
 }
 
 @Serializable
-private data class SettingsBackup(
+internal data class SettingsBackup(
     val danmakuEnabled: Boolean?,
     @Serializable(with = DanmakuConfigSerializer::class) val danmakuConfig: DanmakuConfig?,
     val danmakuFilterConfig: DanmakuFilterConfig?,

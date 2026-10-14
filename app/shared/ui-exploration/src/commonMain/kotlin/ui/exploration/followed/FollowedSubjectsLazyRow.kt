@@ -190,79 +190,21 @@ private fun FollowedSubjectItem(
     modifier: Modifier = Modifier,
 ) {
     val useOriginalTitle = LocalSubjectAppearanceSettings.current.useOriginalTitle
-    BasicCarouselItem(
-        label = { CarouselItemDefaults.Text(item?.subjectInfo?.preferredDisplayName(useOriginalTitle) ?: "") },
+    FollowedSubjectItemContent(
+        item?.subjectInfo?.preferredDisplayName(useOriginalTitle), item?.subjectInfo?.listCoverUrl,
+        item?.subjectProgressInfo?.hasNewEpisodeToPlay == true,
+        onClick, onPlay, imageSize, shape,
         modifier.placeholder(item == null, shape = shape),
         supportingText = {
             if (item != null) {
                 val strings = rememberSubjectStatusStrings()
-                val airingState = remember(item) {
-                    SubjectProgressState(stateOf(item.subjectProgressInfo))
-                }
+                val airingState = remember(item) { SubjectProgressState(stateOf(item.subjectProgressInfo)) }
                 Text(airingState.buttonText(strings), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         },
-        maskShape = shape,
-        overlay = {
-            if (item?.subjectProgressInfo?.hasNewEpisodeToPlay == true) {
-                FilledTonalIconButton(
-                    onClick = { onPlay() },
-                    modifier = Modifier.align(Alignment.BottomEnd),
-                ) {
-                    Icon(Icons.Rounded.PlayArrow, null, Modifier.size(24.dp))
-                }
-            }
-        },
-    ) {
-        if (item != null) {
-            val image = @Composable {
-                AsyncImage(
-                    item.subjectInfo.listCoverUrl,
-                    modifier = Modifier.size(imageSize),
-                    contentDescription = item.subjectInfo.preferredDisplayName(useOriginalTitle),
-                    contentScale = ContentScale.Crop,
-                )
-            }
-            Surface({ onClick() }, content = image)
-        } else {
-            Box(Modifier.size(imageSize))
-        }
-    }
+    )
 }
 
-@Immutable
-data class FollowedSubjectsLayoutParameters(
-    val imageSize: DpSize,
-    val horizontalArrangement: Arrangement.Horizontal,
-    val shape: Shape,
-)
-
-@Stable
-object FollowedSubjectsDefaults {
-    @Composable
-    fun layoutParameters(windowAdaptiveInfo: WindowAdaptiveInfo = currentWindowAdaptiveInfo1()): FollowedSubjectsLayoutParameters {
-        val windowSizeClass = windowAdaptiveInfo.windowSizeClass
-        return FollowedSubjectsLayoutParameters(
-            imageSize = imageSize(windowAdaptiveInfo),
-            horizontalArrangement = when {
-                windowSizeClass.isWidthAtLeastExpanded -> Arrangement.spacedBy(16.dp)
-                windowSizeClass.isWidthAtLeastMedium -> Arrangement.spacedBy(12.dp)
-                else -> Arrangement.spacedBy(8.dp)
-            },
-            shape = MaterialTheme.shapes.large,
-        )
-    }
-
-    private fun imageSize(windowAdaptiveInfo: WindowAdaptiveInfo): DpSize {
-        val windowSizeClass = windowAdaptiveInfo.windowSizeClass
-        val baseSize = when {
-            windowSizeClass.isHeightAtLeastMedium && windowSizeClass.isWidthAtLeastExpanded -> 160.dp
-            windowSizeClass.isHeightAtLeastMedium && windowSizeClass.isWidthAtLeastMedium -> 140.dp
-            else -> 120.dp
-        }
-        return DpSize(baseSize, (baseSize) / 9 * 16)
-    }
-}
 
 @Composable
 @PreviewLightDark

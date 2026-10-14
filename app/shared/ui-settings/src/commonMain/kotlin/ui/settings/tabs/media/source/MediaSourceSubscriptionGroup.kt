@@ -169,75 +169,14 @@ internal fun SettingsScope.MediaSourceSubscriptionGroup(
         }
 
         if (showAddDialog) {
-            val textFieldFocus = remember { FocusRequester() }
             val clipboard = LocalClipboard.current
             val uiScope = rememberCoroutineScope()
-            val toaster = LocalToaster.current
-            val confirmAdd = {
-                showAddDialog = false
-                state.addNew(state.editingUrl)
-            }
-            val isAddInProgressState = state.isAddInProgress.collectAsStateWithLifecycle()
-            AlertDialog(
-                { showAddDialog = false },
-                confirmButton = {
-                    AnimatedContent(
-                        isAddInProgressState.value,
-                        transitionSpec = LocalAniMotionScheme.current.animatedContent.standard,
-                        contentAlignment = Alignment.BottomEnd,
-                    ) {
-                        if (it) {
-                            CircularProgressIndicator(Modifier.size(24.dp))
-                        } else {
-                            TextButton(confirmAdd) {
-                                Text(stringResource(Lang.settings_media_source_subscription_add_confirm))
-                            }
-                        }
-                    }
-                },
-                dismissButton = {
-                    TextButton({ showAddDialog = false }) {
-                        Text(stringResource(Lang.settings_media_source_subscription_cancel))
-                    }
-                },
-                title = {
-                    Text(stringResource(Lang.settings_media_source_subscription_add_dialog))
-                },
-                text = {
-                    OutlinedTextField(
-                        value = state.editingUrl,
-                        onValueChange = { state.setEditingUrl(it) },
-                        Modifier.focusRequester(textFieldFocus),
-                        isError = state.editingUrlIsError,
-                        enabled = !isAddInProgressState.value,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { confirmAdd() }),
-                        label = { Text(stringResource(Lang.settings_media_source_subscription_url)) },
-                        trailingIcon = {
-                            IconButton(
-                                onClick = {
-                                    uiScope.launch {
-                                        val clipText = clipboard.getClipEntryText()
-                                        if (clipText.isNullOrBlank()) {
-                                            toaster.toast(getString(Lang.settings_mediasource_clipboard_empty))
-                                            return@launch
-                                        }
-                                        state.setEditingUrl(clipText)
-                                    }
-                                },
-                                enabled = !isAddInProgressState.value,
-                            ) {
-                                Icon(
-                                    Icons.Rounded.ContentPaste,
-                                    contentDescription = stringResource(Lang.settings_media_source_subscription_paste),
-                                )
-                            }
-                        },
-                    )
-                    SideEffect {
-                        textFieldFocus.requestFocus()
-                    }
-                },
+            AddMediaSubscriptionDialog(
+                url = state.editingUrl, onUrlChange = state::setEditingUrl,
+                busy = state.isAddInProgress.collectAsStateWithLifecycle().value,
+                onPaste = { uiScope.launch { clipboard.getClipEntryText()?.let(state::setEditingUrl) } },
+                onConfirm = { showAddDialog = false; state.addNew(state.editingUrl) },
+                onDismiss = { showAddDialog = false },
             )
         }
     }
@@ -249,18 +188,9 @@ private fun SettingsScope.SubscriptionItem(
     state: MediaSourceSubscriptionGroupState
 ) {
     var showConfirmDelete by remember { mutableStateOf(false) }
-    Item(
-        headlineContent = {
-            SelectionContainer {
-                Text(subscription.url)
-            }
-        },
-        supportingContent = {
-            Text(
-                "每 ${subscription.updatePeriod} 自动更新，" + formatLastUpdated(subscription.lastUpdated),
-            )
-        },
-        trailingContent = {
+    SubscriptionItemContent(subscription.url,
+        "每 ${subscription.updatePeriod} 自动更新，" + formatLastUpdated(subscription.lastUpdated),
+        actions = {
             var showDropdown by remember { mutableStateOf(false) }
             IconButton({ showDropdown = true }) {
                 Icon(Icons.Rounded.MoreVert, contentDescription = null)

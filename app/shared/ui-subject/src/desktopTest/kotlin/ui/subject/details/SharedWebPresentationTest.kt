@@ -4,11 +4,17 @@ package me.him188.ani.app.ui.subject.details
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
+import me.him188.ani.app.ui.subject.episode.list.EpisodeListDialogContent
+import me.him188.ani.app.ui.subject.episode.list.EpisodeSortSquareButtonContent
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.onNodeWithContentDescription
+import me.him188.ani.app.ui.subject.details.components.SelectEpisodeButtonsContent
+import me.him188.ani.app.ui.subject.collection.progress.SubjectProgressButtonContent
 import androidx.compose.ui.unit.dp
 import me.him188.ani.app.ui.foundation.ProvideCompositionLocalsForPreview
 import me.him188.ani.app.ui.framework.runAniComposeUiTest
@@ -18,6 +24,37 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class SharedWebPresentationTest {
+    @Test
+    fun sharedEpisodeDialogDispatchesSelectedEpisode() = runAniComposeUiTest {
+        var selected = ""
+        setContent {
+            ProvideCompositionLocalsForPreview {
+                EpisodeListDialogContent("测试作品",{}, {}, episodes={
+                    EpisodeSortSquareButtonContent("SP1",MaterialTheme.colorScheme.primary,{selected="SP1"},{})
+                })
+            }
+        }
+        onNodeWithText("测试作品").assertExists()
+        onNodeWithText("SP1").performClick()
+        runOnIdle { assertEquals("SP1",selected) }
+    }
+
+    @Test
+    fun sharedPlaybackEntrySeparatesListAndPlayActions() = runAniComposeUiTest {
+        var lists = 0
+        var plays = 0
+        setContent {
+            ProvideCompositionLocalsForPreview {
+                SelectEpisodeButtonsContent({ lists++ },listContentDescription="选择剧集播放") {
+                    SubjectProgressButtonContent("播放第 2 话",true,{ plays++ })
+                }
+            }
+        }
+        onNodeWithContentDescription("选择剧集播放").performClick()
+        onNodeWithText("播放第 2 话").performClick()
+        runOnIdle { assertEquals(1,lists); assertEquals(1,plays) }
+    }
+
     @Test
     fun compactHeaderSwitchesTitleWithoutNavigatingAway() = runAniComposeUiTest {
         setContent {

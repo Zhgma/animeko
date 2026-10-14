@@ -11,6 +11,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import me.him188.ani.app.ui.mediaselect.MediaSelectorMode
+import me.him188.ani.app.ui.mediaselect.common.MediaSelectorTopBar
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -29,10 +35,9 @@ import me.him188.ani.app.ui.foundation.ImageViewer
 import me.him188.ani.app.ui.foundation.ImageViewerBackHandler
 import me.him188.ani.app.ui.foundation.rememberImageViewerHandler
 import me.him188.ani.app.ui.mediaselect.common.MediaSelectorDialog
-import me.him188.ani.app.ui.subject.collection.components.EditCollectionTypeDropDown
 import me.him188.ani.app.ui.subject.collection.components.SubjectCollectionAction
 import me.him188.ani.app.ui.subject.collection.components.SubjectCollectionActionsForEdit
-import me.him188.ani.app.ui.subject.collection.components.SubjectCollectionTypeButtonDefaults
+import me.him188.ani.app.ui.subject.collection.components.SubjectCollectionTypeButton
 import me.him188.ani.app.ui.subject.details.components.SubjectDetailsDefaults
 import me.him188.ani.app.ui.subject.details.components.SubjectCommentColumn
 import me.him188.ani.app.ui.subject.details.sections.SubjectCommentsSheet
@@ -68,9 +73,11 @@ private fun MangaCollectionType.label() = when (this) {
 }
 
 @Composable
-internal fun MangaLibraryControls(state: MangaDetailsUiState, modifier: Modifier = Modifier) {
+internal fun MangaLibraryControls(
+    state: MangaDetailsUiState, modifier: Modifier = Modifier,
+    showCollection: Boolean = true, showProgress: Boolean = true, fillWidth: Boolean = true,
+) {
     val actions = LocalMangaActions.current
-    var expanded by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf(false) }
     val type = state.library?.type
     val unified = type?.let { UnifiedCollectionType.valueOf(it.name) } ?: UnifiedCollectionType.NOT_COLLECTED
@@ -80,17 +87,14 @@ internal fun MangaLibraryControls(state: MangaDetailsUiState, modifier: Modifier
         }
     }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box {
-            OutlinedButton({ expanded = true }, enabled = state.libraryLoaded && !state.libraryWorking,
-                colors = SubjectCollectionTypeButtonDefaults.collectedButtonColors(),
-                border = SubjectCollectionTypeButtonDefaults.collectedBorder(),
-                modifier = Modifier.fillMaxWidth().testTag("manga-collection-edit")) {
-                Text(type?.label() ?: "收藏")
-            }
-            EditCollectionTypeDropDown(unified, expanded, { expanded = false },
-                { actions.setCollection(MangaCollectionType.valueOf(it.type.name)) }, actions = choices, showDelete = false)
+        if (showCollection) {
+            SubjectCollectionTypeButton(unified,
+                { actions.setCollection(MangaCollectionType.valueOf(it.name)) },
+                modifier = (if (fillWidth) Modifier.fillMaxWidth() else Modifier).testTag("manga-collection-edit"),
+                enabled = state.libraryLoaded && !state.libraryWorking,
+                currentLabel = type?.label() ?: "收藏", actions = choices, showDelete = false)
         }
-        TextButton({ progress = true }, enabled = type != null && !state.libraryWorking,
+        if (showProgress) TextButton({ progress = true }, enabled = type != null && !state.libraryWorking,
             modifier = Modifier.testTag("manga-progress-edit")) {
             Text("阅读进度：${state.library?.chapters ?: 0} 话 · ${state.library?.volumes ?: 0} 卷")
         }
@@ -135,7 +139,8 @@ internal fun MangaReviewPreview(state: MangaDetailsUiState, rail: Boolean, onAll
 }
 
 @Composable
-internal fun MangaReviewFeed(state: MangaDetailsUiState, modifier: Modifier = Modifier, pullToRefreshEnabled: Boolean = true) {
+internal fun MangaReviewFeed(state: MangaDetailsUiState, modifier: Modifier = Modifier, pullToRefreshEnabled: Boolean = true,
+    showWriteButton: Boolean = true) {
     val comments = mangaComments(state)
     val actions = LocalMangaActions.current
     val uri = LocalUriHandler.current
@@ -143,7 +148,7 @@ internal fun MangaReviewFeed(state: MangaDetailsUiState, modifier: Modifier = Mo
     ImageViewerBackHandler(viewer)
     ImageViewer(viewer) { viewer.clear() }
     Column(modifier.fillMaxSize().scrollable(rememberScrollableState { 0f }, Orientation.Vertical)) {
-        TextButton(actions.writeReview, Modifier.testTag("manga-write-review")) { Text("写评价") }
+        if (showWriteButton) TextButton(actions.writeReview, Modifier.testTag("manga-write-review")) { Text("写评价") }
         SubjectDetailsDefaults.SubjectCommentColumn(comments, uri::openUri, viewer::viewImage,
             Modifier.fillMaxWidth().weight(1f), pullToRefreshEnabled = pullToRefreshEnabled, onOpenOriginal = { uri.openUri("https://bgm.tv/subject/${state.subjectId}/comments") })
     }
@@ -162,9 +167,11 @@ internal fun MangaReviewsSheet(state: MangaDetailsUiState, onDismiss: () -> Unit
 
 @Composable
 internal fun MangaChapterGrid(state: MangaDetailsUiState, onChapter: (MangaChapter) -> Unit, rows: Int = 2) {
-    var group by rememberSaveable { mutableStateOf("") }
-    val selected = group.takeIf { g -> state.chapters.any { it.group == g } } ?: state.chapter?.group ?: state.chapters.firstOrNull()?.group
-    val chapters = state.chapters.filter { it.group == selected }
+    val anchor = mangaChapterGridAnchor(state)
+    var group by rememberSaveable(state.subjectId, state.book?.source, state.book?.id, anchor?.group) { mutableStateOf("") }
+    var descending by rememberSaveable(state.subjectId, state.book?.source, state.book?.id) { mutableStateOf(true) }
+    val selected = group.takeIf { g -> state.chapters.any { it.group == g } } ?: anchor?.group ?: state.chapters.firstOrNull()?.group
+    val chapters = state.chapters.filter { it.group == selected }.let { if (descending) it.reversed() else it }
     val actions = LocalMangaActions.current
     var actionChapter by remember { mutableStateOf<MangaChapter?>(null) }
     val items = chapters.mapIndexed { index, chapter ->
@@ -177,14 +184,19 @@ internal fun MangaChapterGrid(state: MangaDetailsUiState, onChapter: (MangaChapt
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             state.chapters.map { it.group }.distinct().forEach { name -> FilterChip(selected == name, { group = name }, label = { Text(name) }) }
+            TextButton({ descending = !descending }, Modifier.testTag("manga-chapter-sort")) {
+                Text(if (descending) "倒序" else "正序")
+            }
         }
-        PagedEpisodesGrid(items, chapters.indexOfFirst { it.id == (state.chapter?.id ?: state.memory?.chapterId) }.takeIf { it >= 0 },
-            { onChapter(chapters[it.episodeId]) }, { actionChapter = chapters[it.episodeId] }, rowsPerPage = rows, showImages = false,
-            header = { pager -> SectionHeader("章节") {
-                pager?.invoke()
-                TextButton(actions.showCache, Modifier.testTag("manga-cache-open")) { Text("缓存") }
-                TextButton(actions.showSources) { Text("数据源") }
-            } })
+        key(state.subjectId, state.book?.source, state.book?.id, selected, descending) {
+            PagedEpisodesGrid(items, chapters.indexOfFirst { it.id == anchor?.id }.takeIf { it >= 0 },
+                { onChapter(chapters[it.episodeId]) }, { actionChapter = chapters[it.episodeId] }, rowsPerPage = rows, showImages = false,
+                header = { pager -> SectionHeader("章节") {
+                    pager?.invoke()
+                    TextButton(actions.showCache, Modifier.testTag("manga-cache-open")) { Text("缓存") }
+                    TextButton(actions.showSources) { Text("数据源") }
+                } })
+        }
     }
     actionChapter?.let { chapter ->
         AlertDialog(onDismissRequest = { actionChapter = null }, title = { Text(chapter.title) },
@@ -194,6 +206,18 @@ internal fun MangaChapterGrid(state: MangaDetailsUiState, onChapter: (MangaChapt
     }
 }
 
+/** Resolve the reading position against this source's catalog, before choosing a group and page. */
+internal fun mangaChapterGridAnchor(state: MangaDetailsUiState): MangaChapter? {
+    state.chapters.firstOrNull { it.id == state.chapter?.id }?.let { return it }
+    val memory = state.memory?.takeIf {
+        state.book == null || it.book.source == state.book.source && it.book.id == state.book.id
+    }
+    state.chapters.firstOrNull { it.id == memory?.chapterId }?.let { return it }
+    val progress = state.library ?: return null
+    return state.chapters.firstOrNull { it.group == "章节" && progress.chapters > 0 && it.number == progress.chapters.toDouble() }
+        ?: state.chapters.firstOrNull { it.group == "单行本" && progress.volumes > 0 && it.number == progress.volumes.toDouble() }
+}
+
 @Composable
 internal fun MangaSourcesDialog(state: MangaDetailsUiState, keyword: String, onDismiss: () -> Unit,
     onSearch: (MangaSource, String) -> Unit, onBook: (MangaSourceBook) -> Unit,
@@ -201,18 +225,22 @@ internal fun MangaSourcesDialog(state: MangaDetailsUiState, keyword: String, onD
 ) {
     var query by rememberSaveable { mutableStateOf(keyword) }
     var manage by rememberSaveable { mutableStateOf(false) }
+    var mode by rememberSaveable { mutableStateOf(MediaSelectorMode.AUTO) }
     val actions = LocalMangaActions.current
     val uri = LocalUriHandler.current
     MediaSelectorDialog(onDismiss) { _ ->
-        Column(Modifier.fillMaxSize().padding(16.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("数据源", style = MaterialTheme.typography.titleLarge)
-                TextButton({ manage = !manage }) { Text(if (manage) "返回选源" else "管理来源") }
-                TextButton(onDismiss) { Text("关闭") }
-            }
-            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (!manage) item { MangaSourcePanel(state, query, { query = it }, onSearch, onBook, onAuto) }
-                else items(state.sourceSettings.all, key = { it.name }) { source ->
+        Column(Modifier.fillMaxSize()) {
+            MediaSelectorTopBar(if (manage) "管理来源" else "数据源", mode, { mode = it; manage = false }, onDismiss, showBt = false,
+                extraActions = {
+                    IconButton({ manage = !manage }, Modifier.testTag("manga-source-manage")) {
+                        Icon(Icons.Rounded.Settings, if (manage) "返回选源" else "管理来源")
+                    }
+                })
+            if (!manage) MangaSourcePanel(state, query, { query = it }, onSearch, onBook, onAuto,
+                modifier = Modifier.weight(1f).then(if (mode == MediaSelectorMode.AUTO) Modifier.verticalScroll(rememberScrollState()) else Modifier),
+                manual = mode == MediaSelectorMode.MANUAL, onManualSearch = { mode = MediaSelectorMode.MANUAL })
+            else LazyColumn(Modifier.weight(1f).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(state.sourceSettings.all, key = { it.name }) { source ->
                     Column {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(source.title)

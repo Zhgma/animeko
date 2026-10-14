@@ -52,12 +52,14 @@ import me.him188.ani.app.data.models.subject.RatingCounts
 import me.him188.ani.app.data.models.subject.RatingInfo
 import me.him188.ani.app.data.models.subject.SelfRatingInfo
 import me.him188.ani.app.data.models.subject.SubjectAiringInfo
+import me.him188.ani.app.data.models.subject.computeFromEpisodeList
 import me.him188.ani.app.data.models.subject.SubjectCollectionCounts
 import me.him188.ani.app.data.models.subject.SubjectCollectionInfo
 import me.him188.ani.app.data.models.subject.SplitSeason
 import me.him188.ani.app.data.models.subject.SubjectCollectionStats
 import me.him188.ani.app.data.models.subject.SubjectInfo
 import me.him188.ani.app.data.models.subject.SubjectProgressInfo
+import me.him188.ani.app.data.models.subject.compute
 import me.him188.ani.app.data.models.subject.SubjectRecurrence
 import me.him188.ani.app.data.models.subject.SubjectTmdbArt
 import me.him188.ani.app.data.models.subject.Tag
@@ -925,12 +927,6 @@ fun AniFavourite.toSubjectCollectionStats(): SubjectCollectionStats {
     )
 }
 
-fun AniAnimeRecurrence.toSubjectRecurrence(): SubjectRecurrence? {
-    return SubjectRecurrence(
-        Instant.parse(startTime),
-        interval = intervalMillis.milliseconds,
-    )
-}
 
 fun AniCollectionType?.toUnifiedCollectionType(): UnifiedCollectionType {
     return when (this) {
@@ -964,18 +960,6 @@ fun AniEpisodeCollection.toEntity1(
         selfCollectionType = collectionType.toUnifiedCollectionType(),
         lastFetched = lastFetched,
     )
-}
-
-fun AniEpisodeType.toEpisodeType(): EpisodeType? {
-    return when (this) {
-        AniEpisodeType.MAIN -> EpisodeType.MainStory
-        AniEpisodeType.SPECIAL -> EpisodeType.SP
-        AniEpisodeType.OP -> EpisodeType.OP
-        AniEpisodeType.ED -> EpisodeType.ED
-        AniEpisodeType.TRAILER -> EpisodeType.PV
-        AniEpisodeType.MAD -> EpisodeType.MAD
-        AniEpisodeType.OTHER -> null
-    }
 }
 
 fun AniEpisodeCollectionType?.toUnifiedCollectionType(): UnifiedCollectionType {

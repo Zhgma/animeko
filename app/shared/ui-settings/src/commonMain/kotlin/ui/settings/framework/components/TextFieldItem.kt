@@ -43,7 +43,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import me.him188.ani.app.ui.foundation.effects.defaultFocus
 import me.him188.ani.app.ui.foundation.effects.onKey
@@ -242,37 +241,4 @@ internal fun SettingsScope.TextFieldDialog(
             TextButton(onClick = onDismissRequest) { Text(stringResource(Lang.settings_danmaku_cancel)) }
         },
     )
-}
-
-@Composable
-private fun PreviewTab(
-    content: @Composable SettingsScope.() -> Unit,
-) {
-    SettingsTab {
-        content()
-    }
-}
-
-@Preview
-@Composable
-private fun PreviewTextFieldDialog() {
-    PreviewTab {
-        TextFieldDialog(
-            onDismissRequest = {},
-            onConfirm = {},
-            title = { Text(text = "编辑") },
-            description = {
-                Text(
-                    "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt" +
-                            " ut labore et dolore magna aliqua.",
-                )
-            },
-        ) {
-            OutlinedTextField(
-                value = "test",
-                onValueChange = {},
-                shape = MaterialTheme.shapes.medium,
-            )
-        }
-    }
 }
