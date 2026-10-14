@@ -15,7 +15,7 @@
   let currentDark = false;
   let routeListener = null;
   const validRoute = route => {
-    if (!/^(collection|anime|explore|search|account|history|downloads|settings(?:\/[a-z]+)?|subject\/[1-9]\d*)$/.test(route)) return 'collection';
+    if (!/^(collection|anime|explore|schedule|trending|search|account|history|downloads|settings(?:\/[a-z]+)?|subject\/[1-9]\d*)$/.test(route)) return 'collection';
     if (route.startsWith('subject/') && Number(route.slice(8)) > 2147483647) return 'collection';
     return route;
   };
@@ -82,9 +82,9 @@
   }
   window.aniMangaIdentity = token => fetchJson('/v0/me', {}, token, true);
   async function api(action, p) {
-    if (action.startsWith('config')) return (await import('./config-io.mjs?v=44c78ea8887c23c5')).configAction(action, p, localStorage, prefix,
-      async settings => (await import('./browser-media.mjs?v=44c78ea8887c23c5')).mediaAction('mediaSettings', {settings}));
-    if (/^(media|mangaSubscription|torrent|subscription)/.test(action)) return {raw:JSON.stringify(await (await import('./browser-media.mjs?v=44c78ea8887c23c5')).mediaAction(action,p))};
+    if (action.startsWith('config')) return (await import('./config-io.mjs?v=f566270b4904a2f0')).configAction(action, p, localStorage, prefix,
+      async settings => (await import('./browser-media.mjs?v=f566270b4904a2f0')).mediaAction('mediaSettings', {settings}));
+    if (/^(media|mangaSubscription|torrent|subscription)/.test(action)) return {raw:JSON.stringify(await (await import('./browser-media.mjs?v=f566270b4904a2f0')).mediaAction(action,p))};
     if (action === 'networkCheck') {
       await fetchJson('/v0/subjects/355555', {}, '', true);
       return {raw:'App / 网页共享书籍 API 连接正常。此检查不代表浏览器授权页面的网络路径正常。'};
