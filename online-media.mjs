@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import './api-endpoints.js?v=a567236a4426cb2b';
-import {videoCandidates} from './video-extraction.mjs?v=a567236a4426cb2b';
+import './api-endpoints.js?v=44c78ea8887c23c5';
+import {videoCandidates} from './video-extraction.mjs?v=44c78ea8887c23c5';
 export async function onlineRead(url) {
   const target = new URL(url);
   if (target.protocol !== 'https:' || target.username || target.password) throw new Error('在线来源必须使用 HTTPS');
@@ -23,7 +23,7 @@ export function staticVideoUrl(text, pageUrl) { return videoCandidates(text,page
 let hlsScript;
 async function loadHls() {
   if(!hlsScript)hlsScript=new Promise((resolve,reject)=>{
-    const script=document.createElement('script');script.src='./vendor/hls.min.js?v=a567236a4426cb2b';script.onload=resolve;
+    const script=document.createElement('script');script.src='./vendor/hls.min.js?v=44c78ea8887c23c5';script.onload=resolve;
     script.onerror=()=>{script.remove();reject(new Error('播放器加载失败'));};document.head.append(script);
   }).catch(e=>{hlsScript=null;throw e;});
   await hlsScript;
@@ -32,18 +32,21 @@ async function loadHls() {
 
 // HtmlElementView owns this surface. All visible controls are Compose components.
 export function createOnlineVideo(payload, emit) {
-  const {url,title,source,episodes=[],index=0}=payload;
+  const {url,title,source,episodes=[],index=0,playerConfig={}}=payload;
   const playlist=episodes.length?episodes:[{url,name:title}];
   const host=document.createElement('div'),video=document.createElement('video');
-  host.style.cssText='width:100%;height:100%;background:#000;overflow:hidden';
+  host.style.cssText='position:relative;width:100%;height:100%;background:#000;overflow:hidden';
   video.style.cssText='display:block;width:100%;height:100%;object-fit:contain';
   video.playsInline=true;video.preload='metadata';video.setAttribute('aria-label',title||'视频');host.append(video);
   let position=Math.max(0,Math.min(index,playlist.length-1)),abort,dispose=()=>{},generation=0,closed=false;
   let message='正在提取视频…',failed=false,loading=true;
-  let initialRate=1;try{initialRate=JSON.parse(localStorage.getItem('animecomic.web.mediaSettings')||'{}').playbackRate||1;}catch{}
+  const minRate=playerConfig.minPlaybackSpeed??.5,maxRate=playerConfig.maxPlaybackSpeed??2.5;
+  const clampRate=value=>Math.max(minRate,Math.min(maxRate,value));
+  let initialRate=clampRate(playerConfig.playbackSpeed??1);
   video.defaultPlaybackRate=initialRate;video.playbackRate=initialRate;
-  function notify(){if(!closed)emit(JSON.stringify({position,time:video.currentTime||0,duration:Number.isFinite(video.duration)?video.duration:0,
-    paused:video.paused,muted:video.muted,loading,message,failed,rate:video.playbackRate,fullscreen:!!document.fullscreenElement}));}
+  function notify(saveRate=null){if(!closed)emit(JSON.stringify({position,time:video.currentTime||0,duration:Number.isFinite(video.duration)?video.duration:0,
+    paused:video.paused,muted:video.muted,loading,message,failed,rate:video.playbackRate,fullscreen:!!document.fullscreenElement,
+    saveRate:typeof saveRate==='number'?saveRate:null}));}
   function status(text,error=false){message=text;failed=error;notify();}
   function cleanup(){abort?.abort();dispose();dispose=()=>{};video.pause();video.removeAttribute('src');video.load();}
   async function play(){
@@ -51,7 +54,7 @@ export function createOnlineVideo(payload, emit) {
     try {
       const response=await fetch(globalThis.aniApi.base+'/online/resolve?'+new URLSearchParams({url:playlist[position].url,source}),{
         credentials:'omit',signal:AbortSignal.any([controller.signal,AbortSignal.timeout(60000)])});
-      const result=await response.json();if(!response.ok)throw new Error(result.error||'视频提取失败');
+      const result=await response.json();if(!response.ok)throw new Error(response.status===404?'视频提取接口未部署（HTTP 404），请检查媒体 API。':(result.error||'视频提取失败'));
       if(id!==generation||closed)return;
       const resolved=new URL(result.url,globalThis.aniApi.base);
       if(resolved.origin!==new URL(globalThis.aniApi.base).origin)throw new Error('视频接口返回了无效地址');
@@ -73,19 +76,39 @@ export function createOnlineVideo(payload, emit) {
   video.onwaiting=()=>{loading=true;notify();};
   video.onerror=()=>{if(!closed&&video.getAttribute('src')){loading=false;status('视频无法播放，请重试或切换数据源。',true);}};
   for(const name of ['timeupdate','durationchange','pause','play','volumechange','ratechange','loadedmetadata'])video.addEventListener(name,notify);
-  video.onclick=()=>host.aniCommand('toggle',0);
+  let holding=false,holdTimer,restoreRate,ignoreClick=false;
+  const endHold=()=>{clearTimeout(holdTimer);if(holding){video.playbackRate=restoreRate;holding=false;ignoreClick=true;notify();}};
+  video.onpointerdown=event=>{if(event.button!==0)return;holdTimer=setTimeout(()=>{
+    if(closed||video.paused)return;holding=true;restoreRate=video.playbackRate;video.playbackRate=clampRate(playerConfig.fastForwardSpeed??2.5);notify();
+  },350);};
+  video.onpointerup=endHold;video.onpointercancel=endHold;video.onpointerleave=endHold;
+  video.onclick=()=>{if(ignoreClick){ignoreClick=false;return;}host.aniCommand('toggle',0);};
+  video.onended=()=>{if(playerConfig.autoPlayNext!==false&&position+1<playlist.length){position++;void play();}};
   const toggleFullscreen=async()=>{
     try {if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}
     catch{status('浏览器未允许全屏，可使用系统全屏按钮。');}
   };
   video.ondblclick=toggleFullscreen;
+  const floating=document.createElement('button');floating.textContent='⛶';floating.setAttribute('aria-label','全屏');
+  floating.style.cssText='position:absolute;right:12px;bottom:12px;border:0;border-radius:50%;width:40px;height:40px;color:white;background:#0009;font-size:26px;cursor:pointer';
+  floating.onclick=toggleFullscreen;
+  let fullscreenTimer;
+  const showFloating=()=>{
+    const mode=playerConfig.fullscreenSwitchMode??'ALWAYS_SHOW_FLOATING';
+    floating.hidden=mode==='ONLY_IN_CONTROLLER';clearTimeout(fullscreenTimer);
+    if(mode==='AUTO_HIDE_FLOATING')fullscreenTimer=setTimeout(()=>{floating.hidden=true;},5000);
+  };
+  host.append(floating);host.onpointermove=showFloating;showFloating();
   host.aniCommand=(action,value)=>{
     if(closed)return;
     if(action==='toggle'){if(video.paused)video.play().catch(()=>status('当前视频尚未就绪'));else video.pause();}
     if(action==='seek'&&Number.isFinite(video.duration))video.currentTime=Math.max(0,Math.min(value,video.duration));
     if(action==='mute')video.muted=!video.muted;
-    if(action==='rate'&&[.5,.75,1,1.25,1.5,2].includes(value)){video.defaultPlaybackRate=value;video.playbackRate=value;}
-    if(action==='episode'&&Number.isInteger(value)&&value>=0&&value<playlist.length&&value!==position){position=value;void play();}
+    if(action==='rate'&&Number.isFinite(value)&&value>=minRate&&value<=maxRate){
+      endHold();video.defaultPlaybackRate=value;video.playbackRate=value;
+      notify(playerConfig.rememberPlaybackSpeed===false?null:value);return;
+    }
+    if(action==='episode'&&Number.isInteger(value)&&value>=0&&value<playlist.length&&value!==position){endHold();position=value;void play();}
     if(action==='retry')void play();
     if(action==='fullscreen')void toggleFullscreen();
     notify();
@@ -96,7 +119,7 @@ export function createOnlineVideo(payload, emit) {
     if(event.code==='ArrowRight'||event.code==='ArrowLeft'){event.preventDefault();host.aniCommand('seek',video.currentTime+(event.code==='ArrowRight'?5:-5));}
   };
   document.addEventListener('fullscreenchange',notify);document.addEventListener('keydown',keyboard);
-  host.aniDispose=()=>{if(closed)return;closed=true;generation++;cleanup();document.removeEventListener('fullscreenchange',notify);document.removeEventListener('keydown',keyboard);if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});};
+  host.aniDispose=()=>{if(closed)return;endHold();clearTimeout(fullscreenTimer);closed=true;generation++;cleanup();document.removeEventListener('fullscreenchange',notify);document.removeEventListener('keydown',keyboard);if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});};
   // Allow Compose to attach the element before state changes trigger recomposition.
   queueMicrotask(()=>{if(!closed)void play();});
   return host;

@@ -1,8 +1,8 @@
 {
-  "builtAt": "2026-10-13T06:33:31.675Z",
-  "assetVersion": "a567236a4426cb2b",
+  "builtAt": "2026-10-14T03:01:26.604Z",
+  "assetVersion": "44c78ea8887c23c5",
   "flavor": "productionExecutable",
-  "sharedFiles": 376,
+  "sharedFiles": 406,
   "source": "source.zip",
   "upstream": "23c97608f5e6cf7788110fb8b7c5fe8bb92ca49e"
 }
