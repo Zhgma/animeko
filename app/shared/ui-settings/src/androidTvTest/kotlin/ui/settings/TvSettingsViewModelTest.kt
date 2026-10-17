@@ -107,7 +107,7 @@ class TvSettingsViewModelTest {
             assertFalse(video.autoPlayNext)
             assertFalse(video.autoMarkDone)
             assertEquals(1.5f, video.playbackSpeed)
-            assertEquals(1.5f, video.fastForwardSpeed)
+            assertEquals(3f, video.fastForwardSpeed)
             assertEquals(.5f, video.minPlaybackSpeed)
             assertEquals(1.5f, video.maxPlaybackSpeed)
             assertEquals(NsfwMode.HIDE, restored.uiSettings.flow.first().searchSettings.nsfwMode)

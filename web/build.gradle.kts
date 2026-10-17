@@ -159,7 +159,7 @@ kotlin {
                 "BtResourceListContent.kt", "BtPanelContent.kt", "BtResourcesPageTestTags.kt", "WatchingEpisode.kt", "WatchingEpisodeContent.kt", "MediaSelectorSearchField.kt", "Main.kt", "Browser.kt", "Web*.kt", "platform/**",
                 "tabs/media/BackupSettingsContent.kt", "SettingsTransfer.kt", "SourceConfigurationTransfer.kt", "UISettings.kt", "MainScreenPage.kt", "tabs/app/AppearanceGroupContent.kt", "tabs/media/source/MediaSourceSubscriptionGroupFrame.kt", "widgets/NsfwMask.kt", "SearchOptions.kt", "SettingsTab.kt", "SettingsCategoryItems.kt", "account/SelfInfoBannerContent.kt", "account/ProfileAccountItems.kt", "rendering/P2p.kt", "tabs/theme/ThemeGroupContent.kt",
                 "SubjectSearchInput.kt", "SearchSubjectTypeSelector.kt", "SearchResultsToolbar.kt", "SearchPageColumn.kt",
-                "SubjectCoverCardContent.kt", "SubjectGridLayoutParams.kt", "layout/CarouselItem.kt", "IconButton.kt",
+                "SubjectScoreLabel.kt", "SubjectCoverCardContent.kt", "SubjectGridLayoutParams.kt", "layout/CarouselItem.kt", "IconButton.kt",
                 "widgets/SelectableDropdownMenuItem.kt", "icons/Background_dot_large_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.kt", "icons/Gallery_thumbnail_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.kt",
                 "SubjectCollectionCard.kt", "FiveRatingStars.kt", "RatingHistogramValues.kt", "SubjectRatingValues.kt", "SubjectItem.kt", "SubjectDetailsScaffold.kt", "SubjectTextSections.kt", "SubjectDetailsHeaderContent.kt", "SettingsNavigationItem.kt",
                 "EmailLoginStartContent.kt", "EmailLoginVerifyContent.kt", "EmailLoginScreenLayout.kt", "ThirdPartyLoginMethods.kt",

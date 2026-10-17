@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -72,7 +73,8 @@ fun SubjectItemLayout(
     modifier: Modifier = Modifier,
     layout: SubjectItemLayoutParameters = SubjectItemLayoutParameters.calculate(currentWindowAdaptiveInfo1().windowSizeClass),
     typography: SubjectItemTypography = SubjectItemTypography.calculate(currentWindowAdaptiveInfo1().windowSizeClass),
-    colors: SubjectItemColors = SubjectItemDefaults.colors()
+    colors: SubjectItemColors = SubjectItemDefaults.colors(),
+    ratingAtTop: Boolean = false,
 ) {
     val shape = layout.shape
     Surface(
@@ -92,17 +94,20 @@ fun SubjectItemLayout(
                 image()
             }
             Column(
-                Modifier.padding(layout.bodyPaddings),
+                (if (ratingAtTop) Modifier.weight(1f) else Modifier).padding(layout.bodyPaddings),
                 verticalArrangement = layout.bodyVerticalArrangement,
             ) {
                 Column(
                     Modifier.weight(1f).padding(layout.textsPaddings),
                     verticalArrangement = layout.bodyVerticalArrangement,
                 ) {
-                    Row(Modifier.width(IntrinsicSize.Max)) {
-                        ProvideTextStyle(typography.titleStyle) {
-                            title(typography.titleMaxLines)
+                    if (ratingAtTop) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                        Box(Modifier.weight(1f)) {
+                            ProvideTextStyle(typography.titleStyle) { title(typography.titleMaxLines) }
                         }
+                        Box(Modifier.padding(start = 8.dp)) { rating() }
+                    } else Row(Modifier.width(IntrinsicSize.Max)) {
+                        ProvideTextStyle(typography.titleStyle) { title(typography.titleMaxLines) }
                     }
                     ProvideTextStyle(typography.tagsStyle) {
                         tags()
@@ -119,7 +124,7 @@ fun SubjectItemLayout(
                     verticalAlignment = Alignment.Bottom,
                 ) {
                     Box(Modifier.weight(1f).padding(bottom = 8.dp)) {
-                        rating()
+                        if (!ratingAtTop) rating()
                     }
                     actions()
                 }

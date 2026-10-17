@@ -46,6 +46,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
@@ -175,6 +176,7 @@ internal fun SearchResultColumn(
                                     aniMotionScheme.feedItemFadeOutSpec,
                                 ),
                                 shape = layoutParams.grid.cardShape,
+                                score = info?.rating?.score,
                             )
                         }
 
@@ -269,7 +271,8 @@ private fun SearchResultItem(
         onClick = onClick,
         onPlay = { onPlay(info) },
         info = info,
-        modifier
+        ratingAtTop = true,
+        modifier = modifier
             .fillMaxWidth()
             .padding(vertical = currentWindowAdaptiveInfo1().windowSizeClass.paneVerticalPadding / 2),
         image = {
@@ -284,6 +287,7 @@ private fun SearchResultItem(
             Text(
                 info.title,
                 maxLines = maxLines,
+                overflow = TextOverflow.Ellipsis,
             )
         },
     )

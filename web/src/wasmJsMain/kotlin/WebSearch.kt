@@ -130,8 +130,8 @@ fun WebSearch(onOpen: (Int) -> Unit) {
                 items(visibleItems, key = { it.id }) { subject ->
                     WebNsfw(subject) {
                     if (layout == SearchResultLayoutKind.COVER) SubjectCoverCardContent(
-                        subject.displayTitle(original), subject.cover, false, { onOpen(subject.id) }, shape = coverLayout.cardShape)
-                    else WebSubjectItem(subject, onOpen)
+                        subject.displayTitle(original), subject.cover, false, { onOpen(subject.id) }, shape = coverLayout.cardShape, score = subject.score)
+                    else WebSubjectItem(subject, onOpen, ratingAtTop = true)
                     }
                 }
                 if (result.total > pageSize || result.hasMore || offset > 0) item(span = { GridItemSpan(maxLineSpan) }) {

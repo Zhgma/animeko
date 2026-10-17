@@ -58,3 +58,7 @@
 
 分享按钮的位置由 `PlayerScreenshotOverlay` 在点击时读取 (`boundsInWindow`), 经 `PlayerScreenshotSharer.share(screenshot, anchor)` 传给平台实现;
 Android 与 Windows 的面板由系统定位, 忽略它.
+
+## 播放手势预览
+
+长按播放倍速默认 3.0×，范围为 0.25×–3.0×，独立于普通播放倍速范围。屏幕横滑和直接拖动进度条均在进度条上方显示目标时间与可用的视频缩略图，覆盖全屏与非全屏。未缓存的位置不触发额外抓帧，并清除上一位置的缩略图；结束或取消拖动后隐藏预览。

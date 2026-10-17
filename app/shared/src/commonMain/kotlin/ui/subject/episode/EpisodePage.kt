@@ -1161,7 +1161,7 @@ private fun EpisodeVideo(
                 cacheProgressInfoFlow = vm.cacheProgressInfoFlow,
                 enabled = false,
                 framePreview = framePreview,
-                showFramePreviewInPopup = expanded,
+                showFramePreviewInPopup = true,
             )
         },
         sidebarVisible = vm.sidebarVisible,
@@ -1305,7 +1305,7 @@ private fun EpisodeVideo(
         maintainAspectRatio = maintainAspectRatio,
         contentWindowInsets = windowInsets,
         enableFoldableHoverMode = vm.videoScaffoldConfig.enableFoldableHoverMode,
-        fastForwardSpeed = vm.videoScaffoldConfig.fastForwardSpeed,
+        fastForwardSpeed = vm.videoScaffoldConfig.effectiveFastForwardSpeed,
         pictureInPictureController = pictureInPictureController,
         isInPictureInPicture = isInPictureInPicture,
     )

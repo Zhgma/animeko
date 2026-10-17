@@ -565,7 +565,7 @@ internal fun TvEpisodeScreen(
             // 按住倍速指示
             if (state.speedHolding) {
                 PlayerCenterCapsule(
-                    stringResource(Lang.video_player_fast_forwarding, formatSpeedLabel(uiState.options.videoConfig.fastForwardSpeed)),
+                    stringResource(Lang.video_player_fast_forwarding, formatSpeedLabel(uiState.options.videoConfig.effectiveFastForwardSpeed)),
                     Modifier
                         .align(Alignment.TopCenter)
                         .padding(top = 48.dp),

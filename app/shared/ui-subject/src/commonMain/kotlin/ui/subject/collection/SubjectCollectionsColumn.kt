@@ -39,6 +39,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import me.him188.ani.app.ui.subject.SubjectScoreLabel
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -227,6 +228,7 @@ private fun SubjectCollectionItemContent(
             AiringLabel(remember(item) { AiringLabelState(stateOf(item.airingInfo), stateOf(item.progressInfo)) },
                 style = MaterialTheme.typography.labelLarge)
         },
+        rating = { SubjectScoreLabel(item.subjectInfo.ratingInfo.score) },
         onShowEpisodeList = onShowEpisodeList,
         playButton = playButton,
         onShowMenu = { showEditCollectionTypeMenu = true },

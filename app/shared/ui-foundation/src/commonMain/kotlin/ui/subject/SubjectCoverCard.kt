@@ -25,7 +25,8 @@ fun SubjectCoverCard(
     shape: Shape = CarouselItemDefaults.shape,
     imageModifier: Modifier = Modifier,
     brushLayerModifier: Modifier = Modifier,
+    score: String? = null,
 ) {
     SubjectCoverCardContent(name, image, isPlaceholder, onClick,
-        modifier.placeholder(isPlaceholder, shape = shape), shape, imageModifier, brushLayerModifier)
+        modifier.placeholder(isPlaceholder, shape = shape), shape, imageModifier, brushLayerModifier, score)
 }

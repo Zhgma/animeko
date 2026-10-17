@@ -26,6 +26,6 @@ class PlayerSettingsTest {
     }
     @Test fun importedSpeedOutsideRangeIsClampedUsingNativeRule() {
         val config=decodeWebPlayerConfig(Json.parseToJsonElement("""{"videoScaffoldConfig":{"minPlaybackSpeed":1,"maxPlaybackSpeed":2,"playbackSpeed":4,"fastForwardSpeed":3}}""").jsonObject)
-        assertEquals(2f,config.playbackSpeed);assertEquals(2f,config.fastForwardSpeed)
+        assertEquals(2f,config.playbackSpeed);assertEquals(3f,config.fastForwardSpeed)
     }
 }

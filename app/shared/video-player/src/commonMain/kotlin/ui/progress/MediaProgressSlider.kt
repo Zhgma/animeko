@@ -547,6 +547,7 @@ fun MediaProgressSlider(
                         if (total <= 0) return@collectLatest
                         // 只预览已缓存的区域: BT 源避免抢占播放位置的下载优先级, 在线源避免额外的网络请求.
                         if (!cacheProgressInfoFlow().isPositionCached(positionMillis.toFloat() / total)) {
+                            framePreview.onPreviewFinished()
                             return@collectLatest
                         }
                         framePreview.requestFrame(positionMillis)

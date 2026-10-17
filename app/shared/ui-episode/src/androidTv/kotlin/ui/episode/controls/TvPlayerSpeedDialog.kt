@@ -54,8 +54,8 @@ internal fun TvSpeedDialog(state: TvEpisodeUiState, onIntent: (TvEpisodeIntent) 
         item {
             TvOptionRow(
                 stringResource(Lang.settings_player_long_press_fast_forward_speed),
-                "${config.fastForwardSpeed}x", adjustable = true,
-                modifier = Modifier.tvStepKeys { onIntent(TvEpisodeIntent.SetHoldSpeed(config.fastForwardSpeed + it * .25f)) },
+                "${config.effectiveFastForwardSpeed}x", adjustable = true,
+                modifier = Modifier.tvStepKeys { onIntent(TvEpisodeIntent.SetHoldSpeed(config.effectiveFastForwardSpeed + it * .25f)) },
             ) {}
         }
     }

@@ -393,9 +393,9 @@
     <string name="settings_player_hls_ad_filter">過濾貼片廣告</string>
     <string name="settings_player_hls_ad_filter_description">自動跳過線上來源影片中插入的廣告，個別廣告可能無法識別；如遇播放出錯可關閉</string>
     <string name="settings_player_long_press_fast_forward_speed">長按播放速度</string>
-    <string name="settings_player_long_press_fast_forward_speed_description">長按時使用的播放速度</string>
+    <string name="settings_player_long_press_fast_forward_speed_description">長按時使用的播放速度，預設及最高為 3.0×</string>
     <string name="settings_player_playback_speed_range">倍速範圍</string>
-    <string name="settings_player_playback_speed_range_description">影響播放頁倍速滑桿和長按播放速度的可調範圍</string>
+    <string name="settings_player_playback_speed_range_description">影響播放頁倍速滑桿和預設播放速度的可調範圍</string>
     <string name="settings_player_remember_playback_speed">記住播放倍速</string>
     <string name="settings_player_remember_playback_speed_description">在播放器內調整的倍速跨劇集和重啟保持。關閉後僅對本次播放生效，退出播放器即回到預設倍速。</string>
     <string name="settings_player_default_playback_speed">預設倍速</string>

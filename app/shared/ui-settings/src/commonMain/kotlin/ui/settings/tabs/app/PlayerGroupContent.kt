@@ -249,7 +249,7 @@ fun SettingsScope.PlayerGroupContent(
 /**
  * 倍速范围 + 记住倍速 + 默认倍速 + 长按播放速度.
  *
- * 各条 Slider 共享范围拖动状态: 拖动范围 RangeSlider 期间, 下方各条 Slider 的范围和 clamp 后的值
+ * 普通倍速 Slider 共享范围拖动状态: 拖动范围 RangeSlider 期间, 默认倍速的范围和 clamp 后的值
  * 实时跟随, 被 clamp 时通过动画过渡, 避免松手后数值「突变」.
  */
 @Composable
@@ -259,7 +259,7 @@ private fun SettingsScope.PlaybackSpeedItems(
 ) {
     val persistedRange = config.minPlaybackSpeed..config.maxPlaybackSpeed
 
-    // 范围拖动期间的瞬态值, 提交后清空; 拖动期间下方长按倍速 Slider 实时使用该范围
+    // 范围拖动期间的瞬态值, 提交后清空; 拖动期间默认倍速 Slider 实时使用该范围
     var rangeDragOverride by remember { mutableStateOf<ClosedFloatingPointRange<Float>?>(null) }
     var rangeDragging by remember { mutableStateOf(false) }
     val effectiveRange = rangeDragOverride ?: persistedRange
@@ -332,9 +332,9 @@ private fun SettingsScope.PlaybackSpeedItems(
     HorizontalDividerItem()
 
     SpeedSliderItem(
-        value = config.fastForwardSpeed,
-        displayRange = displayRange,
-        commitRange = effectiveRange,
+        value = config.effectiveFastForwardSpeed,
+        displayRange = VideoScaffoldConfig.FAST_FORWARD_SPEED_RANGE,
+        commitRange = VideoScaffoldConfig.FAST_FORWARD_SPEED_RANGE,
         onCommit = { onConfigChange(config.copy(fastForwardSpeed = it)) },
         title = { Text(stringResource(Lang.settings_player_long_press_fast_forward_speed)) },
         description = { Text(stringResource(Lang.settings_player_long_press_fast_forward_speed_description)) },

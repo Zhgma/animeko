@@ -70,3 +70,14 @@ test('long press restores prior speed without saving temporary speed',async t=>{
 test('floating fullscreen follows App visibility modes',async t=>{
  const {host}=setup(t,async()=>response(),{fullscreenSwitchMode:'ONLY_IN_CONTROLLER'});await tick();assert.equal(host.children[1].hidden,true);
 });
+
+test('long press defaults and caps at three independently of normal speed range',async t=>{
+ const {video}=setup(t,async()=>response(),{playbackSpeed:1.25,maxPlaybackSpeed:1.5});await tick();
+ t.mock.timers.enable({apis:['setTimeout']});video.onpointerdown({button:0});t.mock.timers.tick(350);
+ assert.equal(video.playbackRate,3);video.onpointerup();assert.equal(video.playbackRate,1.25);
+});
+test('imported excessive hold speed is capped at three',async t=>{
+ const {video}=setup(t,async()=>response(),{fastForwardSpeed:4});await tick();
+ t.mock.timers.enable({apis:['setTimeout']});video.onpointerdown({button:0});t.mock.timers.tick(350);
+ assert.equal(video.playbackRate,3);video.onpointercancel();assert.equal(video.playbackRate,1);
+});

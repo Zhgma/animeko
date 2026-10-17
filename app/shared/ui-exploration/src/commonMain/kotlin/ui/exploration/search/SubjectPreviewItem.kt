@@ -42,6 +42,7 @@ import me.him188.ani.app.ui.lang.Lang
 import me.him188.ani.app.ui.lang.exploration_search_staff_prefix
 import me.him188.ani.app.ui.lang.subject_airing_total_episodes_completed
 import me.him188.ani.app.ui.lang.subject_airing_total_episodes_scheduled
+import me.him188.ani.app.ui.subject.SubjectScoreLabel
 import me.him188.ani.app.ui.rating.RatingText
 import me.him188.ani.app.ui.subject.getSubjectSeasonText
 import me.him188.ani.utils.platform.annotations.TestOnly
@@ -239,6 +240,7 @@ fun SubjectPreviewItem(
             overflow = TextOverflow.Ellipsis,
         )
     },
+    ratingAtTop: Boolean = false,
     extraInfo: @Composable () -> Unit = {
         info.staff?.let { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis) }
         info.actors?.let { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis) }
@@ -254,12 +256,13 @@ fun SubjectPreviewItem(
         },
         extraInfo = extraInfo,
         rating = {
-            RatingText(info.rating)
+            if (ratingAtTop) SubjectScoreLabel(info.rating.score) else RatingText(info.rating)
         },
         actions = {
 //            SubjectItemDefaults.ActionPlay(onPlay)
         },
         modifier,
+        ratingAtTop = ratingAtTop,
     )
 }
 

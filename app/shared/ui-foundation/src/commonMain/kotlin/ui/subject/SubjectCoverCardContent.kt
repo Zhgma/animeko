@@ -1,5 +1,8 @@
 /* Copyright (C) 2026 OpenAni and contributors. SPDX-License-Identifier: AGPL-3.0-only */
 package me.him188.ani.app.ui.subject
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,6 +25,7 @@ fun SubjectCoverCardContent(
     shape: Shape = CarouselItemDefaults.shape,
     imageModifier: Modifier = Modifier,
     brushLayerModifier: Modifier = Modifier,
+    score: String? = null,
 ) {
     BasicCarouselItem(
         label = { CarouselItemDefaults.Text(name ?: "", maxLines = 2) },
@@ -39,7 +43,12 @@ fun SubjectCoverCardContent(
                 )
             }
 
-            Surface({ onClick() }, content = image)
+            Surface({ onClick() }) {
+                Box {
+                    image()
+                    if (score != null) SubjectScoreLabel(score, Modifier.align(Alignment.TopEnd).padding(8.dp), badge = true)
+                }
+            }
         } else {
             Box(Modifier.aspectRatio(9f / 16).fillMaxWidth())
         }

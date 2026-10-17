@@ -4,6 +4,7 @@
  */
 package me.him188.ani.tv.ui.settings
 
+import me.him188.ani.app.data.models.preference.VideoScaffoldConfig
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.intl.Locale
 import kotlin.time.Duration
@@ -243,9 +244,9 @@ private fun TvSettingsItems.playerPicture() {
         }
     }
     choice(
-        "hold-speed", stringResource(Lang.settings_player_long_press_fast_forward_speed), video.fastForwardSpeed,
-        speeds, speeds.map { "$it×" },
-    ) { value -> onIntent(TvSettingsIntent.Video { copy(fastForwardSpeed = value.coerceIn(minPlaybackSpeed, maxPlaybackSpeed)) }) }
+        "hold-speed", stringResource(Lang.settings_player_long_press_fast_forward_speed), video.effectiveFastForwardSpeed,
+        (1..12).map { it * .25f }, (1..12).map { "${it * .25f}×" },
+    ) { value -> onIntent(TvSettingsIntent.Video { copy(fastForwardSpeed = value.coerceIn(VideoScaffoldConfig.FAST_FORWARD_SPEED_RANGE)) }) }
     toggle(
         "audio-stretch", stringResource(Lang.settings_player_audio_time_stretch), video.enableHighQualityAudioTimeStretch,
         stringResource(Lang.settings_player_audio_time_stretch_description),

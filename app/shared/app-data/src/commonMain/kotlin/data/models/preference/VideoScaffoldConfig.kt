@@ -145,7 +145,7 @@ data class VideoScaffoldConfig @SerializationOnly constructor(
      *
      * @since 4.9
      */
-    val fastForwardSpeed: Float = 2.5f, // 3 倍弹幕会跳, 所以慢点, see #1524
+    val fastForwardSpeed: Float = 3f,
     /**
      * 播放倍速. 语义取决于 [rememberPlaybackSpeed]:
      *
@@ -207,11 +207,16 @@ data class VideoScaffoldConfig @SerializationOnly constructor(
             minPlaybackSpeed = range.start,
             maxPlaybackSpeed = range.endInclusive,
             playbackSpeed = playbackSpeed.coerceIn(range),
-            fastForwardSpeed = fastForwardSpeed.coerceIn(range),
+            fastForwardSpeed = effectiveFastForwardSpeed,
         )
     }
 
+    val effectiveFastForwardSpeed: Float
+        get() = fastForwardSpeed.takeIf { it.isFinite() }?.coerceIn(FAST_FORWARD_SPEED_RANGE) ?: 3f
+
     companion object {
+        val FAST_FORWARD_SPEED_RANGE: ClosedFloatingPointRange<Float> = 0.25f..3f
+
         /**
          * 播放器统一支持的硬范围下界.
          */

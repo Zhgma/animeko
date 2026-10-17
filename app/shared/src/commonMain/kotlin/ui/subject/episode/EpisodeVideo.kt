@@ -161,13 +161,11 @@ import me.him188.ani.app.videoplayer.ui.hasPageAsState
 import me.him188.ani.app.videoplayer.ui.progress.AudioSwitcher
 import me.him188.ani.app.videoplayer.ui.progress.MediaProgressFramePreviewState
 import me.him188.ani.app.videoplayer.ui.progress.MediaProgressIndicatorText
-import me.him188.ani.app.videoplayer.ui.progress.MediaProgressSliderDefaults
 import me.him188.ani.app.videoplayer.ui.progress.PlayerControllerBar
 import me.him188.ani.app.videoplayer.ui.progress.PlayerControllerBarLayout
 import me.him188.ani.app.videoplayer.ui.progress.PlayerControllerDefaults
 import me.him188.ani.app.videoplayer.ui.progress.PlayerControllerDefaults.SpeedSwitcher
 import me.him188.ani.app.videoplayer.ui.progress.PlayerProgressSliderState
-import me.him188.ani.app.videoplayer.ui.progress.ProgressSliderCenteredPreviewFrame
 import me.him188.ani.app.videoplayer.ui.progress.SubtitleSwitcher
 import me.him188.ani.app.videoplayer.ui.progress.TouchSeekState
 import me.him188.ani.app.videoplayer.ui.progress.rememberMediaProgressSliderState
@@ -297,7 +295,6 @@ internal fun EpisodeVideoImpl(
     )
 
     AniTheme(darkModeOverride = DarkMode.DARK) {
-        val progressSliderColors = MediaProgressSliderDefaults.colors()
         val scaffoldLayout = if (
             enableFoldableHoverMode && expanded && currentWindowAdaptiveInfo1().windowPosture.isTabletop
         ) {
@@ -475,14 +472,6 @@ internal fun EpisodeVideoImpl(
                     }
                 }
             },
-            framePreviewOverlay = {
-                if (!expanded) {
-                    ProgressSliderCenteredPreviewFrame(
-                        frame = framePreview?.frame,
-                        borderColor = progressSliderColors.previewTimeBackgroundColor,
-                    )
-                }
-            },
             rhsButtons = {
                 if (expanded && onClickScreenshot != null) {
                     ScreenshotButton(
@@ -560,9 +549,9 @@ internal fun EpisodeVideoImpl(
                         PlayerControllerDefaults.MediaProgressSlider(
                             progressSliderState,
                             cacheProgressInfoFlow = cacheProgressInfoFlow,
-                            showPreviewTimeTextOnThumb = expanded,
+                            showPreviewTimeTextOnThumb = true,
                             framePreview = framePreview,
-                            showFramePreviewInPopup = expanded,
+                            showFramePreviewInPopup = true,
                             touchSeekState = touchSeekState,
                         )
                     },

@@ -4,6 +4,8 @@ package me.him188.ani.app.ui.subject.collection
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import me.him188.ani.app.ui.subject.collection.progress.LocalSubjectProgressButtonPadding
 import androidx.compose.ui.Alignment
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.MoreVert
@@ -46,6 +48,7 @@ fun SubjectCollectionItemLayout(
     menu: @Composable () -> Unit,
     onShowMenu: () -> Unit,
     modifier: Modifier = Modifier,
+    rating: @Composable () -> Unit = {},
 ) {
     Column(modifier.padding(start = 12.dp).fillMaxSize()) {
         Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
@@ -60,9 +63,13 @@ fun SubjectCollectionItemLayout(
         }
         Row(verticalAlignment = Alignment.CenterVertically) { airingLabel() }
         Spacer(Modifier.weight(1f))
-        Row(Modifier.padding(12.dp).align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onShowEpisodeList) { Text(stringResource(Lang.video_player_select_episode)) }
-            Box(Modifier.width(IntrinsicSize.Min)) { playButton() }
+        Row(Modifier.fillMaxWidth().padding(end = 12.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) { rating() }
+            TextButton(onShowEpisodeList, Modifier.defaultMinSize(minWidth = 40.dp),
+                contentPadding = PaddingValues(horizontal = 4.dp)) { Text(stringResource(Lang.video_player_select_episode)) }
+            CompositionLocalProvider(LocalSubjectProgressButtonPadding provides PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
+                Box(Modifier.width(IntrinsicSize.Min)) { playButton() }
+            }
         }
     }
 }

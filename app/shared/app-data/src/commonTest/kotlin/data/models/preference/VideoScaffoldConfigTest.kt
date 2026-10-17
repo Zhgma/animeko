@@ -17,6 +17,16 @@ import kotlin.time.Duration.Companion.seconds
 
 class VideoScaffoldConfigTest {
     @Test
+    fun `hold speed defaults to three and clamps legacy values independently`() {
+        val defaults = DataStoreJson.decodeFromString(VideoScaffoldConfig.serializer(), "{}")
+        assertEquals(3f, defaults.fastForwardSpeed)
+        assertEquals(3f, defaults.effectiveFastForwardSpeed)
+        assertEquals(3f, defaults.copy(fastForwardSpeed = 4f).effectiveFastForwardSpeed)
+        assertEquals(2f, defaults.copy(fastForwardSpeed = 2f).effectiveFastForwardSpeed)
+        assertEquals(3f, defaults.withPlaybackSpeedRange(0.5f..1.5f).effectiveFastForwardSpeed)
+    }
+
+    @Test
     fun `foldable hover mode defaults to enabled and survives serialization`() {
         val defaultConfig = DataStoreJson.decodeFromString(VideoScaffoldConfig.serializer(), "{}")
         assertEquals(true, defaultConfig.enableFoldableHoverMode)
@@ -100,7 +110,7 @@ class VideoScaffoldConfigTest {
     }
 
     @Test
-    fun `changing playback speed range clamps dependent speeds`() {
+    fun `changing playback speed range preserves independent hold speed`() {
         val config = VideoScaffoldConfig.Default.copy(playbackSpeed = 2f, fastForwardSpeed = 3f)
 
         val updated = config.withPlaybackSpeedRange(0.5f..1.5f)
@@ -108,7 +118,7 @@ class VideoScaffoldConfigTest {
         assertEquals(0.5f, updated.minPlaybackSpeed)
         assertEquals(1.5f, updated.maxPlaybackSpeed)
         assertEquals(1.5f, updated.playbackSpeed)
-        assertEquals(1.5f, updated.fastForwardSpeed)
+        assertEquals(3f, updated.fastForwardSpeed)
     }
 
     @Test

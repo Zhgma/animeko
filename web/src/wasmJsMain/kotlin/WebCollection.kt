@@ -1,3 +1,4 @@
+import me.him188.ani.app.ui.subject.SubjectScoreLabel
 // SPDX-License-Identifier: AGPL-3.0-only
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
@@ -139,6 +140,7 @@ fun WebAnimeCollection(session: WebResult, revision: Int, onRefresh: () -> Unit,
                         }, content = {
                             SubjectCollectionItemLayout(subject.displayTitle(original),
                                 airingLabel={ Text(progress.label, style=MaterialTheme.typography.labelLarge, maxLines=2) },
+                                rating={ SubjectScoreLabel(subject.score) },
                                 onShowEpisodeList={selected=subject},
                                 playButton={
                                     if(type != 2) SubjectProgressButtonContent(

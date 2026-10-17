@@ -79,7 +79,7 @@ export function createOnlineVideo(payload, emit) {
   let holding=false,holdTimer,restoreRate,ignoreClick=false;
   const endHold=()=>{clearTimeout(holdTimer);if(holding){video.playbackRate=restoreRate;holding=false;ignoreClick=true;notify();}};
   video.onpointerdown=event=>{if(event.button!==0)return;holdTimer=setTimeout(()=>{
-    if(closed||video.paused)return;holding=true;restoreRate=video.playbackRate;video.playbackRate=clampRate(playerConfig.fastForwardSpeed??2.5);notify();
+    if(closed||video.paused)return;holding=true;restoreRate=video.playbackRate;video.playbackRate=Math.min(3,Math.max(.25,Number(playerConfig.fastForwardSpeed)||3));notify();
   },350);};
   video.onpointerup=endHold;video.onpointercancel=endHold;video.onpointerleave=endHold;
   video.onclick=()=>{if(ignoreClick){ignoreClick=false;return;}host.aniCommand('toggle',0);};

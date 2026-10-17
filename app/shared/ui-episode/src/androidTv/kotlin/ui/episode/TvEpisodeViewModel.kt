@@ -9,6 +9,7 @@
 
 package me.him188.ani.tv.ui.episode
 
+import me.him188.ani.app.data.models.preference.VideoScaffoldConfig
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.CancellationException
@@ -221,7 +222,7 @@ class TvEpisodeViewModel(
         playbackInteraction.setSpeedHolding(engaged)
         if (engaged) {
             if (speedBeforeHold == null) speedBeforeHold = feature.value
-            feature.set(playerOptions.value.videoConfig.fastForwardSpeed)
+            feature.set(playerOptions.value.videoConfig.effectiveFastForwardSpeed)
         } else {
             speedBeforeHold?.let { feature.set(it) }
             speedBeforeHold = null
@@ -403,10 +404,7 @@ class TvEpisodeViewModel(
             is TvEpisodeIntent.SetDefaultSpeed -> runAction {
                 settingsRepository.videoScaffoldConfig.update {
                     copy(
-                        playbackSpeed = intent.speed.coerceIn(
-                            minPlaybackSpeed,
-                            maxPlaybackSpeed,
-                        ),
+                        playbackSpeed = intent.speed.coerceIn(minPlaybackSpeed, maxPlaybackSpeed),
                     )
                 }
             }
@@ -414,10 +412,7 @@ class TvEpisodeViewModel(
             is TvEpisodeIntent.SetHoldSpeed -> runAction {
                 settingsRepository.videoScaffoldConfig.update {
                     copy(
-                        fastForwardSpeed = intent.speed.coerceIn(
-                            minPlaybackSpeed,
-                            maxPlaybackSpeed,
-                        ),
+                        fastForwardSpeed = intent.speed.coerceIn(VideoScaffoldConfig.FAST_FORWARD_SPEED_RANGE),
                     )
                 }
             }

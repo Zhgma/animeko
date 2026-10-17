@@ -51,6 +51,36 @@ class MediaProgressSliderFramePreviewTest {
     }
 
     @Test
+    fun `screen swipe previews on detached slider and clears when cancelled`() = runAniComposeUiTest {
+        val slider = createSliderState()
+        val positions = mutableListOf<Long>()
+        val preview = MediaProgressFramePreviewState(fetchFrame = { positions.add(it); solidFrame(Color.Green) }, debounceMillis = 0)
+        setContent {
+            MediaProgressSlider(slider, cacheProgressInfoFlow = { null }, enabled = false, framePreview = preview)
+        }
+        runOnIdle { slider.previewPositionRatio(0.7f) }
+        waitUntil(timeoutMillis = 5_000) { onNodeWithTag(TAG_PROGRESS_SLIDER_PREVIEW_FRAME, useUnmergedTree = true).exists() }
+        runOnIdle { assertEquals(70_000L, positions.last()); slider.cancelPreview() }
+        waitUntil(timeoutMillis = 5_000) { !onNodeWithTag(TAG_PROGRESS_SLIDER_PREVIEW_POPUP, useUnmergedTree = true).exists() }
+        runOnIdle { assertEquals(null, preview.frame) }
+    }
+
+    @Test
+    fun `swiping into uncached region clears stale frame but keeps time`() = runAniComposeUiTest {
+        val slider = createSliderState()
+        var fetches = 0
+        val preview = MediaProgressFramePreviewState(fetchFrame = { fetches++; solidFrame(Color.Green) }, debounceMillis = 0)
+        val cached = MediaCacheProgressInfo(floatListOf(0.5f, 0.5f), listOf(ChunkState.DONE, ChunkState.NONE))
+        setContent { MediaProgressSlider(slider, cacheProgressInfoFlow = { cached }, enabled = false, framePreview = preview) }
+        runOnIdle { slider.previewPositionRatio(0.2f) }
+        waitUntil(timeoutMillis = 5_000) { preview.frame != null }
+        runOnIdle { slider.previewPositionRatio(0.8f) }
+        waitUntil(timeoutMillis = 5_000) { preview.frame == null }
+        onNodeWithTag(TAG_PROGRESS_SLIDER_PREVIEW_POPUP, useUnmergedTree = true).assertExists()
+        runOnIdle { assertEquals(1, fetches) }
+    }
+
+    @Test
     fun `hover shows frame preview in popup`() = runAniComposeUiTest {
         val frame = solidFrame(Color.Green)
         val requestedPositions = mutableListOf<Long>()
