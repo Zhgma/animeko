@@ -142,7 +142,9 @@ fun MangaCollectionPageContent(
                     if (state.needsLogin) {
                         item(span = { GridItemSpan(maxLineSpan) }) {
                             MangaMessage(stringResource(Lang.manga_login_title), stringResource(Lang.manga_login_message)) {
-                                Button(onClickLogin) { Text(stringResource(Lang.manga_login)) }
+                                Button(onClickLogin, Modifier.testTag("manga-authorize-${type.name}")) {
+                                    Text(stringResource(Lang.manga_login))
+                                }
                             }
                         }
                     }

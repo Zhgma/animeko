@@ -51,12 +51,15 @@ class MangaBangumiSettingsStore(private val store: DataStore<Preferences>) {
 }
 
 /** Owns only manga Bangumi API traffic. Source subscriptions and reader images use their own clients. */
-class MangaBangumiNetwork(store: DataStore<Preferences>, scope: CoroutineScope, booksApiBaseUrl: String = BOOKS_API_BASE_URL) {
+class MangaBangumiNetwork(
+    store: DataStore<Preferences>, scope: CoroutineScope, booksApiBaseUrl: String = BOOKS_API_BASE_URL,
+    refreshAuthorization: (suspend (String) -> String?)? = null,
+) {
     val settings = MangaBangumiSettingsStore(store)
     private val features = setOf(UserAgentFeature.withValue(ScopedHttpClientUserAgent.ANI))
     private val provider = DefaultHttpClientProvider(ProxySettingsFlowProxyProvider(settings.flow, scope), scope)
     val cache = MangaBangumiCache(store)
-    val http = MangaBangumiHttp(provider.get(features), cache, booksApiBaseUrl)
+    val http = MangaBangumiHttp(provider.get(features), cache, booksApiBaseUrl, refreshAuthorization)
     suspend fun start() {
         provider.startProxyListening(sequenceOf(DefaultHttpClientProvider.HoldingInstanceMatrix(features)))
     }
@@ -154,6 +157,7 @@ class MangaBangumiHttp(
     private val client: ScopedHttpClient,
     private val cache: MangaBangumiCache? = null,
     private val booksApiBaseUrl: String? = null,
+    private val refreshAuthorization: (suspend (String) -> String?)? = null,
 ) {
     internal suspend fun get(url: String, token: String? = null, parameters: Map<String, Any> = emptyMap()): MangaBangumiResponse =
         read(HttpMethod.Get, url, token, parameters)
@@ -182,8 +186,15 @@ class MangaBangumiHttp(
         cache?.retry()
     }
 
-    private suspend fun send(method: HttpMethod, url: String, token: String?, parameters: Map<String, Any>, body: String?): MangaBangumiResponse = client.use {
+    private suspend fun send(method: HttpMethod, url: String, token: String?, parameters: Map<String, Any>, body: String?): MangaBangumiResponse {
         val route = MangaRequestRouting.resolve(method.value, url, body, booksApiBaseUrl)
+        val response = sendOnce(method, route, token, parameters, body)
+        if (response.status != 401 || !route.sendAuthorization || token.isNullOrBlank()) return response
+        val refreshed = refreshAuthorization?.invoke(token)?.takeIf { it.isNotBlank() && it != token } ?: return response
+        return sendOnce(method, route, refreshed, parameters, body)
+    }
+
+    private suspend fun sendOnce(method: HttpMethod, route: MangaRequestRoute, token: String?, parameters: Map<String, Any>, body: String?): MangaBangumiResponse = client.use {
         val response = request(route.url) {
             this.method = method
             expectSuccess = false

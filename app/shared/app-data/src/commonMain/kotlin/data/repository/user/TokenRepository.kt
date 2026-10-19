@@ -92,6 +92,29 @@ class TokenRepository(
         }
     }
 
+    /** Atomically persists rotated credentials only while the originating session is still current. */
+    internal suspend fun replaceSessionIfCurrent(
+        expected: AccessTokenSession, expectedRefreshToken: String,
+        updated: AccessTokenSession, refreshToken: String,
+    ): Boolean {
+        var replaced = false
+        dataStore.updateData { save ->
+            val tokens = save.accessTokens
+            if (tokens?.aniAccessToken != expected.tokens.aniAccessToken ||
+                tokens.bangumiAccessToken != expected.tokens.bangumiAccessToken ||
+                save.refreshToken != expectedRefreshToken
+            ) save else {
+                replaced = true
+                save.copy(refreshToken = refreshToken, accessTokens = TokenSave.AccessTokens(
+                    bangumiAccessToken = updated.tokens.bangumiAccessToken,
+                    aniAccessToken = updated.tokens.aniAccessToken,
+                    expiresAtMillis = updated.tokens.expiresAtMillis,
+                ))
+            }
+        }
+        return replaced
+    }
+
     /**
      * for settings backup only
      */

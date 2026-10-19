@@ -6,6 +6,8 @@
 package me.him188.ani.app.ui.manga
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsSelected
@@ -20,6 +22,10 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import me.him188.ani.app.data.repository.manga.MangaCollection
 import me.him188.ani.app.data.repository.manga.MangaCollectionType
+import me.him188.ani.app.navigation.AniNavigator
+import me.him188.ani.app.navigation.LocalNavigator
+import me.him188.ani.app.navigation.MainScreenPage
+import me.him188.ani.app.navigation.NavRoutes
 import me.him188.ani.app.ui.foundation.ProvideCompositionLocalsForPreview
 import me.him188.ani.app.ui.framework.runAniComposeUiTest
 import me.him188.ani.app.ui.user.TestSelfInfoUiState
@@ -30,6 +36,33 @@ import kotlin.test.assertTrue
 
 @OptIn(TestOnly::class)
 class MangaCollectionPageTest {
+    @Test
+    fun authorizationRequiredOpensBangumiEvenWhenAnimekoIsLoggedIn() = runAniComposeUiTest {
+        val navigator = AniNavigator().apply {
+            setBackStack(mutableStateListOf(NavRoutes.Main(MainScreenPage.Exploration)))
+        }
+        var accountPopupOpened = false
+        setContent {
+            ProvideCompositionLocalsForPreview {
+                CompositionLocalProvider(LocalNavigator provides navigator) {
+                    MangaCollectionContent(
+                        state = MangaCollectionUiState(needsLogin = true),
+                        selfInfo = TestSelfInfoUiState,
+                        title = { TrackingCollectionTabs(true) {} },
+                        onSelect = {}, onRefresh = {},
+                        onClickLogin = { accountPopupOpened = true },
+                        onOpen = {},
+                    )
+                }
+            }
+        }
+        onNodeWithTag("manga-authorize-DOING").performClick()
+        runOnIdle {
+            assertEquals(NavRoutes.OAuthAuthorize("bangumi"), navigator.backStack.last())
+            assertEquals(false, accountPopupOpened)
+        }
+    }
+
     @Test
     fun topTabsSwitchBothWays() = runAniComposeUiTest {
         var manga by mutableStateOf(false)

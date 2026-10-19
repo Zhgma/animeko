@@ -182,7 +182,10 @@ private fun KoinApplication.otherModules(
             coroutineScope,
         )
     }
-    single { MangaBangumiNetwork(getContext().dataStores.preferencesStore, coroutineScope) }
+    single {
+        MangaBangumiNetwork(getContext().dataStores.preferencesStore, coroutineScope,
+            refreshAuthorization = get<SessionManager>()::refreshBangumiAccessToken)
+    }
     single { MangaSourceSettingsStore(getContext().dataStores.preferencesStore) }
     single { MangaSubscriptionRepository(get(), get<HttpClientProvider>().get()) }
     single<HttpClientProvider> {

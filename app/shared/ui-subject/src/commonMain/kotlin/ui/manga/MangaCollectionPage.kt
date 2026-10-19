@@ -53,10 +53,13 @@ internal fun MangaCollectionContent(
     onOpen: (MangaCollection) -> Unit,
     modifier: Modifier = Modifier,
     windowInsets: WindowInsets = AniWindowInsets.forPageContent(),
-) = MangaCollectionPageContent(
-    state = state,
-    avatar = { size -> SelfAvatar(selfInfo, size, onClickLogin) },
-    title = title, onSelect = onSelect, onRefresh = onRefresh,
-    onClickLogin = onClickLogin, onOpen = onOpen,
-    modifier = modifier, windowInsets = windowInsets,
-)
+) {
+    val navigator = LocalNavigator.current
+    MangaCollectionPageContent(
+        state = state,
+        avatar = { size -> SelfAvatar(selfInfo, size, onClickLogin) },
+        title = title, onSelect = onSelect, onRefresh = onRefresh,
+        onClickLogin = { navigator.navigateBangumiAuthorize() }, onOpen = onOpen,
+        modifier = modifier, windowInsets = windowInsets,
+    )
+}

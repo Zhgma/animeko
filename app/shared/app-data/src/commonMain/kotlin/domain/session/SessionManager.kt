@@ -11,6 +11,7 @@ package me.him188.ani.app.domain.session
 
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import me.him188.ani.app.data.repository.RepositoryAuthorizationException
 import me.him188.ani.app.data.repository.RepositoryException
 import me.him188.ani.app.data.repository.RepositoryNetworkException
@@ -260,6 +262,39 @@ class SessionManager(
     }
 
     private val refreshSessionLock = Mutex()
+
+    private var lastBangumiRefresh: Pair<AccessTokenSession, AccessTokenSession>? = null
+    private var lastBangumiRefreshAttempt: Long? = null
+
+    /** Refreshes a rejected Bangumi credential through Animeko, retaining the current account. */
+    suspend fun refreshBangumiAccessToken(rejectedToken: String): String? = refreshSessionLock.withLock {
+        val original = tokenRepository.session.first() as? AccessTokenSession ?: return@withLock null
+        if (original.tokens.bangumiAccessToken != rejectedToken) {
+            val previous = lastBangumiRefresh
+            return@withLock if (previous?.first?.tokens?.bangumiAccessToken == rejectedToken && previous.second == original) {
+                original.tokens.bangumiAccessToken
+            } else null
+        }
+        val now = clock.now().toEpochMilliseconds()
+        // Session emissions restart collection loading; bound repeated rejection of refreshed tokens.
+        if (lastBangumiRefreshAttempt?.let { now - it < 30_000 } == true) return@withLock null
+        val refreshToken = tokenRepository.refreshToken.first() ?: return@withLock null
+        lastBangumiRefreshAttempt = now
+        try {
+            val result = refreshSession.refresh(refreshToken)
+            withContext(NonCancellable) {
+                val updated = AccessTokenSession(result.tokens)
+                // Updating sessionFlow can cancel a collection load that initiated this refresh.
+                if (!tokenRepository.replaceSessionIfCurrent(original, refreshToken, updated, result.refreshToken)) {
+                    return@withContext null
+                }
+                lastBangumiRefresh = original to updated
+                updated.tokens.bangumiAccessToken
+            }
+        } catch (e: Exception) {
+            throw RepositoryException.wrapOrThrowCancellation(e)
+        }
+    }
 
     /**
      * 使用 refreshToken 刷新 accessToken. 刷新成功后会自动持久化. 这也会导致 [stateProvider] [SessionStateProvider.stateFlow] 更新.

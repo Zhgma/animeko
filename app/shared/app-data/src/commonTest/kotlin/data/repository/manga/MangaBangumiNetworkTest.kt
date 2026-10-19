@@ -8,6 +8,8 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.HttpMethod
+import io.ktor.http.content.TextContent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -21,6 +23,62 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class MangaBangumiNetworkTest {
+    @Test fun expiredAuthorizationRefreshesAndRetriesWithNewToken() = runTest {
+        val seen = mutableListOf<String?>()
+        var refreshes = 0
+        val client = HttpClient(MockEngine { request ->
+            seen += request.headers["Authorization"]
+            if (seen.last() == "Bearer old") respond("{}", HttpStatusCode.Unauthorized)
+            else respond("""{"username":"alice"}""")
+        })
+        try {
+            val http = MangaBangumiHttp(client.asScopedHttpClient(), booksApiBaseUrl = "https://books.test/api/books",
+                refreshAuthorization = { assertEquals("old", it); refreshes++; "new" })
+            assertEquals(200, http.get("https://api.bgm.tv/v0/me", "old").status)
+            assertEquals(listOf<String?>("Bearer old", "Bearer new"), seen)
+            assertEquals(1, refreshes)
+        } finally { client.close() }
+    }
+
+    @Test fun refreshDoesNotLoopWhenNewTokenIsRejected() = runTest {
+        var requests = 0
+        var refreshes = 0
+        val client = HttpClient(MockEngine { requests++; respond("{}", HttpStatusCode.Unauthorized) })
+        try {
+            val http = MangaBangumiHttp(client.asScopedHttpClient(), refreshAuthorization = { refreshes++; "new" })
+            assertEquals(401, http.get("https://api.bgm.tv/v0/me", "old").status)
+            assertEquals(2, requests)
+            assertEquals(1, refreshes)
+        } finally { client.close() }
+    }
+
+    @Test fun publicRequestsAndForbiddenResponsesNeverRefresh() = runTest {
+        var status = HttpStatusCode.Unauthorized
+        val client = HttpClient(MockEngine { respond("{}", status) })
+        try {
+            val http = MangaBangumiHttp(client.asScopedHttpClient(), booksApiBaseUrl = "https://books.test/api/books",
+                refreshAuthorization = { error("Must not refresh") })
+            assertEquals(401, http.get("https://api.bgm.tv/v0/subjects/118165", "old").status)
+            status = HttpStatusCode.Forbidden
+            assertEquals(403, http.get("https://api.bgm.tv/v0/me", "old").status)
+        } finally { client.close() }
+    }
+
+    @Test fun unauthorizedWriteRetriesOnlyOnceWithSamePayload() = runTest {
+        val seen = mutableListOf<String?>()
+        val client = HttpClient(MockEngine { request ->
+            seen += request.headers["Authorization"]
+            assertEquals(HttpMethod.Patch, request.method)
+            assertEquals("""{"ep_status":7}""", (request.body as TextContent).text)
+            respond("{}", if (seen.size == 1) HttpStatusCode.Unauthorized else HttpStatusCode.OK)
+        })
+        try {
+            val http = MangaBangumiHttp(client.asScopedHttpClient(), refreshAuthorization = { "new" })
+            http.write(HttpMethod.Patch, "https://api.bgm.tv/v0/users/-/collections/118165", "old", """{"ep_status":7}""")
+            assertEquals(listOf<String?>("Bearer old", "Bearer new"), seen)
+        } finally { client.close() }
+    }
+
     private fun preferences() = object : DataStore<Preferences> {
         override val data = MutableStateFlow(emptyPreferences())
         override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences =
