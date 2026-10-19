@@ -19,6 +19,25 @@ class MangaCollectionController(
 
     fun select(type: MangaCollectionType) { mutableState.update { it.copy(type = type) } }
 
+    /** Resolves missing credentials before deciding whether login is required. */
+    suspend fun refreshAuthorization(resolve: suspend () -> String?) {
+        previousSession = null
+        mutableState.update { MangaCollectionUiState(type = it.type) }
+        val token = try { resolve() }
+        catch (e: CancellationException) { throw e }
+        catch (e: Exception) {
+            if (isAuthorizationError(e)) {
+                mutableState.update { it.copy(needsLogin = true) }
+            } else {
+                MangaCollectionType.entries.forEach { type ->
+                    updatePage(type) { it.copy(loading = false, failed = true) }
+                }
+            }
+            return
+        }
+        refresh(token)
+    }
+
     /** Callers cancel and join the previous load before changing sessions or refreshing. */
     suspend fun refresh(session: String?) {
         val cachedPages = if (session != null && session == previousSession) mutableState.value.pages else emptyMap()

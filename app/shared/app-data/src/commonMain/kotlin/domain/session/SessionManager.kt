@@ -264,7 +264,19 @@ class SessionManager(
     private val refreshSessionLock = Mutex()
 
     private var lastBangumiRefresh: Pair<AccessTokenSession, AccessTokenSession>? = null
-    private var lastBangumiRefreshAttempt: Long? = null
+    private data class BangumiRefreshAttempt(
+        val session: AccessTokenSession,
+        val atMillis: Long,
+        val failure: RepositoryException? = null,
+    )
+    private var lastBangumiRefreshAttempt: BangumiRefreshAttempt? = null
+
+    /** Reads persisted credentials and recovers a missing Bangumi token through Animeko. */
+    suspend fun getBangumiAccessToken(): String? = refreshSessionLock.withLock {
+        val session = tokenRepository.session.first() as? AccessTokenSession ?: return@withLock null
+        session.tokens.bangumiAccessToken?.takeIf { it.isNotBlank() }
+            ?: refreshBangumiSession(session)
+    }
 
     /** Refreshes a rejected Bangumi credential through Animeko, retaining the current account. */
     suspend fun refreshBangumiAccessToken(rejectedToken: String): String? = refreshSessionLock.withLock {
@@ -275,12 +287,22 @@ class SessionManager(
                 original.tokens.bangumiAccessToken
             } else null
         }
+        refreshBangumiSession(original)
+    }
+
+    /** Called with [refreshSessionLock] held, for missing and rejected credentials alike. */
+    private suspend fun refreshBangumiSession(original: AccessTokenSession): String? {
         val now = clock.now().toEpochMilliseconds()
         // Session emissions restart collection loading; bound repeated rejection of refreshed tokens.
-        if (lastBangumiRefreshAttempt?.let { now - it < 30_000 } == true) return@withLock null
-        val refreshToken = tokenRepository.refreshToken.first() ?: return@withLock null
-        lastBangumiRefreshAttempt = now
-        try {
+        lastBangumiRefreshAttempt?.takeIf { it.session == original && now - it.atMillis < 30_000 }?.let {
+            // A network failure must remain retryable instead of masquerading as missing authorization.
+            it.failure?.let { failure -> throw failure }
+            return null
+        }
+        val refreshToken = tokenRepository.refreshToken.first() ?: return null
+        lastBangumiRefreshAttempt = BangumiRefreshAttempt(original, now)
+        var persisted = false
+        return try {
             val result = refreshSession.refresh(refreshToken)
             withContext(NonCancellable) {
                 val updated = AccessTokenSession(result.tokens)
@@ -289,10 +311,17 @@ class SessionManager(
                     return@withContext null
                 }
                 lastBangumiRefresh = original to updated
-                updated.tokens.bangumiAccessToken
+                lastBangumiRefreshAttempt = BangumiRefreshAttempt(updated, now)
+                persisted = true
+                updated.tokens.bangumiAccessToken?.takeIf { it.isNotBlank() }
             }
+        } catch (e: CancellationException) {
+            if (!persisted) lastBangumiRefreshAttempt = null
+            throw e
         } catch (e: Exception) {
-            throw RepositoryException.wrapOrThrowCancellation(e)
+            val failure = RepositoryException.wrapOrThrowCancellation(e)
+            lastBangumiRefreshAttempt = BangumiRefreshAttempt(original, now, failure)
+            throw failure
         }
     }
 

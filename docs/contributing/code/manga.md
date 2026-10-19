@@ -17,9 +17,9 @@
 
 ## 数据与登录
 
-复用 `SessionManager.sessionFlow` 中的 Bangumi access token，以及独立的 `MangaBangumiNetwork`。使用 Bangumi 官方 v0 API：
+通过 `SessionManager.getBangumiAccessToken()` 读取持久化的 Bangumi access token，以及独立的 `MangaBangumiNetwork`。使用 Bangumi 官方 v0 API：
 
-追漫的授权按钮直接打开 Animeko 的 Bangumi OAuth 页面；已登录账号使用绑定流程，返回的凭据由共享 `SessionManager` 保存。头像保留账号面板入口。漫画账号请求返回 401 时，先通过 Animeko 刷新会话取得 Bangumi token，并重试一次原请求。并发失败复用同一次刷新结果，刷新尝试间隔至少 30 秒；退出或更换账号后不应用旧会话的刷新结果。403 和公开请求不触发刷新。刷新后仍无有效授权时才提示关联 Bangumi，网络错误保留重试入口。
+追漫的授权按钮直接打开 Animeko 的 Bangumi OAuth 页面；已登录账号使用绑定流程，返回的凭据由共享 `SessionManager` 保存。头像保留账号面板入口。已登录 Animeko 但本地 Bangumi token 缺失或空白时，追漫列表及详情中的收藏、进度和评分操作先主动向 Animeko 获取凭据；等待期间显示加载状态，网络失败显示重试，服务端确认没有授权时才显示关联入口。公开详情与关联作品独立加载。漫画账号请求返回 401 时，先通过 Animeko 刷新会话取得 Bangumi token，并重试一次原请求。并发失败复用同一次刷新结果，刷新尝试间隔至少 30 秒；退出或更换账号后不应用旧会话的刷新结果。403 和公开请求不触发刷新。刷新后仍无有效授权时才提示关联 Bangumi，网络错误保留重试入口。
 
 1. `GET /v0/me` 取得当前 Bangumi 用户名。
 2. `GET /v0/users/{username}/collections?subject_type=1&type=...&limit=30&offset=...` 分页读取书籍收藏，包括当前账号有权访问的私密收藏。

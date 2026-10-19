@@ -21,7 +21,6 @@ import me.him188.ani.app.domain.media.download.MediaDownloadManager
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import me.him188.ani.app.data.models.subject.SelfRatingInfo
@@ -42,7 +41,6 @@ import me.him188.ani.app.data.repository.manga.MangaReadingStore
 import me.him188.ani.app.data.repository.manga.MangaSource
 import me.him188.ani.app.data.repository.manga.MangaSourceBook
 import me.him188.ani.app.data.repository.manga.MangaSourceRepository
-import me.him188.ani.app.data.repository.user.AccessTokenSession
 import me.him188.ani.app.domain.foundation.HttpClientProvider
 import me.him188.ani.app.domain.foundation.ScopedHttpClientUserAgent
 import me.him188.ani.app.domain.foundation.get
@@ -238,15 +236,14 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context) : Abst
         detailsJob = backgroundScope.launch {
             mutableState.update { it.copy(loading = true, error = null) }
             try {
-                val session = get<SessionManager>().sessionFlow.first()
-                val details = detailsRepository.details(manga.subjectId, (session as? AccessTokenSession)?.tokens?.bangumiAccessToken)
+                val details = detailsRepository.details(manga.subjectId, null)
                 mutableState.update { it.copy(details = details, loading = false, rating = it.rating.copy(ratingInfo = details.rating)) }
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { mutableState.update { it.copy(loading = false, error = e.message ?: "作品信息加载失败") } }
         }
     }
 
-    private suspend fun token(): String? = (get<SessionManager>().sessionFlow.first() as? AccessTokenSession)?.tokens?.bangumiAccessToken
+    private suspend fun token(): String? = get<SessionManager>().getBangumiAccessToken()
 
     fun loadSelfRating(openEditor: Boolean = false) {
         if (openEditor) ratingEditorRequested.value = true
@@ -307,7 +304,7 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context) : Abst
         relationsJob = backgroundScope.launch {
             mutableState.update { it.copy(relationsLoading = true, relationsError = null) }
             try {
-                val relations = detailsRepository.relations(manga.subjectId, token())
+                val relations = detailsRepository.relations(manga.subjectId, null)
                 mutableState.update { it.copy(relations = relations, relationsLoading = false) }
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { mutableState.update { it.copy(relationsLoading = false, relationsError = e.message ?: "关联作品加载失败") } }

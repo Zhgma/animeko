@@ -13,6 +13,37 @@ import kotlin.test.assertFailsWith
 class MangaCollectionControllerTest {
     private val manga = MangaCollection(1, "作品", "", "", 1, 0, 10, 0, 0, false)
 
+    @Test fun missingTokenRecoveryLoadsCollectionsWithoutLoginPrompt() = runTest {
+        val controller = MangaCollectionController({ token, _, onPage ->
+            assertEquals("recovered", token)
+            onPage("reader", listOf(manga))
+        }, { false })
+        controller.refreshAuthorization {
+            assertFalse(controller.state.value.needsLogin)
+            assertTrue(controller.state.value.page(MangaCollectionType.DOING).loading)
+            "recovered"
+        }
+        assertFalse(controller.state.value.needsLogin)
+        assertEquals(listOf(manga), controller.state.value.page(MangaCollectionType.DOING).items)
+    }
+
+    @Test fun recoveryNetworkFailureShowsRetryAndCanRecover() = runTest {
+        val controller = MangaCollectionController({ _, _, onPage -> onPage("reader", listOf(manga)) }, { false })
+        controller.refresh("old-account")
+        controller.refreshAuthorization { error("offline") }
+        assertFalse(controller.state.value.needsLogin)
+        assertTrue(controller.state.value.pages.values.all { it.failed && !it.loading && it.items.isEmpty() })
+        controller.refreshAuthorization { "recovered" }
+        assertEquals(listOf(manga), controller.state.value.page(MangaCollectionType.DOING).items)
+    }
+
+    @Test fun recoveryWithoutAuthorizationShowsLoginAndCancellationPropagates() = runTest {
+        val controller = MangaCollectionController({ _, _, _ -> error("must not load") }, { false })
+        controller.refreshAuthorization { null }
+        assertTrue(controller.state.value.needsLogin)
+        assertFailsWith<CancellationException> { controller.refreshAuthorization { throw CancellationException() } }
+    }
+
     @Test
     fun categoryFailureRetainsCachedItemsAndOtherCategoriesContinue() = runTest {
         var fail = false

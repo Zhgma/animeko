@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import me.him188.ani.app.data.repository.manga.BangumiMangaRepository
+import me.him188.ani.app.data.repository.RepositoryAuthorizationException
 import me.him188.ani.app.data.repository.manga.MangaAuthorizationException
 import me.him188.ani.app.data.repository.manga.MangaCollection
 import me.him188.ani.app.data.repository.manga.MangaCollectionType
@@ -30,7 +31,7 @@ class MangaCollectionViewModel : AbstractViewModel(), KoinComponent {
     private val revision = MutableStateFlow(0)
     private val controller = MangaCollectionController(
         load = { token, type, onPage -> repository.loadCollections(token, type, onPage) },
-        isAuthorizationError = { it is MangaAuthorizationException },
+        isAuthorizationError = { it is MangaAuthorizationException || it is RepositoryAuthorizationException },
     )
     val state = controller.state
     val usingCache = get<MangaBangumiNetwork>().cache.usingCache
@@ -39,7 +40,12 @@ class MangaCollectionViewModel : AbstractViewModel(), KoinComponent {
         backgroundScope.launch {
             combine(sessionManager.sessionFlow, revision, MangaLibraryChanges.revision) { session, _, _ -> session }
                 .collectLatest { session ->
-                    controller.refresh((session as? AccessTokenSession)?.tokens?.bangumiAccessToken)
+                    val token = (session as? AccessTokenSession)?.tokens?.bangumiAccessToken
+                    if (session is AccessTokenSession && token.isNullOrBlank()) {
+                        controller.refreshAuthorization(sessionManager::getBangumiAccessToken)
+                    } else {
+                        controller.refresh(token)
+                    }
                 }
         }
     }
