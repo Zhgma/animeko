@@ -1,4 +1,4 @@
-name: Publish Animecomic signed APKs
+name: Publish Animecomic release packages
 on:
   push:
     branches: [release-artifacts]

@@ -18,6 +18,55 @@
     "SHA256SUMS.txt": {
       "sha256": "2f5211af9bccad2e1054b56f621978ab39e828bf7d0663d05652954caf576407",
       "size": 98
+    },
+    "ani-0.2.0-beta.11-windows-x86_64.zip": {
+      "size": 317977459,
+      "sha256": "73bf0a5df8e7d9f7fc842d8a1d37fa75730c96579d30187d945c2f8ce453c093",
+      "parts": [
+        {
+          "name": "ani-0.2.0-beta.11-windows-x86_64.zip.part000",
+          "size": 50331648,
+          "sha256": "372a15c1c00be7fa0b029bdebecc67d3edd65202fa840ff6ec708e2beae4c650"
+        },
+        {
+          "name": "ani-0.2.0-beta.11-windows-x86_64.zip.part001",
+          "size": 50331648,
+          "sha256": "41495887fcc6a794af50bf541adc524d2481c2ce7bab8c29e16e3e69c8cf1df9"
+        },
+        {
+          "name": "ani-0.2.0-beta.11-windows-x86_64.zip.part002",
+          "size": 50331648,
+          "sha256": "9a2878b502b440167feacce5889714444c8ac4af39b0dc71d6cc8e0c0c62d020"
+        },
+        {
+          "name": "ani-0.2.0-beta.11-windows-x86_64.zip.part003",
+          "size": 50331648,
+          "sha256": "544bf3b517a4d1c5ee2982672d82ffd457201cedd668ba6649f09442377dcfcc"
+        },
+        {
+          "name": "ani-0.2.0-beta.11-windows-x86_64.zip.part004",
+          "size": 50331648,
+          "sha256": "98388e402d1dfe7c70483a2cb44ddadd177f50c74506d81313997ab0ff460715"
+        },
+        {
+          "name": "ani-0.2.0-beta.11-windows-x86_64.zip.part005",
+          "size": 50331648,
+          "sha256": "5506553e3a53f25b6f7fbedb8c55471a66e4dfdd239e03f75a547684674c5c36"
+        },
+        {
+          "name": "ani-0.2.0-beta.11-windows-x86_64.zip.part006",
+          "size": 15987571,
+          "sha256": "80fcc998b6f4ec2dd82f4e7aee38a98077ccc8454de3cd83a2f8ff97fe03c360"
+        }
+      ]
+    },
+    "ani-0.2.0-beta.11-windows-x86_64.zip.sha1": {
+      "size": 40,
+      "sha256": "e00f94ce40bf6d8b5e20d39b01f0abc00ffc0f24e8e9a1c93d686a03103bf7d0"
+    },
+    "ani-0.2.0-beta.11-windows-x86_64.zip.sha256": {
+      "size": 103,
+      "sha256": "05ad30ab889e70f1edd5c99555ea2eac8f576164616876d6ba565050f9a8da32"
     }
   }
 }
