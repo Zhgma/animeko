@@ -9,6 +9,7 @@
       ? base + '/bangumi/image?url=' + encodeURIComponent(migrated) : migrated;
   };
   globalThis.aniApi = Object.freeze({
+    manga: base + '/manga',
     base, animeko:base + '/animeko', bangumi:base + '/bangumi', auth:base + '/auth/animeko',
     page:url=>base + '/online/page?url=' + encodeURIComponent(url),
     torrent:url=>base + '/torrent?url=' + encodeURIComponent(url),

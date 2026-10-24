@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import {addDefaultCatalogs, refreshedSubscription, sourceConfigurations} from './subscription-state.mjs?v=94ef81031b10c4bb';
-import { defaults, checkedSettings, webUrl, torrentIdentifier, parseSubscriptionJson, parseFeed, boundedFetch } from './media-core.mjs?v=94ef81031b10c4bb';
-import { subjectSources, searchSubjectSource, torrentKey } from './subject-media.mjs?v=94ef81031b10c4bb';
-import { onlineRead } from './online-media.mjs?v=94ef81031b10c4bb';
+import {addDefaultCatalogs, refreshedSubscription, sourceConfigurations} from './subscription-state.mjs?v=8f56b5a9aa236bdc';
+import { defaults, checkedSettings, webUrl, torrentIdentifier, parseSubscriptionJson, parseFeed, boundedFetch } from './media-core.mjs?v=8f56b5a9aa236bdc';
+import { subjectSources, searchSubjectSource, torrentKey } from './subject-media.mjs?v=8f56b5a9aa236bdc';
+import { onlineRead } from './online-media.mjs?v=8f56b5a9aa236bdc';
 const prefix = 'animecomic.web.';
 const load = (key, fallback) => { try { return JSON.parse(localStorage.getItem(prefix + key)) ?? fallback; } catch { return fallback; } };
 const save = (key, value) => localStorage.setItem(prefix + key, JSON.stringify(value));
@@ -20,7 +20,7 @@ const persistTasks = () => save('torrentTasks', journal);
 const bytes64 = bytes => { let s = ''; for (const byte of bytes) s += String.fromCharCode(byte); return btoa(s); };
 const from64 = text => Uint8Array.from(atob(text), c => c.charCodeAt(0));
 async function client() {
-  if (!clientPromise) clientPromise = import('./vendor/webtorrent.min.js?v=94ef81031b10c4bb').then(({default: WebTorrent}) => {
+  if (!clientPromise) clientPromise = import('./vendor/webtorrent.min.js?v=8f56b5a9aa236bdc').then(({default: WebTorrent}) => {
     if (!WebTorrent.WEBRTC_SUPPORT) throw new Error('当前浏览器不支持 WebRTC');
     const c = new WebTorrent({ maxConns:settings.maxConns, downloadLimit:settings.downloadLimit, uploadLimit:settings.uploadLimit, webSeeds:settings.webSeeds, dht:false, lsd:false, natUpnp:false, natPmp:false });
     c.on('error', e => { for (const task of journal) if (active.has(task.id)) { task.state='error'; task.error=e.message; } active.clear(); clientPromise=null; persistTasks(); });

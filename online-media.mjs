@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-import './api-endpoints.js?v=94ef81031b10c4bb';
-import {videoCandidates} from './video-extraction.mjs?v=94ef81031b10c4bb';
+import './api-endpoints.js?v=8f56b5a9aa236bdc';
+import {videoCandidates} from './video-extraction.mjs?v=8f56b5a9aa236bdc';
 export async function onlineRead(url) {
   const target = new URL(url);
   if (target.protocol !== 'https:' || target.username || target.password) throw new Error('在线来源必须使用 HTTPS');
@@ -23,7 +23,7 @@ export function staticVideoUrl(text, pageUrl) { return videoCandidates(text,page
 let hlsScript;
 async function loadHls() {
   if(!hlsScript)hlsScript=new Promise((resolve,reject)=>{
-    const script=document.createElement('script');script.src='./vendor/hls.min.js?v=94ef81031b10c4bb';script.onload=resolve;
+    const script=document.createElement('script');script.src='./vendor/hls.min.js?v=8f56b5a9aa236bdc';script.onload=resolve;
     script.onerror=()=>{script.remove();reject(new Error('播放器加载失败'));};document.head.append(script);
   }).catch(e=>{hlsScript=null;throw e;});
   await hlsScript;
@@ -79,7 +79,7 @@ export function createOnlineVideo(payload, emit) {
   let holding=false,holdTimer,restoreRate,ignoreClick=false;
   const endHold=()=>{clearTimeout(holdTimer);if(holding){video.playbackRate=restoreRate;holding=false;ignoreClick=true;notify();}};
   video.onpointerdown=event=>{if(event.button!==0)return;holdTimer=setTimeout(()=>{
-    if(closed||video.paused)return;holding=true;restoreRate=video.playbackRate;video.playbackRate=clampRate(playerConfig.fastForwardSpeed??2.5);notify();
+    if(closed||video.paused)return;holding=true;restoreRate=video.playbackRate;video.playbackRate=Math.min(3,Math.max(.25,Number(playerConfig.fastForwardSpeed)||3));notify();
   },350);};
   video.onpointerup=endHold;video.onpointercancel=endHold;video.onpointerleave=endHold;
   video.onclick=()=>{if(ignoreClick){ignoreClick=false;return;}host.aniCommand('toggle',0);};
