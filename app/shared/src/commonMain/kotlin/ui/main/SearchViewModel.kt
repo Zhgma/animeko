@@ -101,7 +101,7 @@ open class SearchViewModel(
             val rawQuery = queryFlow.value.normalized()
             val query = rawQuery.withNsfwFilter(nsfwSettingFlow.value)
 
-            if (rawQuery.type == SubjectType.BOOK) {
+            if (rawQuery.type != SubjectType.ANIME) {
                 bookSearchRepository.search(query) {
                     (sessionManager.sessionFlow.first() as? AccessTokenSession)?.tokens?.bangumiAccessToken
                 }.combine(nsfwSettingFlow) { data, nsfwMode ->
@@ -110,7 +110,7 @@ open class SearchViewModel(
                             (listOf(book.platform.ifBlank { "书籍" }, book.date) + book.tags).filter { it.isNotBlank() }.joinToString(" · "),
                             null, null, book.rating, book.nsfw,
                             if (book.nsfw) nsfwMode else NsfwMode.DISPLAY, originalTitle = book.originalTitle,
-                            subjectType = SubjectType.BOOK)
+                            subjectType = query.type)
                     }
                 }.cachedIn(scope)
             } else subjectSearchRepository.searchSubjects(
@@ -185,10 +185,10 @@ open class SearchViewModel(
     }
 
     fun suggestionsPager(query: String): Flow<PagingData<String>> {
-        if (queryFlow.value.type == SubjectType.BOOK) return flow {
+        if (queryFlow.value.type != SubjectType.ANIME) return flow {
             val titles = try {
                 bookSearchRepository.titleSuggestions(
-                    SubjectSearchQuery(query.trim(), type = SubjectType.BOOK).withNsfwFilter(nsfwSettingFlow.value),
+                    SubjectSearchQuery(query.trim(), type = queryFlow.value.type).withNsfwFilter(nsfwSettingFlow.value),
                     (sessionManager.sessionFlow.first() as? AccessTokenSession)?.tokens?.bangumiAccessToken)
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { emptyList() }
@@ -229,7 +229,7 @@ open class SearchViewModel(
 
             is SearchPageIntent.Play -> {
                 if (intent.item.subjectType != queryFlow.value.type) return
-                if (queryFlow.value.type == SubjectType.BOOK) {
+                if (queryFlow.value.type != SubjectType.ANIME) {
                     onSearchPageIntent(SearchPageIntent.OpenSubjectDetails(-1, intent.item))
                     return
                 }
@@ -321,7 +321,7 @@ open class SearchViewModel(
         val updatedQuery = query.normalized()
         val typeChanged = updatedQuery.type != queryFlow.value.type
         updateQueryState(updatedQuery)
-        if (typeChanged || (!updatedQuery.shouldTriggerSearch() && updatedQuery.type == SubjectType.BOOK)) {
+        if (typeChanged || (!updatedQuery.shouldTriggerSearch() && updatedQuery.type != SubjectType.ANIME)) {
             clearSearchResults()
             updateSearchPageState { it.copy(hasActiveSearch = false, selectedItemIndex = -1) }
         }
@@ -386,7 +386,7 @@ open class SearchViewModel(
     }
 
     private fun viewSubjectDetails(previewItem: SubjectPreviewItemInfo) {
-        if (queryFlow.value.type == SubjectType.BOOK) {
+        if (queryFlow.value.type != SubjectType.ANIME) {
             _bookPreview.value = previewItem
             return
         }
@@ -418,7 +418,7 @@ open class SearchViewModel(
 }
 
 private fun SubjectSearchQuery.shouldTriggerSearch(): Boolean {
-    if (type == SubjectType.BOOK) return keywords.isNotEmpty()
+    if (type != SubjectType.ANIME) return keywords.isNotEmpty()
     return keywords.isNotEmpty() ||
             !tags.isNullOrEmpty() ||
             year != null ||

@@ -150,7 +150,7 @@ kotlin {
             kotlin.srcDir("../app/shared/ui-foundation/src/commonMain/kotlin/ui/foundation")
             kotlin.srcDir("../datasource/api/src/commonMain/kotlin/topic")
             kotlin.include("DefaultSeedColor.kt", "TrackingCollectionLayout.kt", "SubjectDetailsLayoutParams.kt",
-                "MangaRequestRouting.kt", "BookSearchRequest.kt", "BangumiMangaCollectionLoader.kt", "MangaCommentsParser.kt", "OAuthPolling.kt", "animecomic/web/resources/**",
+                "MangaRequestRouting.kt", "BookSearchRequest.kt", "BangumiMangaCollectionLoader.kt", "BangumiBookKind.kt", "MangaCommentsParser.kt", "OAuthPolling.kt", "animecomic/web/resources/**",
                 "MangaCollectionContent.kt", "MangaCollectionUiState.kt", "CollectionPageLayout.kt",
                 "AniTopAppBar.kt", "navigation/Items.kt", "navigation/NavigationSuite.kt",
                 "navigation/AniNavigationSuiteScaffold.kt", "Modifiers.kt", "TopAppBarColor.kt",

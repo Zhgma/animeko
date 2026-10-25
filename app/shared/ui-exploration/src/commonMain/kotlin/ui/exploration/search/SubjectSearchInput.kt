@@ -28,6 +28,7 @@ fun SubjectSearchInput(
     onExpandedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     placeholder: @Composable (() -> Unit)? = null,
+    availableTypes: List<SubjectType> = SubjectType.entries,
 ) {
     SearchBarDefaults.InputField(
         query = query,
@@ -42,7 +43,7 @@ fun SubjectSearchInput(
         leadingIcon = {
             Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Search, contentDescription = null)
-                SearchSubjectTypeSelector(type, onTypeChange)
+                SearchSubjectTypeSelector(type, availableTypes, onTypeChange)
             }
         },
         trailingIcon = if (query.isNotEmpty() || expanded) {

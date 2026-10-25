@@ -32,6 +32,10 @@ import me.him188.ani.app.navigation.LocalNavigator
 import me.him188.ani.app.navigation.NavRoutes
 import me.him188.ani.app.domain.search.SubjectType
 import me.him188.ani.app.data.repository.manga.MangaCollection
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import me.him188.ani.app.ui.novel.NovelDetailsRoute
 import me.him188.ani.app.ui.manga.MangaDetailsRoute
 import me.him188.ani.app.ui.exploration.search.SearchPage
 import me.him188.ani.app.ui.exploration.search.SearchPageEffect
@@ -63,6 +67,10 @@ fun SearchScreen(
         vm.searchPageEffects.collectLatest { effect ->
             when (effect) {
                 is SearchPageEffect.NavigateToSubjectDetails -> {
+                    if (effect.type == SubjectType.NOVEL) {
+                        navigator.navigate(NavRoutes.NovelDetail(effect.subjectId, effect.title, effect.originalTitle, effect.imageUrl))
+                        return@collectLatest
+                    }
                     if (effect.type == SubjectType.BOOK) {
                         navigator.navigate(NavRoutes.MangaDetail(effect.subjectId, effect.title, effect.originalTitle, effect.imageUrl))
                         return@collectLatest
@@ -90,7 +98,15 @@ fun SearchScreen(
         onIntent = vm::onSearchPageIntent,
         suggestionsPager = vm::suggestionsPager,
         detailContent = {
-            if (searchPageState.query.type == SubjectType.BOOK) {
+            if (searchPageState.query.type == SubjectType.NOVEL) {
+                val book by vm.bookPreview.collectAsStateWithLifecycle()
+                book?.let { item ->
+                    Column {
+                        Text(item.title)
+                        TextButton({ navigator.navigate(NavRoutes.NovelDetail(item.subjectId, item.title, item.originalTitle, item.imageUrl)) }) { Text("打开小说详情与阅读器") }
+                    }
+                }
+            } else if (searchPageState.query.type == SubjectType.BOOK) {
                 val book by vm.bookPreview.collectAsStateWithLifecycle()
                 book?.let { item ->
                     key(item.subjectId) {

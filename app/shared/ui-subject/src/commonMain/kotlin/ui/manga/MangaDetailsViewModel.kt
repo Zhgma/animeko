@@ -84,7 +84,7 @@ data class MangaDetailsUiState(
     internal val downloads: List<MangaDownloadProgress> = emptyList(),
 )
 
-class MangaDetailsViewModel(val manga: MangaCollection, context: Context) : AbstractViewModel(), KoinComponent, EditableRatingActions {
+class MangaDetailsViewModel(val manga: MangaCollection, context: Context, private val enableReading: Boolean = true) : AbstractViewModel(), KoinComponent, EditableRatingActions {
     private val detailsRepository = MangaDetailsRepository(get<MangaBangumiNetwork>().http)
     private val webSessions = get<WebSessionManager>()
     private val sources = MangaSourceRepository(get<HttpClientProvider>().get(userAgent = ScopedHttpClientUserAgent.NONE), webSessions.cookieJar, get())
@@ -127,12 +127,14 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context) : Abst
                 it.copy(offline = download.entries, offlineWorking = download.working, offlineError = download.error)
             } }
         }
-        loadLibrary()
-        loadSelfRating()
-        loadRelations()
-        loadDetails()
-        loadComments()
-        backgroundScope.launch {
+        if (manga.subjectId > 0) {
+            loadLibrary()
+            loadSelfRating()
+            loadRelations()
+            loadDetails()
+            loadComments()
+        }
+        if (enableReading) backgroundScope.launch {
             val settings = sourceSettingsStore.read()
             mutableState.update { it.copy(sourceSettings = settings, captchaSupported = webSessions.isInteractiveSupported) }
             launch {
@@ -171,7 +173,7 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context) : Abst
         ratingJob?.cancel(); ratingJob = null; loadSelfRating()
     }
     fun setProgress(chapters: Int, volumes: Int) = libraryWrite {
-        check(state.value.library != null) { "请先收藏这部漫画" }
+        check(state.value.library != null) { "请先收藏这本书" }
         libraryRepository.setProgress(manga.subjectId, token() ?: error("请先登录 Bangumi"), chapters, volumes)
         mutableState.update { it.copy(library = it.library?.copy(chapters = chapters, volumes = volumes)) }
     }
@@ -283,7 +285,7 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context) : Abst
     private suspend fun saveRating(request: RateRequest): LoadError? {
         mutableState.update { it.copy(ratingError = null, rating = it.rating.copy(isUpdating = true)) }
         return try {
-            check(state.value.rating.enableEdit) { "请先收藏这部漫画" }
+            check(state.value.rating.enableEdit) { "请先收藏这本书" }
             val self = state.value.rating.selfRatingInfo.copy(score = request.score, comment = request.comment, isPrivate = request.isPrivate)
             detailsRepository.rate(manga.subjectId, token() ?: error("请先登录 Bangumi"), self)
             MangaLibraryChanges.notifyChanged()

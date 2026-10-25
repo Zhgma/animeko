@@ -15,6 +15,7 @@ import kotlinx.serialization.json.jsonObject
 import me.him188.ani.app.data.models.subject.RatingCounts
 import me.him188.ani.app.data.models.subject.RatingInfo
 import me.him188.ani.app.data.repository.RepositoryException
+import me.him188.ani.app.domain.search.SubjectType
 import me.him188.ani.app.domain.search.SearchSort
 import me.him188.ani.app.domain.search.SubjectSearchQuery
 import me.him188.ani.utils.ktor.ScopedHttpClient
@@ -30,7 +31,7 @@ internal data class BangumiBookSearchPage(val items: List<BangumiBookSearchItem>
 class BangumiBookSearchRepository(private val http: MangaBangumiHttp) {
     constructor(client: ScopedHttpClient) : this(MangaBangumiHttp(client))
     suspend fun titleSuggestions(query: SubjectSearchQuery, token: String?): List<String> =
-        searchPage(query, token, 0, 10).items.map { it.title }.distinct()
+        nextMatchingPage(query, token, 0, 10).items.map { it.title }.distinct()
 
     fun search(query: SubjectSearchQuery, token: suspend () -> String?): Flow<PagingData<BangumiBookSearchItem>> =
         Pager(PagingConfig(pageSize = BOOK_SEARCH_PAGE_SIZE, initialLoadSize = BOOK_SEARCH_PAGE_SIZE), initialKey = 0) { pagingSource(query, token) }.flow
@@ -39,17 +40,33 @@ class BangumiBookSearchRepository(private val http: MangaBangumiHttp) {
         object : PagingSource<Int, BangumiBookSearchItem>() {
             override fun getRefreshKey(state: PagingState<Int, BangumiBookSearchItem>): Int? = null
             override suspend fun load(params: LoadParams<Int>): LoadResult<Int, BangumiBookSearchItem> = try {
-                val page = searchPage(query, token(), params.key ?: 0, params.loadSize)
+                val page = nextMatchingPage(query, token(), params.key ?: 0, params.loadSize)
                 LoadResult.Page(page.items, prevKey = null, nextKey = page.nextOffset)
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { LoadResult.Error(RepositoryException.wrapOrThrowCancellation(e)) }
         }
 
+    private suspend fun nextMatchingPage(query: SubjectSearchQuery, token: String?, offset: Int, limit: Int): BangumiBookSearchPage {
+        var next = offset
+        while (true) {
+            val page = searchPage(query, token, next, limit)
+            if (page.items.isNotEmpty() || page.nextOffset == null) return page
+            check(page.nextOffset > next) { "书籍搜索分页未前进" }
+            next = page.nextOffset
+        }
+    }
+
     internal suspend fun searchPage(query: SubjectSearchQuery, token: String?, offset: Int, limit: Int): BangumiBookSearchPage {
         val body = bookSearchBody(query.keywords, query.sort, query.nsfw)
         val root = Json.parseToJsonElement(http.search(body, token, offset, limit.coerceIn(1, BOOK_SEARCH_PAGE_SIZE))).jsonObject
         val data = root.array("data")
-        val items = data.map { it.jsonObject }.filter { it.number("type") == 1 }.map { book ->
+        val kind = if (query.type == SubjectType.NOVEL) BangumiBookKind.NOVEL else BangumiBookKind.MANGA
+        val classified = data.map { it.jsonObject }.filter { it.number("type") == 1 }.map { book ->
+            if (book.text("platform").isNotBlank()) book else {
+                Json.parseToJsonElement(http.get("https://api.bgm.tv/v0/subjects/${book.number("id")}", token).requireSuccess()).jsonObject
+            }
+        }
+        val items = classified.filter { kind.accepts(it.number("type"), it.text("platform")) }.map { book ->
             val rating = book.obj("rating")
             BangumiBookSearchItem(book.number("id"), book.text("name_cn").ifBlank { book.text("name") },
                 book.text("name"), book.obj("images").text("large").ifBlank { book.obj("images").text("common") },

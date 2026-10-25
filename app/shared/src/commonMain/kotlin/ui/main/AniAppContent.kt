@@ -101,6 +101,8 @@ import me.him188.ani.app.ui.settings.mediasource.selector.EditSelectorMediaSourc
 import me.him188.ani.app.ui.settings.tabs.media.torrent.peer.PeerFilterSettingsScreen
 import me.him188.ani.app.ui.settings.tabs.media.torrent.peer.PeerFilterSettingsViewModel
 import me.him188.ani.app.data.repository.manga.MangaCollection
+import me.him188.ani.app.domain.search.SubjectType
+import me.him188.ani.app.ui.novel.NovelDetailsRoute
 import me.him188.ani.app.ui.manga.MangaDetailsRoute
 import me.him188.ani.app.ui.subject.details.SubjectDetailsScreen
 import me.him188.ani.app.ui.subject.details.SubjectDetailsViewModel
@@ -335,6 +337,10 @@ private fun AniAppContentImpl(
                     },
                     windowInsets = windowInsets,
                 )
+            }
+            entry<NavRoutes.NovelDetail> { route ->
+                NovelDetailsRoute(MangaCollection(route.subjectId, route.title, route.originalTitle, route.coverUrl,
+                    0, 0, 0, 0, 0, false), onBack = { aniNavigator.popBackStack() })
             }
             entry<NavRoutes.MangaDetail> { route ->
                 MangaDetailsRoute(
@@ -690,6 +696,7 @@ private fun AniAppContentImpl(
 private fun NavRoutes.SubjectSearch.toQuery(): SubjectSearchQuery {
     return SubjectSearchQuery(
         keywords = keyword ?: "",
+        type = when (bookKind) { "NOVEL" -> SubjectType.NOVEL; "MANGA" -> SubjectType.BOOK; else -> SubjectType.ANIME },
         tags = tags,
     )
 }

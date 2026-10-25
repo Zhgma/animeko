@@ -74,6 +74,12 @@ sealed class NavRoutes : NavKey {
     data class SubjectSearch(
         val keyword: String? = null,
         val tags: List<String>? = null,
+        val bookKind: String? = null,
+    ) : NavRoutes()
+
+    @Serializable
+    data class NovelDetail(
+        val subjectId: Int, val title: String, val originalTitle: String = "", val coverUrl: String = "",
     ) : NavRoutes()
 
     @Serializable

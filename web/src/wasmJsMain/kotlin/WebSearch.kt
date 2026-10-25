@@ -87,6 +87,7 @@ fun WebSearch(onOpen: (Int) -> Unit) {
             SearchBar(
                 inputField = {
                     SubjectSearchInput(keyword, { keyword = it }, { submit() }, type,
+                        availableTypes = listOf(SubjectType.ANIME, SubjectType.BOOK),
                         onTypeChange = { type = it; sort = SearchSort.MATCH; submit() },
                         onClear = { keyword = ""; query = ""; offset = 0; expanded = false; focus.clearFocus() },
                         expanded = expanded, onExpandedChange = { expanded = it },

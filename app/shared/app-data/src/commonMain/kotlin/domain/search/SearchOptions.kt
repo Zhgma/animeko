@@ -23,6 +23,7 @@ enum class SearchSort {
 enum class SubjectType {
     ANIME,
     BOOK,
+    NOVEL,
 
     /*
     bangumi supports

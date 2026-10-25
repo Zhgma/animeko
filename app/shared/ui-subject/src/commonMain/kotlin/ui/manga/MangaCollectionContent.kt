@@ -23,6 +23,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import me.him188.ani.app.ui.foundation.layout.plus
@@ -70,6 +71,11 @@ import org.jetbrains.compose.resources.stringResource
 
 /** Switches between anime and manga collection data within the collection page. */
 @Composable
+fun TrackingCollectionTabs(selected: Int, onSelect: (Int) -> Unit) {
+    TrackingCollectionTabsContent(selected, onSelect, listOf("追番", "追漫", "追文"))
+}
+
+@Composable
 fun TrackingCollectionTabs(mangaSelected: Boolean, onSelectManga: (Boolean) -> Unit) {
     TrackingCollectionTabsContent(mangaSelected, onSelectManga,
         stringResource(Lang.subject_collection_page_title), stringResource(Lang.manga_tab))
@@ -88,6 +94,9 @@ fun MangaCollectionPageContent(
     onOpen: (MangaCollection) -> Unit,
     modifier: Modifier = Modifier,
     windowInsets: WindowInsets = AniWindowInsets.forPageContent(),
+    actions: @Composable () -> Unit = {},
+    novel: Boolean = false,
+    onLocalBooks: () -> Unit = {},
 ) {
     val pager = rememberPagerState(initialPage = MANGA_COLLECTION_TABS.indexOf(state.type)) { MANGA_COLLECTION_TABS.size }
     val scope = rememberCoroutineScope()
@@ -95,7 +104,7 @@ fun MangaCollectionPageContent(
     CollectionPageLayout(
         title = title,
         settingsIcon = {},
-        actions = {},
+        actions = { actions() },
         avatar = avatar,
         filters = {
             CollectionTypeScrollableTabRow(
@@ -139,9 +148,12 @@ fun MangaCollectionPageContent(
                         .then(if (nestedScrollConnection != null) Modifier.nestedScroll(nestedScrollConnection) else Modifier),
                     contentPadding = contentPadding + PaddingValues(spacing / 2),
                 ) {
+                    if (novel) item(span = { GridItemSpan(maxLineSpan) }) {
+                        TextButton(onLocalBooks, Modifier.fillMaxWidth().testTag("novel-local-books")) { Text("本地电子书 · TXT / EPUB / MOBI / AZW3") }
+                    }
                     if (state.needsLogin) {
                         item(span = { GridItemSpan(maxLineSpan) }) {
-                            MangaMessage(stringResource(Lang.manga_login_title), stringResource(Lang.manga_login_message)) {
+                            MangaMessage(if (novel) "登录后同步小说收藏" else stringResource(Lang.manga_login_title), if (novel) "使用 Bangumi 账号同步想读、在读和读过的小说" else stringResource(Lang.manga_login_message)) {
                                 Button(onClickLogin, Modifier.testTag("manga-authorize-${type.name}")) {
                                     Text(stringResource(Lang.manga_login))
                                 }
@@ -156,7 +168,7 @@ fun MangaCollectionPageContent(
                         }
                     }
                     items(page.items, key = { it.subjectId }) { manga ->
-                        Box(Modifier.padding(spacing / 2)) { MangaCard(manga) { onOpen(manga) } }
+                        Box(Modifier.padding(spacing / 2)) { MangaCard(manga, novel) { onOpen(manga) } }
                     }
                 }
             }
@@ -165,16 +177,16 @@ fun MangaCollectionPageContent(
 }
 
 @Composable
-private fun MangaCard(manga: MangaCollection, onClick: () -> Unit) {
+private fun MangaCard(manga: MangaCollection, novel: Boolean, onClick: () -> Unit) {
     MangaCollectionCard(
         title = manga.title,
-        progress = stringResource(Lang.manga_progress, manga.chaptersRead,
+        progress = if (novel) "${manga.chaptersRead} / ${manga.totalChapters.takeIf { it > 0 } ?: "—"} 章 · ${manga.volumesRead} / ${manga.totalVolumes.takeIf { it > 0 } ?: "—"} 卷" else stringResource(Lang.manga_progress, manga.chaptersRead,
             manga.totalChapters.takeIf { it > 0 }?.toString() ?: "—", manga.volumesRead,
             manga.totalVolumes.takeIf { it > 0 }?.toString() ?: "—"),
         onClick = onClick,
         modifier = Modifier.testTag("manga-${manga.subjectId}"),
         image = {
-            AsyncImage(manga.coverUrl, stringResource(Lang.manga_open),
+            AsyncImage(manga.coverUrl, if (novel) "查看小说详情" else stringResource(Lang.manga_open),
                 Modifier.fillMaxWidth().aspectRatio(0.7f), contentScale = ContentScale.Crop)
         },
         annotations = {

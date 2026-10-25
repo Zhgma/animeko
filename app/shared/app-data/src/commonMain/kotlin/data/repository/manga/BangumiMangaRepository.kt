@@ -9,9 +9,9 @@ import io.ktor.client.request.get
 import me.him188.ani.utils.ktor.ScopedHttpClient
 
 /** Reads manga collections through the native HTTP transport. */
-class BangumiMangaRepository(private val http: MangaBangumiHttp) {
+class BangumiMangaRepository(private val http: MangaBangumiHttp, kind: BangumiBookKind = BangumiBookKind.MANGA) {
     constructor(client: ScopedHttpClient) : this(MangaBangumiHttp(client))
-    private val loader = BangumiMangaCollectionLoader(::request)
+    private val loader = BangumiMangaCollectionLoader(kind, ::request)
 
     suspend fun loadCollections(accessToken: String, type: MangaCollectionType,
         onPage: (username: String, collections: List<MangaCollection>) -> Unit,

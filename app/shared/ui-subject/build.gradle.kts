@@ -24,6 +24,8 @@ kotlin {
         api(projects.app.shared.uiComment)
         implementation(projects.app.shared.videoPlayer)
         implementation(projects.app.shared.uiMediaselect)
+        implementation(libs.filekit.dialogs)
+        implementation(libs.filekit.dialogs.compose)
         implementation(libs.compose.components.resources)
         implementation(projects.app.shared.placeholder)
     }

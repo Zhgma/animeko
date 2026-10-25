@@ -32,6 +32,7 @@ class MangaHttpException(val statusCode: Int) : Exception("Bangumi HTTP $statusC
 
 /** Manga classification, pagination and progress mapping shared across platforms. */
 class BangumiMangaCollectionLoader(
+    private val kind: BangumiBookKind = BangumiBookKind.MANGA,
     private val request: suspend (path: String, token: String, type: Int?, offset: Int) -> String,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
@@ -60,7 +61,7 @@ class BangumiMangaCollectionLoader(
                         json.decodeFromString<BangumiBook>(request("subjects/${collection.subjectId}", accessToken, null, 0))
                     }
                     // Books also include novels, art books and other non-manga publications.
-                    if (subject.type != 1 || subject.platform != "漫画") return@async null
+                    if (!kind.accepts(subject.type, subject.platform)) return@async null
                     MangaCollection(
                         subjectId = collection.subjectId,
                         title = subject.nameCn.ifBlank { subject.name },

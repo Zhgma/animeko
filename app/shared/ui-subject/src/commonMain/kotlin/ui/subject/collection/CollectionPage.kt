@@ -135,6 +135,7 @@ import me.him188.ani.app.ui.lang.subject_collection_on_hold
 import me.him188.ani.app.ui.lang.subject_collection_syncing
 import me.him188.ani.app.ui.lang.subject_collection_uncollected
 import me.him188.ani.app.ui.lang.subject_collection_wish
+import me.him188.ani.app.data.repository.manga.BangumiBookKind
 import me.him188.ani.app.ui.manga.MangaCollectionPage
 import me.him188.ani.app.ui.manga.TrackingCollectionTabs
 import me.him188.ani.app.ui.search.isLoadingFirstPageOrRefreshing
@@ -243,12 +244,13 @@ fun CollectionPage(
     enableAnimation: Boolean = true,
 
     ) {
-    var mangaSelected by rememberSaveable { mutableStateOf(false) }
+    var trackingTab by rememberSaveable { mutableStateOf(0) }
     val trackingTitle: @Composable () -> Unit = {
-        TrackingCollectionTabs(mangaSelected) { mangaSelected = it }
+        TrackingCollectionTabs(trackingTab) { trackingTab = it }
     }
-    if (mangaSelected) {
-        MangaCollectionPage(selfInfo, onClickLogin, trackingTitle, modifier, windowInsets)
+    if (trackingTab != 0) {
+        MangaCollectionPage(selfInfo, onClickLogin, trackingTitle, modifier, windowInsets,
+            kind = if (trackingTab == 2) BangumiBookKind.NOVEL else BangumiBookKind.MANGA)
         return
     }
     val scope = rememberCoroutineScope()

@@ -52,7 +52,7 @@ class BangumiBookSearchRepositoryTest {
     }
 
     @Test
-    fun novelsAreIncludedAndAnEmptyPageStopsLoading() = runTest {
+    fun novelsUseTheirOwnFilterAndAnEmptyPageStopsLoading() = runTest {
         val client = HttpClient(MockEngine { request ->
             assertNull(request.headers["Authorization"])
             if (request.url.parameters["offset"] == "0") respond("""{"total":20,"data":[{"id":3,"type":1,"name":"Novel","platform":"小说"}]}""")
@@ -60,7 +60,7 @@ class BangumiBookSearchRepositoryTest {
         })
         try {
             val repository = BangumiBookSearchRepository(client.asScopedHttpClient())
-            val query = SubjectSearchQuery("Novel", type = SubjectType.BOOK)
+            val query = SubjectSearchQuery("Novel", type = SubjectType.NOVEL)
             assertEquals("小说", repository.searchPage(query, null, 0, 20).items.single().platform)
             assertNull(repository.searchPage(query, null, 1, 20).nextOffset)
         } finally { client.close() }

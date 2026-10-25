@@ -47,6 +47,19 @@ fun TrackingCollectionTabsContent(
     }
 }
 
+
+@Composable
+fun TrackingCollectionTabsContent(selected: Int, onSelect: (Int) -> Unit, labels: List<String>) {
+    PrimaryTabRow(selectedTabIndex = selected, modifier = Modifier.width(264.dp),
+        containerColor = Color.Transparent, divider = {}) {
+        labels.forEachIndexed { index, title ->
+            Tab(selected == index, { onSelect(index) },
+                modifier = Modifier.testTag(listOf("tracking-anime", "tracking-manga", "tracking-novel")[index]),
+                text = { Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 1) })
+        }
+    }
+}
+
 /** Platform image loading is provided as a slot; typography and card layout are shared. */
 @Composable
 fun MangaCollectionCard(

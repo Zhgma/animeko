@@ -162,7 +162,7 @@ fun SearchPage(
                 expanded = isSearchBarExpanded,
                 onExpandedChange = { isSearchBarExpanded = it },
                 modifier = Modifier.padding(bottom = 16.dp),
-                placeholder = { Text(if (state.query.type == SubjectType.BOOK) stringResource(Lang.search_book_placeholder) else keywordText) },
+                placeholder = { Text(if (state.query.type != SubjectType.ANIME) stringResource(Lang.search_book_placeholder) else keywordText) },
                 windowInsets = contentWindowInsets.only(WindowInsetsSides.Horizontal),
             )
         },
@@ -182,7 +182,7 @@ fun SearchPage(
                                 onSortChange = {
                                     onIntent(SearchPageIntent.ChangeSort(it))
                                 },
-                                sortOptions = if (state.query.type == SubjectType.BOOK) {
+                                sortOptions = if (state.query.type != SubjectType.ANIME) {
                                     listOf(SearchSort.MATCH, SearchSort.COLLECTION, SearchSort.RANK)
                                 } else SearchSort.entries,
                             )

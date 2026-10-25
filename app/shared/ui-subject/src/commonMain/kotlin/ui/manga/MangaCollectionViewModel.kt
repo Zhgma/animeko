@@ -5,6 +5,7 @@
 
 package me.him188.ani.app.ui.manga
 
+import me.him188.ani.app.data.repository.manga.BangumiBookKind
 import me.him188.ani.app.data.repository.manga.MangaBangumiNetwork
 import me.him188.ani.app.data.repository.manga.MangaLibraryChanges
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,9 +26,9 @@ import me.him188.ani.app.ui.foundation.AbstractViewModel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 
-class MangaCollectionViewModel : AbstractViewModel(), KoinComponent {
+class MangaCollectionViewModel(kind: BangumiBookKind = BangumiBookKind.MANGA) : AbstractViewModel(), KoinComponent {
     private val sessionManager = get<SessionManager>()
-    private val repository = BangumiMangaRepository(get<MangaBangumiNetwork>().http)
+    private val repository = BangumiMangaRepository(get<MangaBangumiNetwork>().http, kind)
     private val revision = MutableStateFlow(0)
     private val controller = MangaCollectionController(
         load = { token, type, onPage -> repository.loadCollections(token, type, onPage) },

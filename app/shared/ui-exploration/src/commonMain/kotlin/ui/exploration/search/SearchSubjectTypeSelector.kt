@@ -23,17 +23,17 @@ import me.him188.ani.app.ui.lang.search_type_book
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
-internal fun SearchSubjectTypeSelector(type: SubjectType, onSelect: (SubjectType) -> Unit) {
+internal fun SearchSubjectTypeSelector(type: SubjectType, availableTypes: List<SubjectType> = SubjectType.entries, onSelect: (SubjectType) -> Unit) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val labels = mapOf(SubjectType.ANIME to stringResource(Lang.search_type_anime),
-        SubjectType.BOOK to stringResource(Lang.search_type_book))
+        SubjectType.BOOK to if (SubjectType.NOVEL in availableTypes) "漫画" else stringResource(Lang.search_type_book), SubjectType.NOVEL to "小说")
     Box {
         TextButton({ expanded = true }, Modifier.testTag("search-subject-type")) {
             Text(labels.getValue(type), maxLines = 1)
             Icon(Icons.Rounded.ArrowDropDown, null)
         }
         DropdownMenu(expanded, { expanded = false }) {
-            SubjectType.entries.forEach { option ->
+            availableTypes.forEach { option ->
                 SelectableDropdownMenuItem(selected = type == option,
                     text = { Text(labels.getValue(option)) },
                     onClick = { expanded = false; onSelect(option) },

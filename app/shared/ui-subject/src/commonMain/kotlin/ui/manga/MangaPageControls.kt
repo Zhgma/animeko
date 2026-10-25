@@ -76,6 +76,7 @@ private fun MangaCollectionType.label() = when (this) {
 internal fun MangaLibraryControls(
     state: MangaDetailsUiState, modifier: Modifier = Modifier,
     showCollection: Boolean = true, showProgress: Boolean = true, fillWidth: Boolean = true,
+    chapterUnit: String = "话",
 ) {
     val actions = LocalMangaActions.current
     var progress by remember { mutableStateOf(false) }
@@ -96,7 +97,7 @@ internal fun MangaLibraryControls(
         }
         if (showProgress) TextButton({ progress = true }, enabled = type != null && !state.libraryWorking,
             modifier = Modifier.testTag("manga-progress-edit")) {
-            Text("阅读进度：${state.library?.chapters ?: 0} 话 · ${state.library?.volumes ?: 0} 卷")
+            Text("阅读进度：${state.library?.chapters ?: 0} $chapterUnit · ${state.library?.volumes ?: 0} 卷")
         }
     }
     if (progress) {
@@ -105,7 +106,7 @@ internal fun MangaLibraryControls(
         var volumes by remember { mutableStateOf(state.library?.volumes?.toString().orEmpty()) }
         AlertDialog(onDismissRequest = { if (!state.libraryWorking) progress = false }, title = { Text("阅读进度") },
             text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(chapters, { chapters = it }, label = { Text("已读话数") }, singleLine = true,
+                OutlinedTextField(chapters, { chapters = it }, label = { Text("已读${chapterUnit}数") }, singleLine = true,
                     modifier = Modifier.testTag("manga-progress-chapters"))
                 OutlinedTextField(volumes, { volumes = it }, label = { Text("已读卷数") }, singleLine = true)
                 state.libraryError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
