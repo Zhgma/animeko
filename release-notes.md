@@ -1,7 +1,12 @@
-Animecomic 0.2.0-beta.11（Android ARM64 测试版）
+Animecomic 0.2.0 正式版
 
-- 已登录 Animeko、但本地 Bangumi token 缺失或为空时，进入追漫或读取漫画个人收藏、进度、评分会自动向 Animeko 获取授权。
-- 漫画详情从持久化会话读取授权，避免启动时把尚未加载完成的会话当作未登录；公开作品信息独立加载。
-- 授权恢复中的网络错误显示重试；并发请求合并刷新，凭据一起保存，退出及切换账号保护和刷新限频保持有效。
+基于 0.2.0-beta.11 发布，提供 Android ARM64 与 Windows x64 安装包。
 
-正式签名 Release APK，versionCode 50418。已有正式签名版本可覆盖更新，无需卸载或清除数据。本版本为预发行版，不替换稳定版 Latest。
+- 追番、追漫、Bangumi 收藏与阅读进度同步。
+- 漫画书源选择、章节阅读、阅读进度保存及作品详情评分。
+- 已登录 Animeko 时自动恢复缺失或过期的 Bangumi 授权，减少重复登录。
+
+Android：正式签名 Release APK，versionCode 50419。沿用已有发布签名，可覆盖更新同签名版本，无需卸载或清除数据。
+Windows：下载 ZIP 后完整解压，运行 Ani/Ani.exe；请保留同目录中的运行库文件。Windows 程序未使用 Authenticode 签名。
+
+本版本进入稳定渠道并设为 Latest。“追文”功能不包含在此版本中。
