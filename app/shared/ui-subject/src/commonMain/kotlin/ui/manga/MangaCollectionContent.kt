@@ -69,10 +69,10 @@ import me.him188.ani.app.ui.subject.collection.CollectionPager
 import me.him188.ani.app.ui.subject.collection.CollectionTypeTabLabel
 import org.jetbrains.compose.resources.stringResource
 
-/** Switches between anime and manga collection data within the collection page. */
+/** Switches between anime, manga, and book collections within the collection page. */
 @Composable
 fun TrackingCollectionTabs(selected: Int, onSelect: (Int) -> Unit) {
-    TrackingCollectionTabsContent(selected, onSelect, listOf("追番", "追漫", "追文"))
+    TrackingCollectionTabsContent(selected, onSelect, listOf("番剧", "漫画", "书籍"))
 }
 
 @Composable
