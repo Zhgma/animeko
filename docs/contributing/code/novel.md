@@ -2,17 +2,23 @@
 
 追番页的“追番 / 追漫 / 追文”分别显示动画、漫画和小说。漫画与小说共同使用原有 Bangumi 书籍搜索、详情和收藏通道；请求仍是 `type=1` / `subject_type=1`。客户端用 `BangumiBookKind` 检查 `type` 与 `platform`，分别接受“漫画”和“小说”，不通过书名、标签或关联关系猜测类型。未知平台及画集不混入任一分类。搜索缺失平台时读取条目详情，分页偏移始终按原始结果计算；空的过滤页继续向后查找。两个分类使用独立收藏 ViewModel，避免切换分类后显示另一类收藏或数量。
 
-小说通过 `NavRoutes.NovelDetail` 打开独立页面。BGM 的收藏分类、章 / 卷进度、评分、短评和评论复用现有书籍实现，读取正文与收藏不依赖新的后台。未登录用户可从“追文 → 本地电子书”导入文件；BGM 收藏操作仍需要账号。
+小说通过 `NavRoutes.NovelDetail` 打开详情与阅读页面。搜索右侧预览使用同一个详情入口。详情展示复用番剧的 `SubjectDetailsSingleColumnPage`、`MultiColumnScaffold`、封面动态配色、收藏与评分组件；按共享断点展示单栏、双栏和三栏。小说章节使用 `PagedEpisodesGrid`，进度单位为章 / 卷；导入电子书、书源、目录与缓存位于章节区域。BGM 的收藏分类、章 / 卷进度、评分、短评和评论复用现有书籍实现，读取正文与收藏不依赖新的后台。未登录用户可从“追文 → 本地电子书”导入文件；BGM 收藏操作仍需要账号。
 
 ## 文件与书源
 
 Android 和桌面版支持 TXT、EPUB、MOBI、AZW3（也接受 AZW 扩展名）。TXT 识别 UTF-8、UTF-16 BOM 和 GB18030，按中文章节标题拆分。EPUB 按 OPF spine 顺序读取正文、目录标题和本地插图。MOBI 支持 PalmDOC 与 Huff/CDIC 解压；AZW3 重组 KF8 skeleton / fragment 索引。加密文件返回明确错误。文件内容仅转成文字与图片，不执行脚本、嵌入页面或样式中的远程代码。导入文件最大 96 MB，解压大小、单个资源大小、索引范围和资源路径均有检查。iOS 当前文件导入仅支持 UTF-8 TXT，其他格式的解析器在 JVM 源集；需要 macOS 平台实现和验证后才能宣称同等支持。
 
-`NovelSourceRepository` 提供全本小说 AMP 和幻梦轻小说公开 API 的原生适配器。它们对应此前实测的订阅，选源窗口可查看订阅链接；不会执行远端 Legado JavaScript，也不声称支持任意书源脚本。幻梦的公开适配器参数不是用户账号；标为 VIP / 收费的章节会被排除。源站拒绝访问、缺少正文或返回登录页时显示失败，不记为读完。
+`NovelSourceRepository` 从 `NovelSourceSettingsStore` 读取订阅规则。默认固定订阅为 `https://raw.githubusercontent.com/Zhgma/animeko/main/subs/novel.json`；应用内置同一份首次启动缓存，启动及运行期间每小时刷新，刷新失败保留已导入来源。设置 → 数据源 → 小说源订阅支持新增、编辑、启停、刷新、复制和删除；来源优先级与禁用设置独立保存，刷新不覆盖阅读记录或离线缓存。
+
+订阅使用 `exportedMediaSourceDataList.mediaSources`，每项 `factoryId=novel-rules`、`version=1`，`arguments` 对应 `NovelSourceDefinition`。静态 HTML 引擎支持 GET / POST 搜索、CSS 选择器、相对地址、目录分页、章节分页及文本清理；新增站点标识、改地址或改静态选择器只需更新订阅文件。全本 AMP、幻梦公开 API 使用原生协议辅助器，地址模板也由订阅维护；新增不同协议引擎仍需要应用更新。兼容的阅读 JSON 可直接导入；JavaScript、XPath 与登录凭据不会执行或导入，不兼容项在设置中说明。
+
+目录包含全本小说、幻梦轻小说、就爱文学、书海阁、五八书阁和书海阁子。订阅可用 `unavailableReason` 暂停故障来源并在管理界面说明原因，远程修复后恢复可选。书海阁子搜索目前返回空结果，暂不参加选源。书海阁的直连可用性取决于网络。带 VIP / 收费标记的章节会被排除；源站拒绝访问、缺少正文或要求登录时显示失败。
+
+自动与手动选源使用漫画共用的 `MediaSelectorTopBar`、`MediaSelectorWebSourcesColumn`、`ManualSourceSelector`、搜索框和结果列表。自动选择按启用来源优先级，匹配 Bangumi 标题或别名，并验证目录和首章正文后绑定；单源限时 30 秒，失败继续下一源。手动搜索保留各来源的结果，选中后先保存明确绑定，再读取目录；失败不会自动换源。管理来源支持排序、启停、网站与所属订阅入口。
 
 ## 阅读状态与缓存
 
-文字阅读器复用漫画的 `MangaReaderLayout` 和视频控制层：竖屏为 70% 阅读区域加下方详情 / 评论，宽屏为阅读与详情并列，全屏只显示阅读区。单击切换控制栏，五秒后自动隐藏；设置和进度条交互期间保持显示。支持目录、章节切换、段落进度条、键盘翻页、F 全屏、Escape 返回；文字使用字号、行距、主题色 / 纸色 / 夜间背景。
+文字阅读器复用漫画的 `MangaReaderLayout` 和视频控制层：竖屏为 70% 阅读区域加下方详情 / 评论，宽屏为阅读与详情并列，全屏只显示阅读区。非全屏单击切换控制栏；全屏左右两侧各三分之一点击向后翻页，中间切换控制栏，五秒后自动隐藏；设置和进度条交互期间保持显示。继续向后翻页到章末或点击章末提示进入下一章，最后一章显示结束提示。支持目录、章节切换、段落进度条、键盘翻页、F 全屏、Escape 返回；文字使用字号、行距、主题色 / 纸色 / 夜间背景。
 
 阅读位置用段落索引与段内滚动位置保存，不以屏幕宽度计算固定页码。配置使用 `novel.reader.settings`，作品绑定使用 `novel.reader.{subjectId}`，每本书的位置独立保存在 `novel.position.*`。本地导入内容和插图复制到应用数据目录，系统文件选择器的临时授权结束后仍可阅读；已导入文件可以重新选择。
 
@@ -31,3 +37,5 @@ Android 和桌面版支持 TXT、EPUB、MOBI、AZW3（也接受 AZW 扩展名）
 2026-10-25 本地验证：40 项相关测试通过（包含九本书的在线抽查），Android Debug 构建和独立 Web Wasm 兼容编译通过。DBR-W10 实机成功导入四种格式，验证 TXT 滚动、全屏、字号、纸色与覆盖安装后恢复位置，以及 AZW3 正文和 EPUB 窄屏阅读。布局验证使用 2560×1600 / 340 dpi 与临时 1080×2400 / 440 dpi，之后恢复原设备显示设置。实机 BGM 搜索“86”分别得到小说与漫画结果，追文可读取账号原有小说收藏。未对真实账号执行新增收藏或修改进度；这些写入逻辑通过现有仓库测试验证。iOS 和桌面安装包的实际窗口未验证，本次未公开发布。
 
 MOBI Huff/CDIC 与 KF8 重组参考并移植 calibre 的 GPLv3 算法，来源与版权保留在 `MobiReader.kt`，与本项目 AGPLv3 组合发布。
+
+`NovelSubscriptionTest` 验证固定地址增补动态书源、更新规则、失败保留缓存、手动管理和旧阅读记录兼容；`NovelSourceSelectionTest` 验证匹配、优先级、超时回退与取消；`NovelSourcePanelTest` 和 `NovelSubscriptionGroupTest` 验证自动 / 手动共用控件与设置操作。`NovelReaderTest` 同时覆盖全屏左右点击、中心控制栏及章末跳转。`NovelCatalogLiveTest` 抽查新增来源首 / 中 / 末章；暂停来源明确跳过，`NOVEL_TEST_PROXY=1` 可使用本机 7890 代理复测书海阁。

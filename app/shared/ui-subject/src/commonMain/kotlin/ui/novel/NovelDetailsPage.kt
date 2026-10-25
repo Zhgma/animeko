@@ -41,11 +41,14 @@ import me.him188.ani.app.ui.rating.EditableRatingDialogsHost
 fun NovelDetailsRoute(book: MangaCollection, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val social = remember(book.subjectId, context) { MangaDetailsViewModel(book, context, enableReading = false) }
-    val vm = remember(book.subjectId, context) { NovelViewModel(book.subjectId, context) }
+    val vm = remember(book.subjectId, context) { NovelViewModel(book.subjectId, context, book.title) }
     DisposableEffect(vm, social) { onDispose { vm.close(); social.close() } }
     val state by vm.state.collectAsStateWithLifecycle()
     val details by social.state.collectAsStateWithLifecycle()
     val downloads by vm.downloads.state.collectAsStateWithLifecycle()
+    LaunchedEffect(details.details) {
+        details.details?.let { vm.updateAliases(listOf(it.title, it.originalTitle) + it.aliases) }
+    }
     val scope = rememberCoroutineScope()
     var fullscreen by rememberSaveable { mutableStateOf(false) }
     var sources by rememberSaveable { mutableStateOf(false) }
@@ -96,7 +99,7 @@ fun NovelDetailsRoute(book: MangaCollection, onBack: () -> Unit, modifier: Modif
                     item { Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         AsyncImage(details.details?.cover ?: book.coverUrl, "封面", Modifier.width(100.dp).height(140.dp))
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(state.book?.let { "${it.source.title} · ${it.title}" } ?: "请选择书源或导入电子书")
+                            Text(state.book?.let { "${state.sourceSettings.title(it.source)} · ${it.title}" } ?: "请选择书源或导入电子书")
                             Button(vm::resume, enabled = state.chapters.isNotEmpty() && !state.loading, modifier = Modifier.testTag("novel-read")) { Text("继续阅读") }
                             TextButton({ picker.launch() }, Modifier.testTag("novel-import"), enabled = !state.loading) { Text("导入电子书") }
                         }
@@ -171,34 +174,8 @@ fun NovelDetailsRoute(book: MangaCollection, onBack: () -> Unit, modifier: Modif
             }
         }
     }
-    if (sources) MediaSelectorDialog({ sources = false }) { _ ->
-        var query by rememberSaveable { mutableStateOf(book.title) }
-        var source by rememberSaveable { mutableStateOf(NovelSource.QUANBEN) }
-        val uri = LocalUriHandler.current
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("小说书源", style = MaterialTheme.typography.titleLarge)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                NovelSource.entries.filter { it != NovelSource.LOCAL }.forEach { option ->
-                    FilterChip(source == option, { source = option; vm.search(option, query) }, label = { Text(option.title) })
-                }
-            }
-            OutlinedTextField(query, { query = it }, label = { Text("书名或原名") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            Row {
-                Button({ vm.search(source, query) }, enabled = query.isNotBlank() && !state.searching) { Text("搜索书源") }
-                TextButton({ uri.openUri(source.subscriptionUrl) }) { Text("订阅链接") }
-            }
-            if (state.searching) LinearProgressIndicator(Modifier.fillMaxWidth())
-            state.searchError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            LazyColumn {
-                items(state.results, key = { "${it.source}:${it.id}" }) { result ->
-                    TextButton({ vm.select(result); sources = false }, Modifier.fillMaxWidth()) {
-                        Column(Modifier.fillMaxWidth()) { Text(result.title); Text(result.author, style = MaterialTheme.typography.bodySmall) }
-                    }
-                }
-                if (!state.searching && state.results.isEmpty()) item { Text("可尝试中文名、原名或缩短书名") }
-            }
-        }
-    }
+    if (sources) NovelSourcesDialog(state, book.title, { sources = false }, vm::search,
+        { vm.select(it); sources = false }, vm::autoSelect, vm::saveSourceSettings)
     if (cache) MediaSelectorDialog({ cache = false }) { _ ->
         var delete by remember { mutableStateOf<NovelDownload?>(null) }
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

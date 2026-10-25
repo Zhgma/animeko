@@ -12,6 +12,8 @@ package me.him188.ani.app.platform
 import me.him188.ani.app.data.repository.manga.MangaBangumiNetwork
 import me.him188.ani.app.data.repository.manga.MangaSourceSettingsStore
 import me.him188.ani.app.data.repository.manga.MangaSubscriptionRepository
+import me.him188.ani.app.data.repository.novel.NovelSubscriptionRepository
+import me.him188.ani.app.data.repository.novel.NovelSourceSettingsStore
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -186,6 +188,8 @@ private fun KoinApplication.otherModules(
         MangaBangumiNetwork(getContext().dataStores.preferencesStore, coroutineScope,
             refreshAuthorization = get<SessionManager>()::refreshBangumiAccessToken)
     }
+    single { NovelSourceSettingsStore(getContext().dataStores.preferencesStore) }
+    single { NovelSubscriptionRepository(get(), get<HttpClientProvider>().get()) }
     single { MangaSourceSettingsStore(getContext().dataStores.preferencesStore) }
     single { MangaSubscriptionRepository(get(), get<HttpClientProvider>().get()) }
     single<HttpClientProvider> {
@@ -559,6 +563,7 @@ fun KoinApplication.startCommonKoinModule(
     coroutineScope.launch {
         koin.get<MangaSubscriptionRepository>().runAutoRefresh()
     }
+    coroutineScope.launch { koin.get<NovelSubscriptionRepository>().runAutoRefresh() }
 
     coroutineScope.launch {
         val currentSaves = context.dataStores.mediaSourceSaveStore.data.first()

@@ -1,13 +1,19 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 package me.him188.ani.app.data.repository.novel
 
+import kotlin.jvm.JvmInline
 import kotlinx.serialization.Serializable
 
 @Serializable
-enum class NovelSource(val title: String, val subscriptionUrl: String) {
-    QUANBEN("全本小说", "https://shuyuan-api.yiove.com/import/book-source/b4f96ebd-8fc7-451e-84bb-e8cf4af1b0fa"),
-    HUANMENG("幻梦轻小说", "https://shuyuan-api.yiove.com/import/book-source/eeaf7376-5b54-47ef-aade-c0d0cfed4843"),
-    LOCAL("本地文件", ""),
+@JvmInline
+value class NovelSource(val name: String) {
+    val title: String get() = when (this) { QUANBEN -> "全本小说"; HUANMENG -> "幻梦轻小说"; LOCAL -> "本地文件"; else -> name }
+    override fun toString() = name
+    companion object {
+        val QUANBEN = NovelSource("QUANBEN")
+        val HUANMENG = NovelSource("HUANMENG")
+        val LOCAL = NovelSource("LOCAL")
+    }
 }
 
 @Serializable
@@ -28,7 +34,7 @@ data class NovelReaderSettings(val fontSize: Int = 20, val lineHeight: Float = 1
 @Serializable
 data class NovelMemory(
     val book: NovelBook, val chapters: List<NovelChapter>, val chapterId: String? = null,
-    val paragraph: Int = 0, val offset: Int = 0,
+    val paragraph: Int = 0, val offset: Int = 0, val sourcePinned: Boolean = true,
 )
 
 /** Stable paragraph boundaries are independent of screen width and font settings. */

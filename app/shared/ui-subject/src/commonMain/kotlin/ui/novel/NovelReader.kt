@@ -63,7 +63,15 @@ internal fun NovelReader(
     var failedImages by remember(blocks) { mutableStateOf(emptySet<Int>()) }
     val focus = remember { FocusRequester() }
     val toggle = { controller.toggleFullVisible(); interaction++ }
-    fun move(direction: Int) { interaction++; scope.launch { list.scrollBy((list.layoutInfo.viewportEndOffset - list.layoutInfo.viewportStartOffset) * 0.85f * direction) } }
+    val currentNext by rememberUpdatedState(onNext)
+    fun move(direction: Int) {
+        if (list.isScrollInProgress) return
+        interaction++
+        scope.launch {
+            if (direction > 0 && !list.canScrollForward) currentNext?.invoke()
+            else list.scrollBy((list.layoutInfo.viewportEndOffset - list.layoutInfo.viewportStartOffset) * 0.85f * direction)
+        }
+    }
     LaunchedEffect(Unit) { focus.requestFocus() }
     LaunchedEffect(list) {
         snapshotFlow { list.firstVisibleItemIndex.coerceAtMost(blocks.lastIndex) to list.firstVisibleItemScrollOffset }
@@ -107,7 +115,12 @@ internal fun NovelReader(
                 }
             }, video = {
                 BoxWithConstraints(Modifier.fillMaxSize().background(background)
-                    .pointerInput(controller) { detectTapGestures(onTap = { toggle() }) }
+                    .pointerInput(controller, fullscreen, list) { detectTapGestures(onTap = { position ->
+                        if (fullscreen && (position.x < size.width / 3f || position.x > size.width * 2f / 3f)) {
+                            controller.toggleFullVisible(false)
+                            move(1)
+                        } else toggle()
+                    }) }
                     .semantics { onClick("显示或隐藏阅读控制栏") { toggle(); true } }) {
                     LazyColumn(state = list, modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).testTag("novel-reader-scroll"),
                         contentPadding = PaddingValues(horizontal = if (maxWidth > 700.dp) (maxWidth - 660.dp) / 2 else 24.dp, vertical = 28.dp),
@@ -119,7 +132,7 @@ internal fun NovelReader(
                                 lineHeight = (settings.fontSize * settings.lineHeight).sp, modifier = Modifier.fillMaxWidth().testTag("novel-paragraph-$index"))
                         }
                         item {
-                            Box(Modifier.fillMaxWidth().height(160.dp).then(if (onNext != null) Modifier.clickable(onClick = onNext) else Modifier), contentAlignment = Alignment.Center) {
+                            Box(Modifier.fillMaxWidth().height(160.dp).testTag("novel-chapter-end").then(if (onNext != null) Modifier.clickable(onClick = onNext) else Modifier), contentAlignment = Alignment.Center) {
                                 Text(if (onNext != null) "本章结束 · 点击阅读下一章" else "已到最后一章", color = foreground)
                             }
                         }

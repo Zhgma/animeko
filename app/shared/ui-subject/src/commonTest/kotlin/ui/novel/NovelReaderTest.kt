@@ -3,6 +3,7 @@ package me.him188.ani.app.ui.novel
 
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.runtime.*
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.unit.dp
@@ -45,4 +46,40 @@ class NovelReaderTest {
         runOnIdle { assertEquals(10, position) }
         onNodeWithTag("novel-reader-controls").assertDoesNotExist()
     }
+    @Test fun fullscreenBothOuterThirdsAdvanceAndCenterOnlyShowsControls() = runAniComposeUiTest {
+        val blocks = List(60) { NovelBlock("第 $it 段：" + "这是阅读测试正文。".repeat(8)) }
+        var position = 0
+        var offset = 0
+        setContent { ProvideCompositionLocalsForPreview {
+            NovelReader(blocks, 0, 0, "测试章节", NovelReaderSettings(), {}, { p, o -> position = p; offset = o }, {}, {}, {}, {},
+                null, {}, true, {}, Modifier.requiredSize(700.dp, 500.dp))
+        } }
+        onNodeWithTag("novel-reader-scroll").performTouchInput { click(Offset(width * 0.1f, height * 0.5f)) }
+        var afterLeft = 0 to 0
+        runOnIdle { assertTrue(position > 0 || offset > 0); afterLeft = position to offset }
+        onNodeWithTag("novel-reader-scroll").performTouchInput { click(Offset(width * 0.9f, height * 0.5f)) }
+        var afterRight = 0 to 0
+        runOnIdle { assertTrue(position > afterLeft.first || position == afterLeft.first && offset > afterLeft.second); afterRight = position to offset }
+        onNodeWithTag("novel-reader-scroll").performTouchInput { click(center) }
+        onNodeWithTag("novel-reader-controls").assertExists()
+        runOnIdle { assertEquals(afterRight, position to offset) }
+    }
+
+    @Test fun chapterEndAndNextPageAtEndAdvanceAndLastChapterDoesNot() = runAniComposeUiTest {
+        val blocks = listOf(NovelBlock("短章节正文"))
+        var next = 0
+        var hasNext by mutableStateOf(true)
+        setContent { ProvideCompositionLocalsForPreview {
+            NovelReader(blocks, 0, 0, "测试章节", NovelReaderSettings(), {}, { _, _ -> }, {}, {}, {}, {},
+                null, if (hasNext) ({ next++ }) else null, true, {}, Modifier.requiredSize(700.dp, 500.dp))
+        } }
+        onNodeWithTag("novel-chapter-end").performClick()
+        runOnIdle { assertEquals(1, next) }
+        onNodeWithTag("novel-reader-scroll").performTouchInput { click(Offset(width * 0.9f, height * 0.8f)) }
+        runOnIdle { assertEquals(2, next); hasNext = false }
+        onNodeWithText("已到最后一章").assertExists()
+        onNodeWithTag("novel-reader-scroll").performTouchInput { click(Offset(width * 0.1f, height * 0.8f)) }
+        runOnIdle { assertEquals(2, next) }
+    }
+
 }

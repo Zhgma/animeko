@@ -53,6 +53,9 @@ fun SettingsScope.MangaSubscriptionPresentation(
     onDelete: suspend (String) -> Unit,
     onCopy: suspend (String) -> Unit,
     onPaste: suspend () -> String?,
+    label: String = "漫画",
+    tagPrefix: String = "manga",
+    editorDescription: String = "保存时检查链接并导入来源。源解析规则随应用更新。",
     description: String = "支持漫画 sub、Venera 源链接和 index.json。应用运行时每小时自动刷新；更新失败保留上次来源。",
 
 ) {
@@ -73,19 +76,19 @@ fun SettingsScope.MangaSubscriptionPresentation(
             finally { busy = false }
         }
     }
-    Group(title = { Text("漫画源订阅") }, modifier = Modifier.testTag("manga-subscriptions"),
+    Group(title = { Text("${label}源订阅") }, modifier = Modifier.testTag("$tagPrefix-subscriptions"),
         description = { Text(description) },
         actions = {
             IconButton({ editingId = null; error = null; showEditor = true }, enabled = !busy,
-                modifier = Modifier.testTag("manga-subscription-add")) { Icon(Icons.Rounded.Add, "新增漫画订阅") }
+                modifier = Modifier.testTag("$tagPrefix-subscription-add")) { Icon(Icons.Rounded.Add, "新增${label}订阅") }
             if (busy) CircularProgressIndicator(Modifier.size(24.dp))
             else IconButton({ runAction { subscriptions.filter { it.enabled }.forEach { onRefresh(it.id) } } },
-                modifier = Modifier.testTag("manga-subscription-refresh-all")) { Icon(Icons.Rounded.Refresh, "刷新漫画订阅") }
+                modifier = Modifier.testTag("$tagPrefix-subscription-refresh-all")) { Icon(Icons.Rounded.Refresh, "刷新${label}订阅") }
         }) {
-        if (subscriptions.isEmpty()) Text("尚未添加漫画订阅", Modifier.padding(16.dp))
+        if (subscriptions.isEmpty()) Text("尚未添加${label}订阅", Modifier.padding(16.dp))
         subscriptions.forEachIndexed { index, subscription ->
             var menu by remember(subscription.id) { mutableStateOf(false) }
-            Item(headlineContent = { Text(subscription.name) }, modifier = Modifier.testTag("manga-subscription-${subscription.id}"),
+            Item(headlineContent = { Text(subscription.name) }, modifier = Modifier.testTag("$tagPrefix-subscription-${subscription.id}"),
                 supportingContent = {
                     Column {
                         Text(subscription.url)
@@ -98,15 +101,15 @@ fun SettingsScope.MangaSubscriptionPresentation(
                 }, trailingContent = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Switch(subscription.enabled, { runAction { onEnabled(subscription.id, it) } }, enabled = !busy,
-                            modifier = Modifier.testTag("manga-subscription-enabled-${subscription.id}"))
+                            modifier = Modifier.testTag("$tagPrefix-subscription-enabled-${subscription.id}"))
                         IconButton({ menu = true }, enabled = !busy,
-                            modifier = Modifier.testTag("manga-subscription-menu-${subscription.id}")) {
+                            modifier = Modifier.testTag("$tagPrefix-subscription-menu-${subscription.id}")) {
                             Icon(Icons.Rounded.MoreVert, "管理 ${subscription.name}")
                         }
                         DropdownMenu(menu, { menu = false }) {
                             DropdownMenuItem(text = { Text("编辑") }, onClick = {
                                 menu = false; editingId = subscription.id; error = null; showEditor = true
-                            }, modifier = Modifier.testTag("manga-subscription-edit"))
+                            }, modifier = Modifier.testTag("$tagPrefix-subscription-edit"))
                             DropdownMenuItem(text = { Text("刷新") }, onClick = {
                                 menu = false; runAction { onRefresh(subscription.id) }
                             })
@@ -115,7 +118,7 @@ fun SettingsScope.MangaSubscriptionPresentation(
                             })
                             DropdownMenuItem(text = { Text("删除", color = MaterialTheme.colorScheme.error) }, onClick = {
                                 menu = false; deletingId = subscription.id
-                            }, modifier = Modifier.testTag("manga-subscription-delete"))
+                            }, modifier = Modifier.testTag("$tagPrefix-subscription-delete"))
                         }
                     }
                 })
@@ -128,31 +131,31 @@ fun SettingsScope.MangaSubscriptionPresentation(
         var name by rememberSaveable(editingId) { mutableStateOf(editing?.name.orEmpty()) }
         var url by rememberSaveable(editingId) { mutableStateOf(editing?.url.orEmpty()) }
         AlertDialog(onDismissRequest = { if (!busy) showEditor = false },
-            title = { Text(if (editingId == null) "新增漫画订阅" else "编辑漫画订阅") },
+            title = { Text(if (editingId == null) "新增${label}订阅" else "编辑${label}订阅") },
             text = {
                 Column {
-                    OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth().testTag("manga-subscription-name"),
+                    OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth().testTag("$tagPrefix-subscription-name"),
                         label = { Text("名称") }, enabled = !busy, singleLine = true)
-                    OutlinedTextField(url, { url = it }, Modifier.fillMaxWidth().testTag("manga-subscription-url"),
+                    OutlinedTextField(url, { url = it }, Modifier.fillMaxWidth().testTag("$tagPrefix-subscription-url"),
                         label = { Text("订阅链接") }, enabled = !busy, singleLine = true,
                         trailingIcon = { IconButton({ scope.launch { onPaste()?.let { url = it } } }, enabled = !busy) {
                             Icon(Icons.Rounded.ContentPaste, "粘贴链接")
                         } })
-                    Text("保存时检查链接并导入来源。源解析规则随应用更新。", Modifier.padding(top = 12.dp), style = MaterialTheme.typography.bodySmall)
-                    error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("manga-subscription-error")) }
+                    Text(editorDescription, Modifier.padding(top = 12.dp), style = MaterialTheme.typography.bodySmall)
+                    error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("$tagPrefix-subscription-error")) }
                 }
             }, confirmButton = {
                 TextButton({ runAction { onSave(editingId, name, url); showEditor = false } },
-                    enabled = !busy && name.isNotBlank() && url.isNotBlank(), modifier = Modifier.testTag("manga-subscription-save")) {
+                    enabled = !busy && name.isNotBlank() && url.isNotBlank(), modifier = Modifier.testTag("$tagPrefix-subscription-save")) {
                     Text(if (busy) "正在检查…" else "保存")
                 }
             }, dismissButton = { TextButton({ showEditor = false }, enabled = !busy) { Text("取消") } })
     }
     subscriptions.find { it.id == deletingId }?.let { subscription ->
-        AlertDialog(onDismissRequest = { if (!busy) deletingId = null }, title = { Text("删除漫画订阅") },
-            text = { Text("删除“${subscription.name}”及其提供的来源？其他订阅仍提供的来源会保留，阅读记录和离线漫画不受影响。") },
+        AlertDialog(onDismissRequest = { if (!busy) deletingId = null }, title = { Text("删除${label}订阅") },
+            text = { Text("删除“${subscription.name}”及其提供的来源？其他订阅仍提供的来源会保留，阅读记录和离线${label}不受影响。") },
             confirmButton = { TextButton({ runAction { onDelete(subscription.id); deletingId = null } }, enabled = !busy,
-                modifier = Modifier.testTag("manga-subscription-confirm-delete")) { Text("删除") } },
+                modifier = Modifier.testTag("$tagPrefix-subscription-confirm-delete")) { Text("删除") } },
             dismissButton = { TextButton({ deletingId = null }, enabled = !busy) { Text("取消") } })
     }
 }

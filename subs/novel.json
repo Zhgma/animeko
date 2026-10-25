@@ -1,0 +1,122 @@
+{
+  "exportedMediaSourceDataList": {
+    "mediaSources": [
+      {
+        "factoryId": "novel-rules",
+        "version": 1,
+        "arguments": {
+          "key": "QUANBEN",
+          "name": "全本小说",
+          "home": "https://www.quanben.io",
+          "engine": "quanben",
+          "searchUrl": "https://quanben.io/index.php?c=book&a=search&keywords={{key}}",
+          "tocUrl": "/amp/n/{{id}}/list.html",
+          "searchList": "div.list2",
+          "searchName": "h3 a@text",
+          "searchLink": "h3 a@href",
+          "searchAuthor": "[itemprop=author]@text",
+          "chapters": "ul.list3 li a",
+          "content": ".articlebody",
+          "reference": "https://shuyuan-api.yiove.com/import/book-source/b4f96ebd-8fc7-451e-84bb-e8cf4af1b0fa"
+        }
+      },
+      {
+        "factoryId": "novel-rules",
+        "version": 1,
+        "arguments": {
+          "key": "HUANMENG",
+          "name": "幻梦轻小说",
+          "home": "https://www.huanmengacg.com",
+          "engine": "huanmeng",
+          "searchUrl": "/index.php/bookapi/search?password=chiyu666&key={{key}}&page=1&size=50",
+          "tocUrl": "/index.php/bookapi/chapters?password=chiyu666&id={{id}}&size=5000&page={{page}}",
+          "contentUrl": "/index.php/bookapi/content?password=chiyu666&bid={{id}}&cid={{chapter}}",
+          "reference": "https://shuyuan-api.yiove.com/import/book-source/eeaf7376-5b54-47ef-aade-c0d0cfed4843"
+        }
+      },
+      {
+        "factoryId": "novel-rules",
+        "version": 1,
+        "arguments": {
+          "key": "jiuai",
+          "name": "就爱文学",
+          "home": "http://www.92xs.info",
+          "searchUrl": "/modules/article/search.php",
+          "searchMethod": "POST",
+          "searchBody": "searchtype=articlename=author&searchkey={{key}}",
+          "searchList": "#author tbody tr:has(a)",
+          "searchName": ".odd@text",
+          "searchLink": "a@href",
+          "searchAuthor": ".odd:eq(1)@text",
+          "tocLink": ".newrap a@href",
+          "chapters": ".ccss",
+          "content": "#ccontent",
+          "reference": "https://raw.githubusercontent.com/XIU2/Yuedu/master/shuyuan"
+        }
+      },
+      {
+        "factoryId": "novel-rules",
+        "version": 1,
+        "arguments": {
+          "key": "shuhaige",
+          "name": "书海阁子",
+          "home": "https://m.shuhaige.net",
+          "searchUrl": "/search.html",
+          "searchMethod": "POST",
+          "searchBody": "searchkey={{key}}",
+          "searchList": ".list li",
+          "searchName": ".bookname a@text",
+          "searchLink": ".bookname a@href",
+          "searchAuthor": ".data a@text",
+          "chapters": ".read li",
+          "nextToc": "a:containsOwn(下一页)@href",
+          "content": ".content",
+          "nextContent": "a:containsOwn(下一页)@href",
+          "reference": "https://shuyuan-api.yiove.com/import/book-source/15732362-9d8c-44fd-8d6b-8618d32f0da4",
+          "unavailableReason": "源站搜索暂不可用，等待订阅修复；已有书籍页面仍可访问。"
+        }
+      },
+      {
+        "factoryId": "novel-rules",
+        "version": 1,
+        "arguments": {
+          "key": "washai",
+          "name": "书海阁",
+          "home": "https://book.washai.net",
+          "searchUrl": "/book/bookclass.html?k={{key}}&page=1",
+          "searchList": "#bookList>article",
+          "searchName": "h3.classBookTitle>a@text",
+          "searchLink": "h3.classBookTitle>a@href",
+          "searchAuthor": "p.classBookAuthor>a@text",
+          "tocLink": "#allIndexLink@href",
+          "chapters": "#bookIndexList>li[data-index-id]",
+          "chapterName": "a@ownText",
+          "nextToc": "#indexPager a:containsOwn(下一页)@href",
+          "content": ".readChapterAppendBody",
+          "reference": "https://shuyuan-api.yiove.com/import/book-source/db31b890-a6de-4123-8ab7-ee737eff9480"
+        }
+      },
+      {
+        "factoryId": "novel-rules",
+        "version": 1,
+        "arguments": {
+          "key": "wuba",
+          "name": "五八书阁",
+          "home": "http://m.5859ycdh.com",
+          "searchUrl": "/search/",
+          "searchMethod": "POST",
+          "searchBody": "q={{key}}",
+          "searchList": "dl.B",
+          "searchName": "dt a@text",
+          "searchLink": "dt a@href",
+          "searchAuthor": "dd span@text",
+          "tocLink": "a:containsOwn(开始阅读)@href",
+          "chapters": "ul.MLlist li",
+          "content": ".TxtContent@html##本章没完[\\s\\S]*|温馨提示[\\s\\S]*",
+          "nextContent": "a:containsOwn(下一页)@href",
+          "reference": "https://shuyuan-api.yiove.com/import/book-source/c43049cb-87bb-40d1-b29b-81cae6b090ac"
+        }
+      }
+    ]
+  }
+}
