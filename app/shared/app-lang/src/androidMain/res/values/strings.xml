@@ -873,7 +873,7 @@
     <string name="subject_collection_done">Watched</string>
     <string name="subject_collection_on_hold">On Hold</string>
     <string name="subject_collection_dropped">Dropped</string>
-    <string name="subject_collection_delete">Unfollow</string>
+    <string name="subject_collection_delete">Remove from collection</string>
     <string name="subject_collection_collect">Follow</string>
     <string name="subject_collection_current_wish">Marked Want to Watch</string>
     <string name="subject_collection_current_doing">Marked Watching</string>
@@ -881,9 +881,9 @@
     <string name="subject_collection_current_on_hold">Marked On Hold</string>
     <string name="subject_collection_current_dropped">Marked Dropped</string>
     <string name="subject_collection_not_collected">Not Followed</string>
-    <string name="subject_collection_delete_confirm_title">Unfollow</string>
-    <string name="subject_collection_delete_confirm_message">This will clear your watch progress and rating. This action cannot be undone. Are you sure you want to unfollow?</string>
-    <string name="subject_collection_delete_action">Delete</string>
+    <string name="subject_collection_delete_confirm_title">Remove from collection</string>
+    <string name="subject_collection_delete_confirm_message">This will clear your progress and rating. This action cannot be undone. Are you sure you want to remove this from your collection?</string>
+    <string name="subject_collection_delete_action">Remove from collection</string>
     <string name="subject_collection_cancel">Cancel</string>
     <string name="subject_collection_set_all_episodes_watched">Mark all episodes as watched too?</string>
     <string name="subject_collection_set">Set</string>

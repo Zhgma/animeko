@@ -876,7 +876,7 @@
     <string name="subject_collection_done">看過</string>
     <string name="subject_collection_on_hold">擱置</string>
     <string name="subject_collection_dropped">拋棄</string>
-    <string name="subject_collection_delete">取消追番</string>
+    <string name="subject_collection_delete">取消收藏</string>
     <string name="subject_collection_collect">追番</string>
     <string name="subject_collection_current_wish">已想看</string>
     <string name="subject_collection_current_doing">已在看</string>
@@ -884,9 +884,9 @@
     <string name="subject_collection_current_on_hold">已擱置</string>
     <string name="subject_collection_current_dropped">已拋棄</string>
     <string name="subject_collection_not_collected">未追番</string>
-    <string name="subject_collection_delete_confirm_title">取消追番</string>
-    <string name="subject_collection_delete_confirm_message">這將會清除你的觀看進度和評價。此操作無法撤銷。確定要取消追番嗎？</string>
-    <string name="subject_collection_delete_action">刪除</string>
+    <string name="subject_collection_delete_confirm_title">取消收藏</string>
+    <string name="subject_collection_delete_confirm_message">這將會清除你的進度和評價。此操作無法撤銷。確定要取消收藏嗎？</string>
+    <string name="subject_collection_delete_action">取消收藏</string>
     <string name="subject_collection_cancel">取消</string>
     <string name="subject_collection_set_all_episodes_watched">要同時將所有劇集設為看過嗎？</string>
     <string name="subject_collection_set">設置</string>
