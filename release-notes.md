@@ -1,12 +1,11 @@
-Animecomic 0.2.0 正式版
+Animecomic 0.3.0-beta.1（Android ARM64 / Windows x64 测试版）
 
-基于 0.2.0-beta.11 发布，提供 Android ARM64 与 Windows x64 安装包。
+- 新增“追文”，与追番、追漫并列。小说搜索和收藏继续使用 Bangumi，应用内按漫画 / 小说分别过滤。
+- 新增小说阅读器：支持 TXT、EPUB、MOBI、AZW3 未加密文件，以及已接入书源的公开在线章节。
+- 支持目录、全屏阅读、字号、行距、阅读主题、进度记忆、章节预读与离线缓存。
+- 接入全本小说与幻梦轻小说，过滤标记为 VIP / 收费的章节；书源可用性受站点影响。
+- 保留 0.2.0 正式版的漫画阅读和 Bangumi 登录恢复修复。
 
-- 追番、追漫、Bangumi 收藏与阅读进度同步。
-- 漫画书源选择、章节阅读、阅读进度保存及作品详情评分。
-- 已登录 Animeko 时自动恢复缺失或过期的 Bangumi 授权，减少重复登录。
+Android 使用原正式签名，versionCode 50420，可覆盖原正式签名版本升级，无需卸载或清除数据。Windows 请解压完整文件夹后运行 Ani/Ani.exe。
 
-Android：正式签名 Release APK，versionCode 50419。沿用已有发布签名，可覆盖更新同签名版本，无需卸载或清除数据。
-Windows：下载 ZIP 后完整解压，运行 Ani/Ani.exe；请保留同目录中的运行库文件。Windows 程序未使用 Authenticode 签名。
-
-本版本进入稳定渠道并设为 Latest。“追文”功能不包含在此版本中。
+本版本为预发布测试版，稳定版 Latest 保持 0.2.0。电子书不支持加密文件；本次提供 Android 与 Windows 包，不包含 iOS。
