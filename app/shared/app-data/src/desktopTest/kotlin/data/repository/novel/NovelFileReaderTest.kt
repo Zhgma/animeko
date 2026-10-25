@@ -10,6 +10,23 @@ import org.junit.jupiter.api.Assumptions.assumeTrue
 import kotlin.test.*
 
 class NovelFileReaderTest {
+    @Test fun epubSvgIllustrationsAndImageOnlyChaptersSurviveImport() {
+        val epub = zip(mapOf(
+            "META-INF/container.xml" to """<container><rootfiles><rootfile full-path="OPS/book.opf"/></rootfiles></container>""",
+            "OPS/book.opf" to """<package><manifest><item id="a" href="Text/10.xhtml"/><item id="b" href="Text/plate.xhtml"/></manifest><spine><itemref idref="a"/><itemref idref="b"/></spine></package>""",
+            "OPS/Text/10.xhtml" to """<body><h1>第十话</h1><p>插图之前</p><svg xmlns:xlink="http://www.w3.org/1999/xlink"><image xlink:href="../Images/plate.jpg"/></svg><p>插图之后</p></body>""",
+            "OPS/Text/plate.xhtml" to """<body><svg><image href="../Images/plate.jpg"/></svg></body>""",
+            "OPS/Images/plate.jpg" to "image-fixture",
+        ))
+        var images = 0
+        val book = readNovelFile("illustrated.epub", epub) { images++; "file:///plate.jpg" }
+        assertEquals(1, images)
+        assertEquals(2, book.chapters.size)
+        assertEquals(listOf("第十话", "插图之前", "", "插图之后"), book.contents[0].map { it.text })
+        assertEquals("file:///plate.jpg", book.contents[0][2].image)
+        assertEquals("file:///plate.jpg", book.contents[1].single().image)
+    }
+
     @Test fun textEncodingsAndChineseChapterBoundaries() {
         val source = "第一章 初见\r\n中文正文。\r\n第二章 重逢\n结束。"
         for (charset in listOf(Charsets.UTF_8, Charsets.UTF_16, Charset.forName("GB18030"))) {

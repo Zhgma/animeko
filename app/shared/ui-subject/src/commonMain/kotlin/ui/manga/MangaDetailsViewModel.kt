@@ -301,6 +301,8 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context, privat
         } finally { mutableState.update { it.copy(rating = it.rating.copy(isUpdating = false)) } }
     }
 
+    suspend fun resolveRelation(relation: MangaRelation): MangaRelation = detailsRepository.resolveRelation(relation)
+
     fun loadRelations() {
         relationsJob?.cancel()
         relationsJob = backgroundScope.launch {

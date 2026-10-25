@@ -15,9 +15,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.ui.platform.LocalUriHandler
-import me.him188.ani.app.navigation.LocalNavigator
-import me.him188.ani.app.navigation.NavRoutes
 import me.him188.ani.app.ui.rating.EditableRatingDialogsHost
 import me.him188.ani.app.ui.subject.relations.SubjectRelationGraphScreen
 import me.him188.ani.app.ui.subject.relations.SubjectRelationGraphUiState
@@ -92,18 +89,7 @@ fun MangaDetailsRoute(manga: MangaCollection, onBack: () -> Unit, modifier: Modi
         }
     }
     var showRelations by rememberSaveable { mutableStateOf(false) }
-    val navigator = LocalNavigator.current
-    val uriHandler = LocalUriHandler.current
-    val openRelated: (Int) -> Unit = { id ->
-        if (id == manga.subjectId) showRelations = false
-        else state.relations.firstOrNull { it.id == id }?.let { related ->
-            when (related.type) {
-                1 -> navigator.navigate(NavRoutes.MangaDetail(id, related.title, related.originalTitle, related.cover))
-                2 -> navigator.navigateSubjectDetails(id, placeholder = null)
-                else -> uriHandler.openUri("https://bgm.tv/subject/$id")
-            }
-        }
-    }
+    val openRelated = rememberOpenBookRelation(manga.subjectId, state.relations, { showRelations = false }, vm::resolveRelation)
     var sourceOpen by rememberSaveable { mutableStateOf(false) }
     var cacheOpen by rememberSaveable { mutableStateOf(false) }
     var chaptersOpen by rememberSaveable { mutableStateOf(false) }

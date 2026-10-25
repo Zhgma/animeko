@@ -8,6 +8,10 @@ package me.him188.ani.app.ui.manga
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import me.him188.ani.app.data.persistent.dataStores
+import me.him188.ani.app.data.repository.novel.NovelLocalLibrary
+import me.him188.ani.app.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -31,6 +35,12 @@ fun MangaCollectionPage(
 ) {
     val vm = viewModel(key = "books-${kind.name}") { MangaCollectionViewModel(kind) }
     val state by vm.state.collectAsStateWithLifecycle()
+    val localBookCount = if (kind == BangumiBookKind.NOVEL) {
+        val context = LocalContext.current
+        val library = remember(context) { NovelLocalLibrary(context.dataStores.preferencesStore) }
+        val books by library.books.collectAsStateWithLifecycle(emptyList())
+        books.size
+    } else 0
     val usingCache by vm.usingCache.collectAsStateWithLifecycle()
     val navigator = LocalNavigator.current
     MangaCollectionContent(
@@ -40,6 +50,7 @@ fun MangaCollectionPage(
         modifier = modifier,
         windowInsets = windowInsets,
         kind = kind,
+        localBookCount = localBookCount,
         usingBangumiCache = usingCache,
     )
 }
@@ -56,6 +67,7 @@ internal fun MangaCollectionContent(
     modifier: Modifier = Modifier,
     windowInsets: WindowInsets = AniWindowInsets.forPageContent(),
     kind: BangumiBookKind = BangumiBookKind.MANGA,
+    localBookCount: Int = 0,
     usingBangumiCache: Boolean = false,
 ) {
     val navigator = LocalNavigator.current
@@ -66,6 +78,7 @@ internal fun MangaCollectionContent(
         onClickLogin = { navigator.navigateBangumiAuthorize() }, onOpen = onOpen,
         modifier = modifier, windowInsets = windowInsets, novel = kind == BangumiBookKind.NOVEL,
         usingBangumiCache = usingBangumiCache,
+        localBookCount = localBookCount,
         onLocalBooks = { navigator.navigate(NavRoutes.NovelDetail(0, "本地阅读")) },
     )
 }

@@ -51,7 +51,7 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
     private val preferences = context.dataStores.preferencesStore
     private val key = stringPreferencesKey("novel.reader.$id")
     private val settingsKey = stringPreferencesKey("novel.reader.settings")
-    private val filesKey = stringPreferencesKey("novel.files.$id")
+    private val filesKey = novelLocalFilesKey(id)
     private val directory = context.files.dataDir.resolve("novels").resolve(id.toString())
     private val imageDirectory = context.files.cacheDir.resolve("novel-reader-${Random.nextLong().toULong()}")
     private val cachedImages = mutableListOf<SystemPath>()
@@ -301,7 +301,7 @@ private suspend fun cacheNovelImages(repository: NovelSourceRepository, book: No
 ): List<NovelBlock> = repository.content(book, chapter).map { block ->
     val image = block.image
     if (image == null) block else {
-        val bytes = repository.image(image)
+        val bytes = repository.image(book, image)
         directory.createDirectories()
         val file = directory.resolve("${Random.nextLong().toULong()}.image")
         file.writeBytes(bytes); paths += file

@@ -10,6 +10,9 @@ import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -50,7 +53,7 @@ class MangaCollectionHeaderTest {
                             selfInfo = TestSelfInfoUiState,
                             title = { TrackingCollectionTabs(if (kind == BangumiBookKind.NOVEL) 2 else 1) {} },
                             onSelect = {}, onRefresh = {}, onClickLogin = {}, onOpen = {},
-                            kind = kind, usingBangumiCache = usingCache,
+                            kind = kind, usingBangumiCache = usingCache, localBookCount = 4,
                         )
                     }
                 }
@@ -80,6 +83,9 @@ class MangaCollectionHeaderTest {
             }
             runOnIdle { usingCache = true }
             waitForIdle()
+            if (kind == BangumiBookKind.NOVEL) {
+                onNodeWithTag("novel-local-books").performScrollTo().assertIsDisplayed().assertTextEquals("本地", "4")
+            }
             val out = File("build/screenshots/collection-header").also { it.mkdirs() }
             File(out, "$kind-$width.png").writeBytes(
                 Image.makeFromBitmap(captureToImage().asSkiaBitmap()).encodeToData(EncodedImageFormat.PNG)!!.bytes,
@@ -92,4 +98,31 @@ class MangaCollectionHeaderTest {
     @Test fun booksTablet() = check(1200, 800, BangumiBookKind.NOVEL)
     @Test fun mangaLandscape() = check(900, 420, BangumiBookKind.MANGA)
     @Test fun booksLandscape() = check(900, 420, BangumiBookKind.NOVEL)
+    @Test fun localEntryFollowsDoneAndUpdatesCountWithoutBangumiLogin() =
+        runSkikoComposeUiTest(Size(1200f, 800f), density = Density(1f)) {
+            var count by mutableStateOf(0)
+            var opened = 0
+            var selections = 0
+            setContent { ProvideCompositionLocalsForPreview {
+                MangaCollectionPageContent(
+                    state = MangaCollectionUiState(needsLogin = true), avatar = {},
+                    title = { TrackingCollectionTabs(2) {} }, onSelect = { selections++ },
+                    onRefresh = {}, onClickLogin = {}, onOpen = {}, novel = true,
+                    localBookCount = count, onLocalBooks = { opened++ },
+                )
+            } }
+            val local = onNodeWithTag("novel-local-books")
+            local.assertIsDisplayed().assertTextEquals("本地", "0")
+            val done = onNodeWithTag("manga-status-DONE").fetchSemanticsNode().boundsInRoot
+            val localBounds = local.fetchSemanticsNode().boundsInRoot
+            assertEquals(done.top, localBounds.top)
+            assertEquals(done.bottom, localBounds.bottom)
+            assertTrue(localBounds.left >= done.right)
+            val initialSelections = selections
+            local.performClick()
+            runOnIdle { assertEquals(1, opened); assertEquals(initialSelections, selections); count = 4 }
+            local.assertTextEquals("本地", "4")
+            onNodeWithText("本地电子书 · TXT / EPUB / MOBI / AZW3").assertDoesNotExist()
+        }
+
 }

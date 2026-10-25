@@ -2,7 +2,7 @@
 
 追番页的“追番 / 追漫 / 追文”分别显示动画、漫画和小说。漫画与小说共同使用原有 Bangumi 书籍搜索、详情和收藏通道；请求仍是 `type=1` / `subject_type=1`。客户端用 `BangumiBookKind` 检查 `type` 与 `platform`，分别接受“漫画”和“小说”，不通过书名、标签或关联关系猜测类型。未知平台及画集不混入任一分类。搜索缺失平台时读取条目详情，分页偏移始终按原始结果计算；空的过滤页继续向后查找。两个分类使用独立收藏 ViewModel，避免切换分类后显示另一类收藏或数量。
 
-小说通过 `NavRoutes.NovelDetail` 打开详情与阅读页面。搜索右侧预览使用同一个完整详情组件并占满窗格；点击继续阅读或具体章节时，通过 `startReading` / `initialChapterId` 导航到独立阅读页，避免阅读器和全屏布局被限制在搜索窗格中。详情展示复用番剧的 `SubjectDetailsSingleColumnPage`、`MultiColumnScaffold`、封面动态配色、收藏与评分组件；按共享断点展示单栏、双栏和三栏。小说章节使用 `PagedEpisodesGrid`，进度单位为章 / 卷；导入电子书、书源、目录与缓存位于章节区域。BGM 的收藏分类、章 / 卷进度、评分、短评和评论复用现有书籍实现，读取正文与收藏不依赖新的后台。未登录用户可从“追文 → 本地电子书”导入文件；BGM 收藏操作仍需要账号。
+小说通过 `NavRoutes.NovelDetail` 打开详情与阅读页面。搜索右侧预览使用同一个完整详情组件并占满窗格；点击继续阅读或具体章节时，通过 `startReading` / `initialChapterId` 导航到独立阅读页，避免阅读器和全屏布局被限制在搜索窗格中。详情展示复用番剧的 `SubjectDetailsSingleColumnPage`、`MultiColumnScaffold`、封面动态配色、收藏与评分组件；按共享断点展示单栏、双栏和三栏。小说章节使用 `PagedEpisodesGrid`，进度单位为章 / 卷；导入电子书、书源、目录与缓存位于章节区域。BGM 的收藏分类、章 / 卷进度、评分、短评和评论复用现有书籍实现，读取正文与收藏不依赖新的后台。未登录用户可从“书籍 → 本地”导入文件；BGM 收藏操作仍需要账号。
 
 ## 文件与书源
 
@@ -39,3 +39,9 @@ Android 和桌面版支持 TXT、EPUB、MOBI、AZW3（也接受 AZW 扩展名）
 MOBI Huff/CDIC 与 KF8 重组参考并移植 calibre 的 GPLv3 算法，来源与版权保留在 `MobiReader.kt`，与本项目 AGPLv3 组合发布。
 
 `NovelSubscriptionTest` 验证固定地址增补动态书源、更新规则、失败保留缓存、手动管理和旧阅读记录兼容；`NovelSourceSelectionTest` 验证匹配、优先级、超时回退与取消；`NovelSourcePanelTest` 和 `NovelSubscriptionGroupTest` 验证自动 / 手动共用控件与设置操作。`NovelReaderTest` 同时覆盖全屏左右点击、中心控制栏及章末跳转。`NovelCatalogLiveTest` 抽查新增来源首 / 中 / 末章；暂停来源明确跳过，`NOVEL_TEST_PROXY=1` 可使用本机 7890 代理复测书海阁。
+
+本地入口位于收藏状态栏的“读过”后，数量通过 `NovelLocalLibrary` 监听 `novel.files.0` 中的导入列表，反映该入口可打开的电子书。绑定到单个 Bangumi 条目的导入文件仍保存在对应作品的阅读页面，不计入独立本地入口。
+
+关联作品卡片和关系图节点通过 `rememberOpenBookRelation` 打开应用内详情。书籍关系缺少平台时，通过现有书籍通道读取被点击条目的 `platform`，小说进入 `NovelDetail`，漫画进入 `MangaDetail`；番剧使用原有详情路由。请求失败保留当前页面并显示错误。
+
+在线插图请求携带书源主页的 Referer 和 User-Agent；订阅可覆盖这两个字段，账号 Authorization 与 Cookie 不转发到图片域名。阅读与离线缓存共用同一图片请求。正文解析保留普通、延迟加载和 SVG image 引用的顺序，EPUB 资源继续由本地路径校验和解析。`NovelSourceRepositoryTest` 覆盖插图请求头及相对地址，`NovelFileReaderTest` 覆盖 SVG 包装与纯插图章节；设置 `NOVEL_ILLUSTRATION_FIXTURE` 可用真实下载图片运行阅读器绘制测试。

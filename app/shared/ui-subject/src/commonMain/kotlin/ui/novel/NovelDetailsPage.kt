@@ -11,7 +11,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -74,8 +73,8 @@ fun NovelDetailsRoute(
     var chapters by rememberSaveable { mutableStateOf(false) }
     var files by rememberSaveable { mutableStateOf(false) }
     var cache by rememberSaveable { mutableStateOf(false) }
-    val uriHandler = LocalUriHandler.current
     var showRelations by rememberSaveable { mutableStateOf(false) }
+    val openRelated = rememberOpenBookRelation(book.subjectId, details.relations, { showRelations = false }, social::resolveRelation)
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val window = LocalPlatformWindow.current
     val currentFullscreen by rememberUpdatedState(fullscreen)
@@ -117,7 +116,7 @@ fun NovelDetailsRoute(
                 onImport = { picker.launch() }, onFiles = { files = true }, onCache = { cache = true },
                 modifier = scroll, ratingActions = social,
                 onRelations = { fullscreen = false; showRelations = true }, onRetryRelations = social::loadRelations,
-                onRelatedSubject = { uriHandler.openUri("https://bgm.tv/subject/$it") },
+                onRelatedSubject = openRelated,
             ) else Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
                 SecondaryTabRow(tab) {
                     Tab(tab == 0, { tab = 0 }, text = { Text("详情") })
@@ -158,7 +157,7 @@ fun NovelDetailsRoute(
         }
         if (showRelations) {
             SubjectRelationGraphScreen(SubjectRelationGraphUiState(mangaRelationGraph(book, details), null),
-                social::loadRelations, { uriHandler.openUri("https://bgm.tv/subject/${it.subjectId}") }, modifier,
+                social::loadRelations, { openRelated(it.subjectId) }, modifier,
                 navigationIcon = {
                     IconButton({ showRelations = false }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "返回小说详情") }
                 })

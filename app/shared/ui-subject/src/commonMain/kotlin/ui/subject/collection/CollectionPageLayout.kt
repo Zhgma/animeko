@@ -223,6 +223,7 @@ object CollectionPageFilters {
         },
         scrollState: ScrollState = rememberScrollState(),
         tabModifier: (UnifiedCollectionType) -> Modifier = { Modifier },
+        trailingTabs: @Composable () -> Unit = {},
     ) {
         val widths = remember { mutableStateListOf(*COLLECTION_TABS_SORTED.map { 24.dp }.toTypedArray()) }
         SecondaryScrollableTabRow(
@@ -252,6 +253,7 @@ object CollectionPageFilters {
                     },
                 )
             }
+            trailingTabs()
         }
     }
 

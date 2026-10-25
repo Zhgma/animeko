@@ -131,7 +131,7 @@ internal fun NovelReader(
                         contentPadding = PaddingValues(horizontal = if (maxWidth > 700.dp) (maxWidth - 660.dp) / 2 else 24.dp, vertical = 28.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         itemsIndexed(blocks) { index, block ->
-                            if (block.image != null) AsyncImage(block.image, "插图", Modifier.fillMaxWidth().heightIn(min = 160.dp),
+                            if (block.image != null) AsyncImage(block.image, "插图", Modifier.fillMaxWidth().heightIn(min = 160.dp).testTag("novel-illustration-$index"),
                                 onError = { failedImages = failedImages + index }, onSuccess = { failedImages = failedImages - index })
                             else Text(block.text, color = foreground, fontSize = settings.fontSize.sp,
                                 lineHeight = (settings.fontSize * settings.lineHeight).sp, modifier = Modifier.fillMaxWidth().testTag("novel-paragraph-$index"))

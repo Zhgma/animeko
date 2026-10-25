@@ -28,7 +28,7 @@ data class MangaDetails(
 )
 
 data class MangaRelation(val id: Int, val type: Int, val title: String, val originalTitle: String,
-    val cover: String, val relation: String)
+    val cover: String, val relation: String, val platform: String = "")
 
 /** Public metadata and comments are independent of the anime server and its collection cache. */
 class MangaDetailsRepository(private val http: MangaBangumiHttp) {
@@ -60,8 +60,16 @@ class MangaDetailsRepository(private val http: MangaBangumiHttp) {
         return Json.parseToJsonElement(response).jsonArray.map { item ->
             val value = item.jsonObject
             MangaRelation(value.number("id"), value.number("type"), value.text("name_cn").ifBlank { value.text("name") },
-                value.text("name"), value.obj("images").text("common"), value.text("relation"))
+                value.text("name"), value.obj("images").text("common"), value.text("relation"), value.text("platform"))
         }.distinctBy { it.id }.filter { it.id != id }
+    }
+
+    /** Related books omit platform in v0; resolve only the selected book through the books transport. */
+    suspend fun resolveRelation(relation: MangaRelation): MangaRelation {
+        if (relation.type != 1 || relation.platform.isNotBlank()) return relation
+        val root = Json.parseToJsonElement(http.get("https://api.bgm.tv/v0/subjects/${relation.id}").requireSuccess()).jsonObject
+        check(root.number("type") == 1) { "关联条目不是书籍，请刷新后重试" }
+        return relation.copy(platform = root.text("platform"))
     }
 
     /** Null means an authenticated account has not collected this subject. */

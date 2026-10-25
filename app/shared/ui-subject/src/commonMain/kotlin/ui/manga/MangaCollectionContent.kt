@@ -23,7 +23,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.Tab
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import me.him188.ani.app.ui.foundation.layout.plus
@@ -97,6 +97,7 @@ fun MangaCollectionPageContent(
     actions: @Composable () -> Unit = {},
     novel: Boolean = false,
     onLocalBooks: () -> Unit = {},
+    localBookCount: Int = 0,
     usingBangumiCache: Boolean = false,
 ) {
     val pager = rememberPagerState(initialPage = MANGA_COLLECTION_TABS.indexOf(state.type)) { MANGA_COLLECTION_TABS.size }
@@ -117,6 +118,19 @@ fun MangaCollectionPageContent(
                     CollectionTypeTabLabel(mangaTypeLabel(mangaType), state.page(mangaType).count)
                 },
                 tabModifier = { Modifier.testTag("manga-status-${it.name}") },
+                trailingTabs = {
+                    if (novel) Tab(selected = false, onClick = onLocalBooks,
+                        modifier = Modifier.testTag("novel-local-books"),
+                        text = { CollectionTypeTabLabel("本地", localBookCount) })
+                },
+            )
+            if (usingBangumiCache) Text(
+                "正在使用 Bangumi 缓存，可继续选源阅读",
+                modifier = Modifier.fillMaxWidth()
+                    .padding(horizontal = currentWindowAdaptiveInfo1().windowSizeClass.paneHorizontalPadding + 16.dp, vertical = 8.dp)
+                    .testTag("manga-cache-notice-${MANGA_COLLECTION_TABS[pager.currentPage].name}"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         },
         isRefreshing = { state.page(MANGA_COLLECTION_TABS[pager.currentPage]).loading },
@@ -149,18 +163,6 @@ fun MangaCollectionPageContent(
                         .then(if (nestedScrollConnection != null) Modifier.nestedScroll(nestedScrollConnection) else Modifier),
                     contentPadding = contentPadding + PaddingValues(spacing / 2),
                 ) {
-                    if (usingBangumiCache) item(key = "bangumi-cache", span = { GridItemSpan(maxLineSpan) }) {
-                        Text(
-                            "正在使用 Bangumi 缓存，可继续选源阅读",
-                            modifier = Modifier.fillMaxWidth().padding(spacing / 2)
-                                .testTag("manga-cache-notice-${type.name}"),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    if (novel) item(span = { GridItemSpan(maxLineSpan) }) {
-                        TextButton(onLocalBooks, Modifier.fillMaxWidth().testTag("novel-local-books")) { Text("本地电子书 · TXT / EPUB / MOBI / AZW3") }
-                    }
                     if (state.needsLogin) {
                         item(span = { GridItemSpan(maxLineSpan) }) {
                             MangaMessage(if (novel) "登录后同步小说收藏" else stringResource(Lang.manga_login_title), if (novel) "使用 Bangumi 账号同步想读、在读和读过的小说" else stringResource(Lang.manga_login_message)) {

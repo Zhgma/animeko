@@ -17,6 +17,24 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class MangaDetailsRepositoryTest {
+    @Test fun resolvesMissingBookPlatformWithoutChangingAnimeTransport() = runTest {
+        var requests = 0
+        val client = HttpClient(MockEngine { request ->
+            requests++
+            assertEquals("/v0/subjects/140", request.url.encodedPath)
+            assertNull(request.headers["Authorization"])
+            respond("""{"id":140,"type":1,"platform":"小说"}""")
+        })
+        try {
+            val repository = MangaDetailsRepository(client.asScopedHttpClient())
+            val related = MangaRelation(140, 1, "第十四卷", "Volume 14", "cover", "单行本")
+            assertEquals("小说", repository.resolveRelation(related).platform)
+            assertEquals(related.copy(platform = "漫画"), repository.resolveRelation(related.copy(platform = "漫画")))
+            assertEquals(related.copy(type = 2), repository.resolveRelation(related.copy(type = 2)))
+            assertEquals(1, requests)
+        } finally { client.close() }
+    }
+
     @Test
     fun metadataKeepsRatingDistributionAndStructuredAliases() = runTest {
         val client = HttpClient(MockEngine {

@@ -25,7 +25,7 @@ import me.him188.ani.utils.ktor.ScopedHttpClient
 /** Native protocol helpers plus remotely maintained passive HTTP/CSS rules. */
 class NovelSourceRepository(
     private val request: suspend (NovelRequest) -> String,
-    private val fetchImage: suspend (String) -> ByteArray,
+    private val fetchImage: suspend (NovelRequest) -> ByteArray,
     private val definitions: suspend () -> List<NovelSourceDefinition>,
 ) {
     constructor(fetch: suspend (String) -> String) : this({ fetch(it.url) }, { error("图片下载不可用") }, { DefaultNovelSources.all })
@@ -39,8 +39,11 @@ class NovelSourceRepository(
         }
         check(response.status.value in 200..299) { "书源请求失败 (${response.status.value})" }
         response.bodyAsText().also { require(it.length <= 8 * 1024 * 1024) { "书源响应过大" } }
-    } }, { url -> client.use {
-        val response = get(url) { timeout { requestTimeoutMillis = 30_000 } }
+    } }, { req -> client.use {
+        val response = get(req.url) {
+            req.headers.forEach { (key, value) -> header(key, value) }
+            timeout { requestTimeoutMillis = 30_000 }
+        }
         check(response.status.value in 200..299) { "插图下载失败 (${response.status.value})" }
         check(response.headers["Content-Type"]?.startsWith("image/") == true) { "书源没有返回插图" }
         response.body<ByteArray>().also { require(it.size <= 20 * 1024 * 1024) { "插图过大" } }
@@ -49,9 +52,15 @@ class NovelSourceRepository(
     private suspend fun definition(source: NovelSource) = definitions().firstOrNull { it.source == source } ?: error("该书源已停用或删除，请重新选择")
     private suspend fun fetch(url: String) = request(NovelRequest(url))
 
-    suspend fun image(url: String): ByteArray {
+    suspend fun image(book: NovelBook, url: String): ByteArray {
         require(Url(url).protocol.name in setOf("https", "http"))
-        return fetchImage(url)
+        val source = definition(book.source)
+        // Image CDNs need the referring site; account headers never cross to another host.
+        fun configured(name: String) = source.headers.entries.firstOrNull { it.key.equals(name, ignoreCase = true) }?.value
+        return fetchImage(NovelRequest(url, headers = mapOf(
+            "User-Agent" to (configured("User-Agent") ?: "Mozilla/5.0 Animecomic"),
+            "Referer" to (configured("Referer") ?: source.home.trimEnd('/') + "/"),
+        )))
     }
 
     suspend fun search(source: NovelSource, keyword: String): List<NovelBook> {
@@ -151,7 +160,7 @@ private fun JsonObject.list() = get("list")?.jsonArray?.map { it.jsonObject }.or
 
 /** Render passive text/images only. No scripts, embedded frames, stylesheet or remote document execution. */
 internal fun htmlBlocks(root: Element, baseUrl: String, resolveImage: (String) -> String? = { url ->
-    runCatching { Url(url) }.getOrNull()?.takeIf { it.protocol.name in setOf("https", "http") }?.toString()
+    runCatching { Url(novelUrl(baseUrl, url)) }.getOrNull()?.takeIf { it.protocol.name in setOf("https", "http") }?.toString()
 }): List<NovelBlock> {
     root.select("script,style,iframe,object,form,nav").remove()
     val result = mutableListOf<NovelBlock>()
@@ -163,10 +172,12 @@ internal fun htmlBlocks(root: Element, baseUrl: String, resolveImage: (String) -
             is Element -> {
                 val block = node.tagName() in setOf("p", "div", "section", "h1", "h2", "h3", "li", "br", "mbp:pagebreak")
                 if (block) flush()
-                if (node.tagName() == "img") {
+                if (node.tagName() in setOf("img", "image")) {
                     flush()
-                    resolveImage(node.attr("src"))?.let { result += NovelBlock(image = it) }
-                        ?: resolveImage(node.absUrl("src"))?.let { result += NovelBlock(image = it) }
+                    val attributes = if (node.tagName() == "image") listOf("href", "xlink:href")
+                        else listOf("data-src", "data-original", "src")
+                    attributes.asSequence().map { node.attr(it).trim() }.filter { it.isNotBlank() }
+                        .mapNotNull(resolveImage).firstOrNull()?.let { result += NovelBlock(image = it) }
                 } else node.childNodes().forEach(::visit)
                 if (block) flush()
             }

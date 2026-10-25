@@ -3,9 +3,42 @@ package me.him188.ani.app.data.repository.novel
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
+import com.fleeksoft.ksoup.Ksoup
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.headersOf
+import me.him188.ani.utils.ktor.asScopedHttpClient
 import kotlin.test.*
 
 class NovelSourceRepositoryTest {
+    @Test fun illustrationTransportSendsSourceRefererWithoutAccountCredentials() = runTest {
+        val client = HttpClient(MockEngine { request ->
+            assertEquals("picture.example.org", request.url.host)
+            assertEquals("https://www.huanmengacg.com/", request.headers["Referer"])
+            assertEquals("Mozilla/5.0 Animecomic", request.headers["User-Agent"])
+            assertNull(request.headers["Authorization"])
+            assertNull(request.headers["Cookie"])
+            respond(byteArrayOf(1, 2, 3), headers = headersOf("Content-Type", "image/jpeg"))
+        })
+        try {
+            val bytes = NovelSourceRepository(client.asScopedHttpClient()).image(
+                NovelBook(NovelSource.HUANMENG, "8655", "无职转生"), "https://picture.example.org/plate.jpg")
+            assertContentEquals(byteArrayOf(1, 2, 3), bytes)
+        } finally { client.close() }
+    }
+
+    @Test fun relativeLazyAndSvgIllustrationsKeepTheirPosition() {
+        val base = "https://example.org/books/14/10.html"
+        val html = """<p>之前</p><img src="../images/a.jpg"><p>之间</p>
+            <img src="data:image/gif;base64,AA" data-src="//cdn.example.org/b.jpg">
+            <svg><image xlink:href="/images/c.png"/></svg><p>之后</p>"""
+        val blocks = htmlBlocks(Ksoup.parse(html, base).body(), base)
+        assertEquals(listOf("之前", "", "之间", "", "", "之后"), blocks.map { it.text })
+        assertEquals(listOf("https://example.org/books/images/a.jpg", "https://cdn.example.org/b.jpg",
+            "https://example.org/images/c.png"), blocks.mapNotNull { it.image })
+    }
+
     @Test fun freeChaptersOnlyAndImagesSurviveParsing() = runTest {
         val repository = NovelSourceRepository { url ->
             when {
