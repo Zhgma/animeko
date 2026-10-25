@@ -1,72 +1,72 @@
 {
-  "version": "0.3.0-beta.1",
-  "versionCode": 50420,
-  "tag": "0.3.0-beta.1",
+  "version": "0.3.0-beta.2",
+  "versionCode": 50421,
+  "tag": "0.3.0-beta.2",
   "prerelease": true,
-  "sourceCommit": "0cfa9f3c605269ce66cf5e14435f3f4f712ca0b8",
+  "sourceCommit": "a422b6ea3f3c9229b7a3d9f1ebd51b46aad1862d",
   "assets": {
-    "ani-0.3.0-beta.1-arm64-v8a.apk": {
-      "sha256": "6eae62a338bc3f22987f65db112d00851a5c8e50160b9da1bbb191df46b2c94b",
-      "size": 38378169,
+    "ani-0.3.0-beta.2-arm64-v8a.apk": {
+      "sha256": "4e91cb8e2d65d6c65fd9aa095f240d683b6f03aba2eb7abb8eb2ce610e83841a",
+      "size": 38427321,
       "package": "me.him188.ani",
       "certificateSha256": "0e9cd761d18f282964ed79b7ec06e1ee5f6be84e84d065e8766151291915365a"
     },
-    "ani-0.3.0-beta.1-arm64-v8a.apk.sha1": {
-      "sha256": "02dbef2bad7b52a389fa612b8068bd5c2d034f771504edb4d35ac755911c2edd",
+    "ani-0.3.0-beta.2-arm64-v8a.apk.sha1": {
+      "sha256": "016dc91a58caedf881e3ce1a4ca257f6febc4b2656d944b3a21dff89d396754a",
       "size": 40
     },
     "SHA256SUMS.txt": {
-      "sha256": "81d3c6fc2f7900f7231dc76ca777f2892516a9227e04891b04ffb090dc54f20b",
+      "sha256": "eb3fe036a8037853fca8a9c402df961ea8b582f8fb3a4ce2fd64e3ca88fe2875",
       "size": 97
     },
-    "ani-0.3.0-beta.1-windows-x86_64.zip": {
-      "size": 318350798,
-      "sha256": "20f965ac3d6eca58ab8586213aae5290b22ebcbaf7d260234d9dc87a04359dd7",
+    "ani-0.3.0-beta.2-windows-x86_64.zip": {
+      "size": 318520228,
+      "sha256": "4795a8408c5edbcd20a01f80d8317620212201a42d0f37fcb4493e6341ba108e",
       "parts": [
         {
-          "name": "ani-0.3.0-beta.1-windows-x86_64.zip.part000",
+          "name": "ani-0.3.0-beta.2-windows-x86_64.zip.part000",
           "size": 50331648,
-          "sha256": "612815b30f03be423711f3d0885324fa5c105912bbad7e4f253762209664eb07"
+          "sha256": "f7fa1fe0fb04f72fce493759eb418896add99c04bf3b71438e9331ccd380fdf4"
         },
         {
-          "name": "ani-0.3.0-beta.1-windows-x86_64.zip.part001",
+          "name": "ani-0.3.0-beta.2-windows-x86_64.zip.part001",
           "size": 50331648,
-          "sha256": "bfc81787349e0e2f4be233f87511c0b0b1bf363f857149b7abdfb6206cc87958"
+          "sha256": "ddcd01a5b7dd774a5ec41672ac9bf3542b89ea46e919a448ec964f3f127f221a"
         },
         {
-          "name": "ani-0.3.0-beta.1-windows-x86_64.zip.part002",
+          "name": "ani-0.3.0-beta.2-windows-x86_64.zip.part002",
           "size": 50331648,
-          "sha256": "4132e37531ab188e52e20143cffba881cd1204c0a2bdfe60e3f933d130f4a96c"
+          "sha256": "78302d1624e52525aa02abd345777454caa9168b0b160b23be6880fdb5877c7b"
         },
         {
-          "name": "ani-0.3.0-beta.1-windows-x86_64.zip.part003",
+          "name": "ani-0.3.0-beta.2-windows-x86_64.zip.part003",
           "size": 50331648,
-          "sha256": "5b8b0ccb9c73bbcb6f9ddb20783a9dd5fc60a3ac2a89e6a962301ed2996d8d2a"
+          "sha256": "859b90cc29ab1f0d1b81c25d71d78745356fb0aa4e76aa7c35d844716f6e983d"
         },
         {
-          "name": "ani-0.3.0-beta.1-windows-x86_64.zip.part004",
+          "name": "ani-0.3.0-beta.2-windows-x86_64.zip.part004",
           "size": 50331648,
-          "sha256": "d46f0e24c7e3c7439032fae849e2678316eadf693d6489cfc2442deb21c12d43"
+          "sha256": "e40c1ae6c669b219a9566c9d51c5de999a45ce9fd6cc9d6df595ee7ff7ff0eca"
         },
         {
-          "name": "ani-0.3.0-beta.1-windows-x86_64.zip.part005",
+          "name": "ani-0.3.0-beta.2-windows-x86_64.zip.part005",
           "size": 50331648,
-          "sha256": "89c2c08daae4db664dfb035717ce9f5fe5a960198a2d3ecf749031fa91bb2b45"
+          "sha256": "36f300d0c2e78430da75a25bb70bec20a0dfd8ec8ee5c7b9e84774fc693228ea"
         },
         {
-          "name": "ani-0.3.0-beta.1-windows-x86_64.zip.part006",
-          "size": 16360910,
-          "sha256": "c669eaa3c54fdae5c1bf64039a683de1bf89aadd13fe503c88dfee401b5bd65f"
+          "name": "ani-0.3.0-beta.2-windows-x86_64.zip.part006",
+          "size": 16530340,
+          "sha256": "53666175b23f1f602dceb4edd42d2129ee568b097bcfdda44f7a84db3c983d3b"
         }
       ]
     },
-    "ani-0.3.0-beta.1-windows-x86_64.zip.sha1": {
+    "ani-0.3.0-beta.2-windows-x86_64.zip.sha1": {
       "size": 40,
-      "sha256": "fc79ce3925ac44b1f0d21a6822d9ac3989ca58479c1ab2225a757a57e3d83ca6"
+      "sha256": "ae4acb273ccfe7d36cdfe804065f916d2c999e72a99a404f0d8926405a665e29"
     },
-    "ani-0.3.0-beta.1-windows-x86_64.zip.sha256": {
+    "ani-0.3.0-beta.2-windows-x86_64.zip.sha256": {
       "size": 102,
-      "sha256": "d439b103070330550e36eb5cfaf157ae17240b9e6316041bebcb3f27ac579963"
+      "sha256": "bd98c0179c34571fa309f6f814b900bd0ffc6ec4b62265fbf8c8d3fbd499fb52"
     }
   }
 }
