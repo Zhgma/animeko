@@ -32,9 +32,6 @@ import me.him188.ani.app.navigation.LocalNavigator
 import me.him188.ani.app.navigation.NavRoutes
 import me.him188.ani.app.domain.search.SubjectType
 import me.him188.ani.app.data.repository.manga.MangaCollection
-import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import me.him188.ani.app.ui.novel.NovelDetailsRoute
 import me.him188.ani.app.ui.manga.MangaDetailsRoute
 import me.him188.ani.app.ui.exploration.search.SearchPage
@@ -101,9 +98,19 @@ fun SearchScreen(
             if (searchPageState.query.type == SubjectType.NOVEL) {
                 val book by vm.bookPreview.collectAsStateWithLifecycle()
                 book?.let { item ->
-                    Column {
-                        Text(item.title)
-                        TextButton({ navigator.navigate(NavRoutes.NovelDetail(item.subjectId, item.title, item.originalTitle, item.imageUrl)) }) { Text("打开小说详情与阅读器") }
+                    key(item.subjectId) {
+                        NovelDetailsRoute(
+                            MangaCollection(item.subjectId, item.title, item.originalTitle, item.imageUrl,
+                                0, 0, 0, 0, 0, false),
+                            onBack = {
+                                vm.onSearchPageIntent(SearchPageIntent.ClearSelection)
+                                coroutineScope.launch { listDetailNavigator.navigateBack() }
+                            },
+                            onReadRequested = { chapterId ->
+                                navigator.navigate(NavRoutes.NovelDetail(item.subjectId, item.title, item.originalTitle,
+                                    item.imageUrl, startReading = true, initialChapterId = chapterId))
+                            },
+                        )
                     }
                 }
             } else if (searchPageState.query.type == SubjectType.BOOK) {

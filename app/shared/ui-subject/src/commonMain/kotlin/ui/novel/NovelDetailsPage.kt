@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.him188.ani.app.data.repository.manga.MangaCollection
 import me.him188.ani.app.data.repository.novel.NovelSource
+import me.him188.ani.app.data.repository.novel.NovelChapter
 import me.him188.ani.app.platform.LocalContext
 import me.him188.ani.app.ui.foundation.AsyncImage
 import me.him188.ani.app.ui.foundation.layout.LocalPlatformWindow
@@ -35,10 +36,16 @@ import me.him188.ani.app.ui.foundation.layout.setSystemBarVisible
 import me.him188.ani.app.ui.foundation.navigation.BackHandler
 import me.him188.ani.app.ui.manga.*
 import me.him188.ani.app.ui.mediaselect.common.MediaSelectorDialog
+import me.him188.ani.app.ui.subject.relations.SubjectRelationGraphScreen
+import me.him188.ani.app.ui.subject.relations.SubjectRelationGraphUiState
 import me.him188.ani.app.ui.rating.EditableRatingDialogsHost
 
 @Composable
-fun NovelDetailsRoute(book: MangaCollection, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun NovelDetailsRoute(
+    book: MangaCollection, onBack: () -> Unit, modifier: Modifier = Modifier,
+    startReading: Boolean = false, initialChapterId: String? = null,
+    onReadRequested: ((String?) -> Unit)? = null,
+) {
     val context = LocalContext.current
     val social = remember(book.subjectId, context) { MangaDetailsViewModel(book, context, enableReading = false) }
     val vm = remember(book.subjectId, context) { NovelViewModel(book.subjectId, context, book.title) }
@@ -46,6 +53,18 @@ fun NovelDetailsRoute(book: MangaCollection, onBack: () -> Unit, modifier: Modif
     val state by vm.state.collectAsStateWithLifecycle()
     val details by social.state.collectAsStateWithLifecycle()
     val downloads by vm.downloads.state.collectAsStateWithLifecycle()
+    var initialReadingOpened by remember(book.subjectId, startReading, initialChapterId) { mutableStateOf(false) }
+    LaunchedEffect(startReading, initialChapterId, state.chapters) {
+        if (startReading && !initialReadingOpened && state.chapters.isNotEmpty()) {
+            initialReadingOpened = true
+            val chapter = state.chapters.firstOrNull { it.id == initialChapterId }
+            if (chapter != null) vm.open(chapter) else vm.resume()
+        }
+    }
+    val read: () -> Unit = { if (onReadRequested != null) onReadRequested(null) else vm.resume() }
+    val openChapter: (NovelChapter) -> Unit = { chapter ->
+        if (onReadRequested != null) onReadRequested(chapter.id) else vm.open(chapter)
+    }
     LaunchedEffect(details.details) {
         details.details?.let { vm.updateAliases(listOf(it.title, it.originalTitle) + it.aliases) }
     }
@@ -55,6 +74,8 @@ fun NovelDetailsRoute(book: MangaCollection, onBack: () -> Unit, modifier: Modif
     var chapters by rememberSaveable { mutableStateOf(false) }
     var files by rememberSaveable { mutableStateOf(false) }
     var cache by rememberSaveable { mutableStateOf(false) }
+    val uriHandler = LocalUriHandler.current
+    var showRelations by rememberSaveable { mutableStateOf(false) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val window = LocalPlatformWindow.current
     val currentFullscreen by rememberUpdatedState(fullscreen)
@@ -70,7 +91,8 @@ fun NovelDetailsRoute(book: MangaCollection, onBack: () -> Unit, modifier: Modif
     } }
     val closeReader = { fullscreen = false; vm.closeReader() }
     BackHandler {
-        if (fullscreen) fullscreen = false
+        if (showRelations) showRelations = false
+        else if (fullscreen) fullscreen = false
         else if (state.chapter != null) closeReader()
         else onBack()
     }
@@ -88,7 +110,15 @@ fun NovelDetailsRoute(book: MangaCollection, onBack: () -> Unit, modifier: Modif
     CompositionLocalProvider(LocalMangaActions provides actions, LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
         EditableRatingDialogsHost(details.rating, social)
         val information: @Composable (Modifier, Boolean) -> Unit = { scroll, refresh ->
-            Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+            if (book.subjectId > 0) NovelDetailsContent(
+                book, details, state, onBack = if (state.chapter != null) closeReader else onBack,
+                onRetry = social::loadDetails, onRead = read, onChapter = openChapter,
+                onSources = { sources = true }, onChapters = { chapters = true },
+                onImport = { picker.launch() }, onFiles = { files = true }, onCache = { cache = true },
+                modifier = scroll, ratingActions = social,
+                onRelations = { fullscreen = false; showRelations = true }, onRetryRelations = social::loadRelations,
+                onRelatedSubject = { uriHandler.openUri("https://bgm.tv/subject/$it") },
+            ) else Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
                 SecondaryTabRow(tab) {
                     Tab(tab == 0, { tab = 0 }, text = { Text("详情") })
                     if (book.subjectId > 0) Tab(tab == 1, { tab = 1 }, text = { Text("评论") })
@@ -100,7 +130,7 @@ fun NovelDetailsRoute(book: MangaCollection, onBack: () -> Unit, modifier: Modif
                         AsyncImage(details.details?.cover ?: book.coverUrl, "封面", Modifier.width(100.dp).height(140.dp))
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(state.book?.let { "${state.sourceSettings.title(it.source)} · ${it.title}" } ?: "请选择书源或导入电子书")
-                            Button(vm::resume, enabled = state.chapters.isNotEmpty() && !state.loading, modifier = Modifier.testTag("novel-read")) { Text("继续阅读") }
+                            Button(read, enabled = state.chapters.isNotEmpty() && !state.loading, modifier = Modifier.testTag("novel-read")) { Text("继续阅读") }
                             TextButton({ picker.launch() }, Modifier.testTag("novel-import"), enabled = !state.loading) { Text("导入电子书") }
                         }
                     } }
@@ -126,7 +156,13 @@ fun NovelDetailsRoute(book: MangaCollection, onBack: () -> Unit, modifier: Modif
                 }
             }
         }
-        if (state.chapter != null) {
+        if (showRelations) {
+            SubjectRelationGraphScreen(SubjectRelationGraphUiState(mangaRelationGraph(book, details), null),
+                social::loadRelations, { uriHandler.openUri("https://bgm.tv/subject/${it.subjectId}") }, modifier,
+                navigationIcon = {
+                    IconButton({ showRelations = false }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "返回小说详情") }
+                })
+        } else if (state.chapter != null) {
             val chapter = state.chapter!!
             val index = state.chapters.indexOf(chapter)
             MangaReaderLayout(fullscreen, modifier, reader = { _ ->
@@ -151,7 +187,8 @@ fun NovelDetailsRoute(book: MangaCollection, onBack: () -> Unit, modifier: Modif
                     }
                 }
             }, details = information)
-        } else Scaffold(modifier, topBar = {
+        } else if (book.subjectId > 0) information(modifier, true)
+        else Scaffold(modifier, topBar = {
             TopAppBar(title = { Text("小说详情") }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "返回追文") } })
         }) { padding -> Box(Modifier.padding(padding)) { information(Modifier, true) } }
     }
@@ -169,7 +206,7 @@ fun NovelDetailsRoute(book: MangaCollection, onBack: () -> Unit, modifier: Modif
             OutlinedTextField(query, { query = it }, label = { Text("查找章节") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             LazyColumn {
                 items(state.chapters.filter { query.isBlank() || it.title.contains(query, ignoreCase = true) }, key = { it.id }) { chapter ->
-                    TextButton({ chapters = false; vm.open(chapter) }, Modifier.fillMaxWidth()) { Text(chapter.title, Modifier.fillMaxWidth()) }
+                    TextButton({ chapters = false; openChapter(chapter) }, Modifier.fillMaxWidth()) { Text(chapter.title, Modifier.fillMaxWidth()) }
                 }
             }
         }

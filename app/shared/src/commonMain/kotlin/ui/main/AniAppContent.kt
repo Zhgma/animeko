@@ -340,7 +340,8 @@ private fun AniAppContentImpl(
             }
             entry<NavRoutes.NovelDetail> { route ->
                 NovelDetailsRoute(MangaCollection(route.subjectId, route.title, route.originalTitle, route.coverUrl,
-                    0, 0, 0, 0, 0, false), onBack = { aniNavigator.popBackStack() })
+                    0, 0, 0, 0, 0, false), onBack = { aniNavigator.popBackStack() },
+                    startReading = route.startReading, initialChapterId = route.initialChapterId)
             }
             entry<NavRoutes.MangaDetail> { route ->
                 MangaDetailsRoute(

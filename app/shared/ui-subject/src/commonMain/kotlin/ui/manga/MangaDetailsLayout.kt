@@ -92,6 +92,11 @@ internal fun MangaDetailsContent(
     onRelations: () -> Unit = {}, onRetryRelations: () -> Unit = {},
     onRelatedSubject: (Int) -> Unit = {},
     onAutoSelect: () -> Unit = {},
+    contentLabel: String = "漫画",
+    chapterUnit: String = "话",
+    testTagPrefix: String = "manga",
+    readingAction: (@Composable () -> Unit)? = null,
+    chapterContent: (@Composable () -> Unit)? = null,
 ) {
     var commentsSheet by rememberSaveable { mutableStateOf(false) }
     val pager = rememberPagerState { 2 }
@@ -122,15 +127,15 @@ internal fun MangaDetailsContent(
     val nestedScrollState = rememberNestedScrollableColumnState()
     val openExternal = { uriHandler.openUri("https://bgm.tv/subject/${manga.subjectId}") }
     val navigation: @Composable () -> Unit = {
-        IconButton(onBack, Modifier.testTag("manga-details-back")) {
-            Icon(Icons.AutoMirrored.Rounded.ArrowBack, "返回追漫")
+        IconButton(onBack, Modifier.testTag("${testTagPrefix}-details-back")) {
+            Icon(Icons.AutoMirrored.Rounded.ArrowBack, "返回")
         }
     }
-    val read: @Composable () -> Unit = {
+    val read: @Composable () -> Unit = readingAction ?: {
         Button({
             val chapter = state.chapters.firstOrNull { it.id == state.memory?.chapterId }
             if (chapter != null) onChapter(chapter) else if (state.book == null) actions.showSources() else actions.showChapters()
-        }, Modifier.fillMaxWidth().testTag("manga-start-reading")) {
+        }, Modifier.fillMaxWidth().testTag("${testTagPrefix}-start-reading")) {
             Text(if (state.memory?.chapterId != null) "继续阅读" else "选择章节")
         }
     }
@@ -151,21 +156,21 @@ internal fun MangaDetailsContent(
     val related: @Composable () -> Unit = {
         MangaRelatedSection(state, onRelations, onRetryRelations, onRelatedSubject)
     }
-    val chapters: @Composable () -> Unit = {
+    val chapters: @Composable () -> Unit = chapterContent ?: {
         MangaChapterGrid(state, onChapter)
     }
     MaterialThemeFromPaletteAndImage(
         if (themeSettings.useDynamicSubjectPageTheme) palette.palette else null,
         if (themeSettings.useDynamicSubjectPageTheme) bitmap else null,
     ) {
-        BoxWithConstraints(modifier.fillMaxSize().testTag("manga-details")) {
+        BoxWithConstraints(modifier.fillMaxSize().testTag("${testTagPrefix}-details")) {
             val layout = SubjectDetailsLayoutParams.calculate(maxWidth)
             if (layout.isMultiColumn) {
-                MultiColumnScaffold(layout, Modifier.testTag("manga-layout-${layout.kind}"),
+                MultiColumnScaffold(layout, Modifier.testTag("${testTagPrefix}-layout-${layout.kind}"),
                     navigationIcon = navigation, onClickOpenExternal = openExternal,
                     topBarTitle = headerInfo.preferredDisplayName(LocalSubjectAppearanceSettings.current.useOriginalTitle),
                     backgroundOverlay = { SubjectDetailsGradientBackground(if (themeSettings.enableAnimatedGradientSubjectPage) palette.palette else null) }) {
-                    Column(Modifier.width(layout.sidebarWidth).testTag("manga-detail-sidebar"),
+                    Column(Modifier.width(layout.sidebarWidth).testTag("${testTagPrefix}-detail-sidebar"),
                         verticalArrangement = Arrangement.spacedBy(layout.sidebarItemSpacing)) {
                         SubjectDetailsCover(headerInfo, onCoverImageSuccess = coverLoaded, onClickCover = openCover)
                         read()
@@ -175,10 +180,10 @@ internal fun MangaDetailsContent(
                         information()
                         tags()
                     }
-                    Column(Modifier.weight(1f).testTag("manga-detail-main"),
+                    Column(Modifier.weight(1f).testTag("${testTagPrefix}-detail-main"),
                         verticalArrangement = Arrangement.spacedBy(layout.sectionSpacing)) {
                         SubjectDetailsTitleBlock(headerInfo) {
-                            Text("漫画", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(contentLabel, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         loadState()
                         if (!layout.showRail) {
@@ -192,12 +197,12 @@ internal fun MangaDetailsContent(
                         }
                         if (!details?.summary.isNullOrBlank()) SubjectSummarySection(details!!.summary)
                         chapters()
-                        MangaLibraryControls(state, showCollection = false)
+                        MangaLibraryControls(state, showCollection = false, chapterUnit = chapterUnit)
                         related()
                         if (!layout.showRail) MangaReviewPreview(state, rail = false, onAll = { commentsSheet = true })
                     }
                     if (layout.showRail) {
-                        Column(Modifier.width(layout.railWidth).testTag("manga-detail-rail"),
+                        Column(Modifier.width(layout.railWidth).testTag("${testTagPrefix}-detail-rail"),
                             verticalArrangement = Arrangement.spacedBy(layout.railItemSpacing)) {
                             RailCard {
                                 SectionHeader("评分") { MangaRatingEntry(state, ratingActions) }
@@ -210,15 +215,15 @@ internal fun MangaDetailsContent(
                     }
                 }
             } else {
-                SubjectDetailsSingleColumnPage(headerInfo, seasonTags = { Text("漫画") },
+                SubjectDetailsSingleColumnPage(headerInfo, seasonTags = { Text(contentLabel) },
                     collectionData = { SubjectDetailsDefaults.CollectionData(stats, summary = "${stats.collect} 人收藏 / ${stats.doing} 人在读") },
                     collectionActions = { MangaLibraryControls(state, showProgress = false, fillWidth = false) },
                     rating = { Rating(rating, state.rating.selfRatingInfo.score, ratingActions::requestEditRating,
                         clickEnabled = state.rating.enableEdit && !state.rating.isUpdating) },
                     selectEpisodeButton = {
-                        SubjectDetailsDefaults.SelectEpisodeButtons(actions.showChapters, listContentDescription = "漫画目录", progressButton = read)
+                        SubjectDetailsDefaults.SelectEpisodeButtons(actions.showChapters, listContentDescription = "${contentLabel}目录", progressButton = read)
                     },
-                    modifier = Modifier.testTag("manga-layout-COMPACT"), navigationIcon = navigation,
+                    modifier = Modifier.testTag("${testTagPrefix}-layout-COMPACT"), navigationIcon = navigation,
                     onClickOpenExternal = openExternal,
                     onClickCover = openCover, onCoverImageSuccess = coverLoaded,
                     nestedScrollableColumnState = nestedScrollState,
@@ -226,7 +231,7 @@ internal fun MangaDetailsContent(
                         if (pager.currentPage == 1) ExtendedFloatingActionButton(
                             text = { Text("写评价") }, icon = { Icon(Icons.Rounded.AddComment, null) },
                             onClick = actions.writeReview, expanded = !nestedScrollState.isHeaderScrolledOut,
-                            modifier = Modifier.testTag("manga-write-review"))
+                            modifier = Modifier.testTag("${testTagPrefix}-write-review"))
                     },
                     tabRow = { overlay, visible ->
                         SubjectDetailsContentTabRow(pager, Modifier.ifThen(!overlay) { alpha(if (visible) 1f else 0f) },
@@ -241,7 +246,7 @@ internal fun MangaDetailsContent(
                                 verticalArrangement = Arrangement.spacedBy(layout.sectionSpacing)) {
                                 if (state.loading || state.usingBangumiCache || state.error != null) item("status") { loadState() }
                                 item("chapters") { chapters() }
-                                item("progress") { MangaLibraryControls(state, showCollection = false) }
+                                item("progress") { MangaLibraryControls(state, showCollection = false, chapterUnit = chapterUnit) }
                                 if (!details?.summary.isNullOrBlank()) item("summary") {
                                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                         Text("简介", style = MaterialTheme.typography.titleMedium)
