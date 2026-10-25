@@ -44,6 +44,29 @@ import kotlin.test.assertTrue
 
 @OptIn(TestOnly::class)
 class MangaReaderTest {
+    @Test fun pageButtonScrollsThroughIntermediatePositions() = runAniComposeUiTest {
+        setContent { ProvideCompositionLocalsForPreview {
+            MangaReaderPages(List(4) { MangaPage("page-$it", "", width = 400, height = 800) }, 0, {},
+                    { error("Test image unavailable") }, null, null, Modifier.requiredSize(380.dp, 650.dp))
+        } }
+        onNodeWithTag("manga-reader-scroll").performClick()
+        onNodeWithTag("manga-next-page").assertExists()
+        fun scrollPosition() = onNodeWithTag("manga-reader-scroll").fetchSemanticsNode()
+            .config[SemanticsProperties.VerticalScrollAxisRange].value()
+        val before = scrollPosition()
+        mainClock.autoAdvance = false
+        onNodeWithTag("manga-next-page").performClick()
+        mainClock.advanceTimeBy(96)
+        val middle = scrollPosition()
+        assertTrue(middle > before, "The page should move during the animation")
+        onNodeWithTag("manga-next-page").performClick()
+        mainClock.advanceTimeBy(400)
+        val after = scrollPosition()
+        assertTrue(after > middle, "The page must not jump to its destination immediately")
+        mainClock.advanceTimeBy(400)
+        assertEquals(after, scrollPosition(), "Repeated taps during animation must not queue another page")
+    }
+
     @Test
     fun fullscreenSideTapAdvancesSpreadAndCenterTogglesControls() = runAniComposeUiTest {
         var page = -1

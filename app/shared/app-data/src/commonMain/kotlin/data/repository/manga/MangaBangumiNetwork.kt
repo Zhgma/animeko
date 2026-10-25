@@ -30,6 +30,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.jsonObject
 import me.him188.ani.app.data.models.preference.ProxySettings
+import me.him188.ani.app.data.repository.RepositoryAuthorizationException
 import me.him188.ani.app.domain.foundation.DefaultHttpClientProvider
 import me.him188.ani.app.domain.foundation.ScopedHttpClientUserAgent
 import me.him188.ani.app.domain.foundation.withValue
@@ -96,6 +97,8 @@ class MangaBangumiCache(private val store: DataStore<Preferences>) {
         if (coolingDown && cached != null) { usingCache.value = true; return cached }
         val response = try { fetch() } catch (e: CancellationException) { throw e }
         catch (e: Exception) {
+            // Refreshing through Animeko can fail before a Bangumi response is returned.
+            if (e is RepositoryAuthorizationException || e is MangaAuthorizationException) throw e
             mutex.withLock { unavailableUntil[account] = currentTimeMillis() + 30_000 }
             if (cached == null) throw e
             usingCache.value = true

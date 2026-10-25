@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import me.him188.ani.app.data.models.preference.ProxyConfig
 import me.him188.ani.app.data.models.preference.ProxyMode
+import me.him188.ani.app.data.repository.RepositoryAuthorizationException
 import me.him188.ani.utils.ktor.asScopedHttpClient
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -23,6 +24,42 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class MangaBangumiNetworkTest {
+    @Test fun rejectedAnimekoRefreshCannotReturnCachedIdentityOrStartOfflineCooldown() = runTest {
+        val cache = MangaBangumiCache(preferences())
+        var status = HttpStatusCode.OK
+        var requests = 0
+        val client = HttpClient(MockEngine {
+            requests++
+            respond("""{"username":"alice"}""", status)
+        })
+        try {
+            val http = MangaBangumiHttp(client.asScopedHttpClient(), cache,
+                booksApiBaseUrl = "https://books.test/api/books",
+                refreshAuthorization = { throw RepositoryAuthorizationException("Unauthorized") })
+            assertEquals(200, http.get("https://api.bgm.tv/v0/me", "old").status)
+            status = HttpStatusCode.Unauthorized
+            repeat(2) {
+                assertFailsWith<RepositoryAuthorizationException> {
+                    http.get("https://api.bgm.tv/v0/me", "old")
+                }
+            }
+            assertEquals(3, requests)
+            assertTrue(!cache.usingCache.value)
+            status = HttpStatusCode.OK
+            assertEquals(200, http.get("https://api.bgm.tv/v0/me", "old").status)
+            assertEquals(4, requests)
+        } finally { client.close() }
+    }
+
+    @Test fun thrownBangumiAuthorizationFailureCannotReturnCachedCollection() = runTest {
+        val cache = MangaBangumiCache(preferences())
+        cache.read("account", "GET /collections") { MangaBangumiResponse(200, "cached") }
+        assertFailsWith<MangaAuthorizationException> {
+            cache.read("account", "GET /collections") { throw MangaAuthorizationException() }
+        }
+        assertTrue(!cache.usingCache.value)
+    }
+
     @Test fun expiredAuthorizationRefreshesAndRetriesWithNewToken() = runTest {
         val seen = mutableListOf<String?>()
         var refreshes = 0

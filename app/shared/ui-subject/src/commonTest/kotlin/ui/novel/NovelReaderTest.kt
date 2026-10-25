@@ -4,6 +4,7 @@ package me.him188.ani.app.ui.novel
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.unit.dp
@@ -19,6 +20,30 @@ import kotlin.test.assertTrue
 
 @OptIn(TestOnly::class)
 class NovelReaderTest {
+    @Test fun pageButtonScrollsThroughIntermediatePositions() = runAniComposeUiTest {
+        setContent { ProvideCompositionLocalsForPreview {
+            NovelReader(List(30) { NovelBlock("正文段落。".repeat(80)) }, 0, 0, "测试章节",
+                    NovelReaderSettings(), {}, { _, _ -> }, {}, {}, {}, {}, null, null, false, {},
+                    Modifier.requiredSize(380.dp, 650.dp))
+        } }
+        onNodeWithTag("novel-reader-scroll").performClick()
+        onNodeWithText("下页").assertExists()
+        fun scrollPosition() = onNodeWithTag("novel-reader-scroll").fetchSemanticsNode()
+            .config[SemanticsProperties.VerticalScrollAxisRange].value()
+        val before = scrollPosition()
+        mainClock.autoAdvance = false
+        onNodeWithText("下页").performClick()
+        mainClock.advanceTimeBy(96)
+        val middle = scrollPosition()
+        assertTrue(middle > before, "The page should move during the animation")
+        onNodeWithText("下页").performClick()
+        mainClock.advanceTimeBy(400)
+        val after = scrollPosition()
+        assertTrue(after > middle, "The page must not jump to its destination immediately")
+        mainClock.advanceTimeBy(400)
+        assertEquals(after, scrollPosition(), "Repeated taps during animation must not queue another page")
+    }
+
     @Test fun threeTrackingTabsHaveIndependentSelection() = runAniComposeUiTest {
         var selected by mutableIntStateOf(0)
         setContent { ProvideCompositionLocalsForPreview { TrackingCollectionTabsContent(selected, { selected = it }, listOf("追番", "追漫", "追文")) } }

@@ -5,7 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -69,7 +71,10 @@ internal fun NovelReader(
         interaction++
         scope.launch {
             if (direction > 0 && !list.canScrollForward) currentNext?.invoke()
-            else list.scrollBy((list.layoutInfo.viewportEndOffset - list.layoutInfo.viewportStartOffset) * 0.85f * direction)
+            else list.animateScrollBy(
+                (list.layoutInfo.viewportEndOffset - list.layoutInfo.viewportStartOffset) * 0.85f * direction,
+                tween(320, easing = FastOutSlowInEasing),
+            )
         }
     }
     LaunchedEffect(Unit) { focus.requestFocus() }

@@ -25,6 +25,9 @@ import me.him188.ani.app.videoplayer.ui.PlayerControllerState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
@@ -304,7 +307,24 @@ internal fun MangaReaderPages(
             }
         }
         LaunchedEffect(Unit) { focusRequester.requestFocus() }
-        fun move(delta: Int) { interaction++; scope.launch { listState.animateScrollToItem((currentRow + delta).coerceIn(rows.indices)) } }
+        fun move(delta: Int) {
+            if (listState.isScrollInProgress) return
+            val target = (currentRow + delta).coerceIn(rows.indices)
+            if (target == currentRow) return
+            interaction++
+            scope.launch {
+                val layout = listState.layoutInfo
+                val targetOffset = layout.visibleItemsInfo.firstOrNull { it.index == target }?.offset
+                    ?: if (delta > 0) layout.visibleItemsInfo.firstOrNull { it.index == currentRow }?.let {
+                        it.offset + it.size + layout.mainAxisItemSpacing
+                    } else null
+                if (targetOffset != null) {
+                    listState.animateScrollBy(targetOffset.toFloat(), tween(320, easing = FastOutSlowInEasing))
+                } else {
+                    listState.animateScrollToItem(target)
+                }
+            }
+        }
         val tapPage: (Float) -> Unit = { fraction ->
             if (fullscreen && (fraction < 1f / 3f || fraction > 2f / 3f)) {
                 controller.toggleFullVisible(false)
