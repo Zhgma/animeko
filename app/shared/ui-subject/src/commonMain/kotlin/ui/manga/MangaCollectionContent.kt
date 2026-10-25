@@ -97,6 +97,7 @@ fun MangaCollectionPageContent(
     actions: @Composable () -> Unit = {},
     novel: Boolean = false,
     onLocalBooks: () -> Unit = {},
+    usingBangumiCache: Boolean = false,
 ) {
     val pager = rememberPagerState(initialPage = MANGA_COLLECTION_TABS.indexOf(state.type)) { MANGA_COLLECTION_TABS.size }
     val scope = rememberCoroutineScope()
@@ -148,6 +149,15 @@ fun MangaCollectionPageContent(
                         .then(if (nestedScrollConnection != null) Modifier.nestedScroll(nestedScrollConnection) else Modifier),
                     contentPadding = contentPadding + PaddingValues(spacing / 2),
                 ) {
+                    if (usingBangumiCache) item(key = "bangumi-cache", span = { GridItemSpan(maxLineSpan) }) {
+                        Text(
+                            "正在使用 Bangumi 缓存，可继续选源阅读",
+                            modifier = Modifier.fillMaxWidth().padding(spacing / 2)
+                                .testTag("manga-cache-notice-${type.name}"),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     if (novel) item(span = { GridItemSpan(maxLineSpan) }) {
                         TextButton(onLocalBooks, Modifier.fillMaxWidth().testTag("novel-local-books")) { Text("本地电子书 · TXT / EPUB / MOBI / AZW3") }
                     }

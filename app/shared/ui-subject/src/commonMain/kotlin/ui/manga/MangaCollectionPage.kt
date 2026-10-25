@@ -5,10 +5,6 @@
 
 package me.him188.ani.app.ui.manga
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Composable
@@ -38,12 +34,13 @@ fun MangaCollectionPage(
     val usingCache by vm.usingCache.collectAsStateWithLifecycle()
     val navigator = LocalNavigator.current
     MangaCollectionContent(
-        state, selfInfo, { Column { title(); if (usingCache) Text("正在使用 Bangumi 缓存，可继续选源阅读", style = MaterialTheme.typography.labelSmall) } }, vm::select, vm::refresh, onClickLogin,
+        state, selfInfo, title, vm::select, vm::refresh, onClickLogin,
         onOpen = { if (kind == BangumiBookKind.NOVEL) navigator.navigate(NavRoutes.NovelDetail(it.subjectId, it.title, it.originalTitle, it.coverUrl))
             else navigator.navigate(NavRoutes.MangaDetail(it.subjectId, it.title, it.originalTitle, it.coverUrl, it.chaptersRead, it.volumesRead)) },
         modifier = modifier,
         windowInsets = windowInsets,
         kind = kind,
+        usingBangumiCache = usingCache,
     )
 }
 
@@ -59,6 +56,7 @@ internal fun MangaCollectionContent(
     modifier: Modifier = Modifier,
     windowInsets: WindowInsets = AniWindowInsets.forPageContent(),
     kind: BangumiBookKind = BangumiBookKind.MANGA,
+    usingBangumiCache: Boolean = false,
 ) {
     val navigator = LocalNavigator.current
     MangaCollectionPageContent(
@@ -67,10 +65,7 @@ internal fun MangaCollectionContent(
         title = title, onSelect = onSelect, onRefresh = onRefresh,
         onClickLogin = { navigator.navigateBangumiAuthorize() }, onOpen = onOpen,
         modifier = modifier, windowInsets = windowInsets, novel = kind == BangumiBookKind.NOVEL,
+        usingBangumiCache = usingBangumiCache,
         onLocalBooks = { navigator.navigate(NavRoutes.NovelDetail(0, "本地阅读")) },
-        actions = {
-            TextButton({ navigator.navigate(NavRoutes.SubjectSearch(bookKind = kind.name)) }) { Text("搜索") }
-
-        },
     )
 }
