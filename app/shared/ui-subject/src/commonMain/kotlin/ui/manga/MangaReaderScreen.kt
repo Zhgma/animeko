@@ -1,6 +1,11 @@
 /* Copyright (C) 2026 OpenAni and contributors. SPDX-License-Identifier: AGPL-3.0-only */
 package me.him188.ani.app.ui.manga
 
+import me.him188.ani.app.ui.reading.ReaderStatusFooter
+import me.him188.ani.app.ui.reading.ReaderStatusSetting
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.safeDrawing
@@ -120,6 +125,7 @@ internal fun MangaReaderScreen(
     onComments: () -> Unit = {}, onRetryDownloads: () -> Unit = {},
     ratingActions: EditableRatingActions = EditableRatingActions.Noop,
     onRelations: () -> Unit = {}, onRetryRelations: () -> Unit = {}, onRelatedSubject: (Int) -> Unit = {},
+    showReaderStatus: Boolean = true, onShowReaderStatusChange: (Boolean) -> Unit = {},
 ) {
     val chapter = state.chapter ?: return
     val actions = LocalMangaActions.current
@@ -174,6 +180,7 @@ internal fun MangaReaderScreen(
                             onReaderLayout = onReaderLayout, modifier = Modifier.fillMaxSize(),
                             title = "${state.book?.title.orEmpty()} · ${chapter.title}", onBack = onBack,
                             fullscreen = fullscreen, onFullscreen = onFullscreen,
+                            showReaderStatus = showReaderStatus, onShowReaderStatusChange = onShowReaderStatusChange,
                             onChapters = { showChapters = true }, onSources = actions.showSources,
                             onReadCompleted = { actions.markRead(chapter) }, spreadOverride = landscape)
                     } else {
@@ -269,6 +276,7 @@ internal fun MangaReaderPages(
     title: String = "", onBack: () -> Unit = {}, onChapters: () -> Unit = {}, onSources: () -> Unit = {},
     onReadCompleted: () -> Unit = {},
     fullscreen: Boolean = false, onFullscreen: (Boolean) -> Unit = {},
+    showReaderStatus: Boolean = true, onShowReaderStatusChange: (Boolean) -> Unit = {},
 ) {
     if (pages.isEmpty()) return
     var rightToLeft by rememberSaveable { mutableStateOf(initialRightToLeft) }
@@ -278,6 +286,9 @@ internal fun MangaReaderPages(
     var decodedPages by remember(pages) { mutableStateOf(emptySet<Int>()) }
     val currentReadCompleted by rememberUpdatedState(onReadCompleted)
     val controller = remember(fullscreen) { PlayerControllerState() }
+    val readerInsets = if (fullscreen && showReaderStatus) {
+        WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+    } else WindowInsets.safeDrawing
     var showSettings by remember { mutableStateOf(false) }
     var interaction by remember { mutableIntStateOf(0) }
     val toggleControls: () -> Unit = { controller.toggleFullVisible(); interaction++ }
@@ -342,8 +353,9 @@ internal fun MangaReaderPages(
                 else -> false
             }
         }.focusable()) {
+            Column(Modifier.fillMaxSize()) {
             VideoScaffold(expanded = true, maintainAspectRatio = false, controllerState = controller,
-                modifier = Modifier.fillMaxSize(), contentWindowInsets = WindowInsets.safeDrawing,
+                modifier = Modifier.weight(1f).fillMaxWidth(), contentWindowInsets = readerInsets,
                 topBar = {
                     IconButton(onBack, Modifier.testTag("manga-reader-back")) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "返回漫画详情") }
                     Text(title, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -412,6 +424,8 @@ internal fun MangaReaderPages(
                     }
                 }
             })
+            if (fullscreen && showReaderStatus) ReaderStatusFooter(Color(0xff101014), Color.White)
+            }
 
         }
     }
@@ -421,6 +435,7 @@ internal fun MangaReaderPages(
                 Modifier.testTag("manga-reading-order")) { Text(if (rightToLeft) "先右后左" else "先左后右") }
             TextButton({ firstPageSingle = !firstPageSingle; onReaderLayout(rightToLeft, firstPageSingle) },
                 Modifier.testTag("manga-spread-offset")) { Text(if (firstPageSingle) "配对：首张单独" else "配对：从首张开始") }
+            ReaderStatusSetting(showReaderStatus, onShowReaderStatusChange)
         } }, confirmButton = { TextButton({ showSettings = false }, Modifier.testTag("manga-reader-settings-close")) { Text("完成") } })
 }
 

@@ -1,6 +1,8 @@
 /* Copyright (C) 2026 OpenAni and contributors. SPDX-License-Identifier: AGPL-3.0-only */
 package me.him188.ani.app.ui.manga
 
+import me.him188.ani.app.ui.reading.rememberReaderStatusPreference
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -60,6 +62,7 @@ fun MangaDetailsRoute(manga: MangaCollection, onBack: () -> Unit, modifier: Modi
     initialChapterId: String? = null, onReadChapter: ((MangaChapter) -> Unit)? = null,
 ) {
     val context = LocalContext.current
+    val (showReaderStatus, onShowReaderStatusChange) = rememberReaderStatusPreference()
     val vm = remember(manga.subjectId, context) { MangaDetailsViewModel(manga, context) }
     DisposableEffect(vm) { onDispose(vm::close) }
     val state by vm.state.collectAsStateWithLifecycle()
@@ -122,6 +125,7 @@ fun MangaDetailsRoute(manga: MangaCollection, onBack: () -> Unit, modifier: Modi
         MangaReaderScreen(state, onBack = { if (fullscreen) fullscreen = false else closeReader() }, onChapter = vm::openChapter,
             onPage = vm::rememberPage, loadImage = vm::image, onReaderLayout = vm::rememberReaderLayout, modifier = modifier,
             fullscreen = fullscreen, onFullscreen = { fullscreen = it }, onComments = vm::loadComments, onRetryDownloads = vm::retryDownloads, ratingActions = vm,
+            showReaderStatus = showReaderStatus, onShowReaderStatusChange = onShowReaderStatusChange,
             onRelations = { fullscreen = false; showRelations = true }, onRetryRelations = vm::loadRelations, onRelatedSubject = openRelated)
     } else {
         MangaDetailsContent(manga, state, vm.defaultKeyword(), onBack, vm::loadDetails, vm::loadComments,

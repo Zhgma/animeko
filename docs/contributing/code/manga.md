@@ -54,6 +54,8 @@
 
 ## 详情、漫画源与阅读器
 
+全屏阅读底部显示电池图标与本地 24 小时时间，控制栏收起后仍可见。阅读设置中的“全屏显示电量和时间”默认开启，与小说共用持久化偏好；状态栏位于内容区域之外并保留系统底部安全距离。
+
 详情页使用动画详情同一套 `SubjectDetailsLayoutParams.calculate`：小于 600dp 为单栏，600–1599dp 为双栏，1600dp 起为三栏，尺寸依据页面实际可用宽度。窄屏直接使用 `SubjectDetailsSingleColumnPage` 的封面和嵌套滚动、`SubjectDetailsContentTabRow` 的吸顶标签、`CollectionData` 的单行收藏统计、`Rating` 的评分入口，以及 `SelectEpisodeButtons` 的目录 / 阅读按钮布局。收藏使用 `SubjectCollectionTypeButton`，仅替换为阅读标签并隐藏不支持的删除操作；话 / 卷进度编辑位于章节下方。详情区按章节、简介、标签、作品信息、关联作品排列，评价页使用同款悬浮写评价按钮。
 
 双栏和三栏直接使用 `MultiColumnScaffold`、`SubjectDetailsCover` 和 `SubjectDetailsTitleBlock`，封面、阅读按钮及作品信息位于左侧，中间显示标题、简介和章节，三栏时评分与评论位于右侧 `RailCard`。封面可点击放大，配色遵循应用的动态主题与渐变背景设置；宽屏渐变使用 `SubjectDetailsGradientBackground`。评分摘要、直方图、收藏统计、标签、作品信息表和简介使用动画的共用组件。`SubjectInfo` 仅用于显示适配，不进入动画仓库或接口。

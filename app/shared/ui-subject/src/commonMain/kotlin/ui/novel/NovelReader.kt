@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 package me.him188.ani.app.ui.novel
 
+import me.him188.ani.app.ui.reading.ReaderStatusFooter
+import me.him188.ani.app.ui.reading.ReaderStatusSetting
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
@@ -51,6 +54,7 @@ internal fun NovelReader(
     onBack: () -> Unit, onChapters: () -> Unit, onSources: () -> Unit,
     onPrevious: (() -> Unit)?, onNext: (() -> Unit)?, fullscreen: Boolean, onFullscreen: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    showReaderStatus: Boolean = true, onShowReaderStatusChange: (Boolean) -> Unit = {},
 ) {
     if (blocks.isEmpty()) return
     val list = remember(blocks) { LazyListState(initialParagraph.coerceIn(blocks.indices), initialOffset.coerceAtLeast(0)) }
@@ -97,6 +101,9 @@ internal fun NovelReader(
     }
     val background = when (settings.theme) { 1 -> Color(0xffeee2c6); 2 -> Color(0xff17191c); else -> MaterialTheme.colorScheme.surface }
     val foreground = when (settings.theme) { 1 -> Color(0xff332d22); 2 -> Color(0xffcecece); else -> MaterialTheme.colorScheme.onSurface }
+    val readerInsets = if (fullscreen && showReaderStatus) {
+        WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+    } else WindowInsets.safeDrawing
     Box(modifier.fillMaxSize().focusRequester(focus).onPreviewKeyEvent {
         if (it.type != KeyEventType.KeyDown) false else when (it.key) {
             Key.F -> { onFullscreen(!fullscreen); true }
@@ -107,8 +114,9 @@ internal fun NovelReader(
             else -> false
         }
     }.focusable().testTag("novel-reader")) {
+        Column(Modifier.fillMaxSize()) {
         VideoScaffold(expanded = true, maintainAspectRatio = false, controllerState = controller,
-            modifier = Modifier.fillMaxSize(), contentWindowInsets = WindowInsets.safeDrawing,
+            modifier = Modifier.weight(1f).fillMaxWidth(), contentWindowInsets = readerInsets,
             topBar = {
                 IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "返回小说详情") }
                 Text(title, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -127,7 +135,7 @@ internal fun NovelReader(
                         } else toggle()
                     }) }
                     .semantics { onClick("显示或隐藏阅读控制栏") { toggle(); true } }) {
-                    LazyColumn(state = list, modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).testTag("novel-reader-scroll"),
+                    LazyColumn(state = list, modifier = Modifier.fillMaxSize().windowInsetsPadding(readerInsets).testTag("novel-reader-scroll"),
                         contentPadding = PaddingValues(horizontal = if (maxWidth > 700.dp) (maxWidth - 660.dp) / 2 else 24.dp, vertical = 28.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         itemsIndexed(blocks) { index, block ->
@@ -157,6 +165,8 @@ internal fun NovelReader(
                     }
                 }
             })
+        if (fullscreen && showReaderStatus) ReaderStatusFooter(background, foreground)
+        }
     }
     if (showSettings) AlertDialog(onDismissRequest = { showSettings = false }, title = { Text("阅读设置") }, text = {
         Column {
@@ -167,6 +177,7 @@ internal fun NovelReader(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("跟随主题", "纸色", "夜间").forEachIndexed { index, label ->
                 FilterChip(settings.theme == index, { onSettings(settings.copy(theme = index)) }, label = { Text(label) })
             } }
+            ReaderStatusSetting(showReaderStatus, onShowReaderStatusChange)
         }
     }, confirmButton = { TextButton({ showSettings = false }) { Text("完成") } })
 }

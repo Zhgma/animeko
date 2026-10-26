@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 package me.him188.ani.app.ui.novel
 
+import me.him188.ani.app.ui.reading.rememberReaderStatusPreference
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -46,6 +48,7 @@ fun NovelDetailsRoute(
     onReadRequested: ((String?) -> Unit)? = null,
 ) {
     val context = LocalContext.current
+    val (showReaderStatus, onShowReaderStatusChange) = rememberReaderStatusPreference()
     val social = remember(book.subjectId, context) { MangaDetailsViewModel(book, context, enableReading = false) }
     val vm = remember(book.subjectId, context) { NovelViewModel(book.subjectId, context, book.title, book.coverUrl) }
     DisposableEffect(vm, social) { onDispose { vm.close(); social.close() } }
@@ -179,7 +182,8 @@ fun NovelDetailsRoute(
                         onChapters = { chapters = true }, onSources = { sources = true },
                         onPrevious = state.chapters.getOrNull(index - 1)?.let { { vm.open(it) } },
                         onNext = state.chapters.getOrNull(index + 1)?.let { { vm.open(it) } },
-                        fullscreen = fullscreen, onFullscreen = { fullscreen = it })
+                        fullscreen = fullscreen, onFullscreen = { fullscreen = it },
+                        showReaderStatus = showReaderStatus, onShowReaderStatusChange = onShowReaderStatusChange)
                     else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             if (state.loading) CircularProgressIndicator()
