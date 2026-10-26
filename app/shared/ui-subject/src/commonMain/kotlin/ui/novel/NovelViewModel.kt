@@ -135,12 +135,27 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
     fun saveSourceSettings(settings: NovelSourceSettings) { backgroundScope.launch { sourceSettingsStore.savePreferences(settings) } }
 
     fun search(provider: NovelSource, keyword: String) {
+        search(provider, keyword, true)
+    }
+
+    fun loadSourceSearches() {
+        if (state.value.autoSelecting || title.isBlank()) return
+        state.value.sourceSettings.enabled.forEach { provider ->
+            val result = state.value.sourceSearches[provider]
+            if (result == null || result.loading && searchJobs[provider]?.isActive != true) search(provider, title, false)
+        }
+    }
+
+    private fun search(provider: NovelSource, keyword: String, promptLogin: Boolean) {
         if (provider !in state.value.sourceSettings.enabled || keyword.isBlank()) return
         searchJobs.remove(provider)?.cancel()
         fun update(value: NovelSearchState) { mutable.update { it.copy(sourceSearches = it.sourceSearches + (provider to value)) } }
         update(NovelSearchState(keyword, loading = true))
         searchJobs[provider] = backgroundScope.launch {
-            try { update(NovelSearchState(keyword, zlibraryLogin.retryWithLogin { source.search(provider, keyword) })) }
+            try {
+                if (promptLogin) update(NovelSearchState(keyword, zlibraryLogin.retryWithLogin { source.search(provider, keyword) }))
+                else update(searchNovelSource(provider, aliases, source::search))
+            }
             catch (e: CancellationException) { throw e }
             catch (e: Exception) { update(NovelSearchState(keyword, error = e.message ?: "搜索失败")) }
         }

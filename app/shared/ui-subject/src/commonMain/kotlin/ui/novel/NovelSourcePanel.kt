@@ -31,11 +31,13 @@ internal fun NovelSourcesDialog(state: NovelState, keyword: String, onDismiss: (
     onSearch: (NovelSource, String) -> Unit, onBook: (NovelBook) -> Unit, onAuto: () -> Unit,
     onSettings: (NovelSourceSettings) -> Unit,
     onZlibraryLogin: () -> Unit = {},
+    onLoadSources: () -> Unit = {},
 ) {
     var query by rememberSaveable { mutableStateOf(keyword) }
     var manage by rememberSaveable { mutableStateOf(false) }
     var mode by rememberSaveable { mutableStateOf(MediaSelectorMode.AUTO) }
     val uri = LocalUriHandler.current
+    LaunchedEffect(state.sourceSettings.enabled, state.autoSelecting) { onLoadSources() }
     MediaSelectorDialog(onDismiss) { _ ->
         Column(Modifier.fillMaxSize()) {
             MediaSelectorTopBar(if (manage) "管理来源" else "数据源", mode, { mode = it; manage = false }, onDismiss, showBt = false,
@@ -86,7 +88,10 @@ internal fun NovelSourcePanel(state: NovelState, keyword: String, onKeyword: (St
     val choices = settings.enabled.map { source ->
         ManualBrowseSource(source.name, source.name, MediaSourceInfo(displayName = settings.title(source), websiteUrl = settings.definition(source)!!.home))
     }
-    val books = settings.enabled.associateWith { source -> state.sourceSearches[source]?.books ?: listOfNotNull(state.book?.takeIf { it.source == source }) }
+    val books = settings.enabled.associateWith { source ->
+        val results = state.sourceSearches[source]?.books ?: listOfNotNull(state.book?.takeIf { it.source == source })
+        results.take(NOVEL_SEARCH_RESULT_LIMIT)
+    }
     LaunchedEffect(manual, selected) {
         if (manual && selected != null && keyword.isNotBlank() && state.sourceSearches[selected]?.keyword != keyword) onSearch(selected, keyword)
     }
@@ -113,7 +118,7 @@ internal fun NovelSourcePanel(state: NovelState, keyword: String, onKeyword: (St
         val rows = settings.enabled.map { source ->
             val result = state.sourceSearches[source]
             WebSource(source.name, source.name, "", settings.title(source), books.getValue(source).mapIndexed { index, book ->
-                WebSourceChannel(if (books.getValue(source).count { it.title == book.title } > 1) "${book.title} · ${book.author.ifBlank { (index + 1).toString() }} · ${book.edition} · ${index + 1}" else listOf(book.title, book.edition).filter { it.isNotBlank() }.joinToString(" · "))
+                WebSourceChannel(if (books.getValue(source).count { it.title == book.title } > 1) listOf(book.title, book.author, book.edition, "${index + 1}").filter { it.isNotBlank() }.joinToString(" · ") else listOf(book.title, book.edition).filter { it.isNotBlank() }.joinToString(" · "))
             },
                 isLoading = result?.loading == true, isError = result?.error != null, isPreferred = state.book?.source == source)
         }
@@ -124,15 +129,25 @@ internal fun NovelSourcePanel(state: NovelState, keyword: String, onKeyword: (St
             }
             if (state.autoSelecting) LinearProgressIndicator(Modifier.fillMaxWidth())
             if (choices.isEmpty()) Text("没有已启用的小说源，请在设置 → 数据源中添加或启用小说订阅。", Modifier.padding(16.dp))
-            MediaSelectorWebSourcesColumn(rows,
+            Text("每个来源最多显示 $NOVEL_SEARCH_RESULT_LIMIT 项，可用手动查找缩小范围", Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall)
+            WebSourcesColumnContent(rows, { it.isError }, onManual) { row ->
+            MediaSelectorWebSourcesColumn(listOf(row),
                 selectedSource = { rows.firstOrNull { it.instanceId == state.book?.source?.name } },
                 selectedChannel = { state.book?.let { book -> rows.firstOrNull { it.instanceId == book.source.name }?.channels?.getOrNull(books[book.source].orEmpty().indexOfFirst { it.id == book.id }) } },
                 onSelect = { row, channel -> books[NovelSource(row.instanceId)]?.getOrNull(row.channels.indexOf(channel))?.let(onBook) },
-                onRefresh = { onSearch(NovelSource(it.instanceId), keyword) }, onResolveCaptcha = {}, onRequestManualSearch = onManual)
-            settings.enabled.forEach { source -> state.sourceSearches[source]?.let { result ->
-                if (result.error != null) Text("${settings.title(source)}：${result.error}", Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error)
-                else if (!result.loading && result.books.isEmpty()) Text("${settings.title(source)}：没有匹配作品", Modifier.padding(horizontal = 16.dp))
-            } }
+                onRefresh = { onSearch(NovelSource(it.instanceId), keyword) }, onResolveCaptcha = {}, onRequestManualSearch = null)
+                val result = state.sourceSearches[NovelSource(row.instanceId)]
+                val status = when {
+                    result == null -> "等待搜索"
+                    result.loading -> "正在搜索…"
+                    result.error != null -> result.error
+                    result.books.isEmpty() -> "没有匹配作品，可尝试其他名称"
+                    else -> null
+                }
+                status?.let { Text("${row.name}：$it", Modifier.padding(horizontal = 16.dp).testTag("novel-source-status-${row.instanceId}"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (result?.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
         }
     }
 }

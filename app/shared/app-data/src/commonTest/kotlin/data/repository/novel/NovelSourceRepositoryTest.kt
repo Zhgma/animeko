@@ -12,6 +12,14 @@ import me.him188.ani.utils.ktor.asScopedHttpClient
 import kotlin.test.*
 
 class NovelSourceRepositoryTest {
+    @Test fun sourceResultsAreBoundedWithExactTitleFirst() {
+        val books = (1..40).map { NovelBook(NovelSource.QUANBEN, "$it", "三体同人$it") } +
+            NovelBook(NovelSource.QUANBEN, "exact", "三体")
+        val result = limitNovelSearchResults(books + books, "三体")
+        assertEquals(10, result.size)
+        assertEquals("exact", result.first().id)
+        assertEquals(result.size, result.distinctBy { it.id }.size)
+    }
     @Test fun illustrationTransportSendsSourceRefererWithoutAccountCredentials() = runTest {
         val client = HttpClient(MockEngine { request ->
             assertEquals("picture.example.org", request.url.host)

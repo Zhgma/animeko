@@ -5,10 +5,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
@@ -21,6 +21,7 @@ import me.him188.ani.app.data.repository.novel.ZlibraryLoginRequired
 import me.him188.ani.app.data.repository.novel.ZlibrarySession
 import me.him188.ani.app.domain.mediasource.web.captcha.CaptchaBrowser
 import me.him188.ani.app.domain.mediasource.web.captcha.CaptchaBrowserFactory
+import me.him188.ani.app.ui.foundation.dialogs.PlatformDialogProperties
 
 internal class ZlibraryLoginRequest(val origin: String, val result: CompletableDeferred<Unit> = CompletableDeferred())
 
@@ -81,7 +82,8 @@ internal fun ZlibraryLoginDialog(controller: ZlibraryLoginController) {
             finally { browser = null; opened?.close() }
         }
         Dialog(onDismissRequest = { current.result.completeExceptionally(IllegalStateException("已取消 Z-Library 登录")) },
-            properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)) {
+            properties = PlatformDialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false,
+                decorFitsSystemWindows = false, usePlatformInsets = false, animateTransition = false)) {
             Surface(Modifier.fillMaxSize().testTag("zlibrary-login")) {
                 Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
                     Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -94,7 +96,11 @@ internal fun ZlibraryLoginDialog(controller: ZlibraryLoginController) {
                     error?.let { Text(it, Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error) }
                     val active = browser
                     if (active == null) LinearProgressIndicator(Modifier.fillMaxWidth())
-                    else Box(Modifier.weight(1f).fillMaxWidth()) { active.View(Modifier.fillMaxSize()) }
+                    else {
+                        val loading by active.isLoading.collectAsState()
+                        if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                        Box(Modifier.weight(1f).fillMaxWidth().clipToBounds()) { active.View(Modifier.fillMaxSize()) }
+                    }
                 }
             }
         }

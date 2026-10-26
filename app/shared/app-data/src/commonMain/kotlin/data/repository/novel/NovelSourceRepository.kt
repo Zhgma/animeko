@@ -83,7 +83,7 @@ class NovelSourceRepository(
             "huanmeng" -> api("search", "key=${keyword.encodeURLParameter()}&page=1&size=50")
                 .list().map { NovelBook(source, it.s("id"), it.s("name"), it.s("author")) }
             else -> rules.search(definition, keyword)
-        }.distinctBy { it.id }
+        }.let { limitNovelSearchResults(it, keyword) }
     }
 
     suspend fun chapters(book: NovelBook): List<NovelChapter> {
@@ -161,6 +161,22 @@ class NovelSourceRepository(
         internal fun explicitNumber(title: String): Int? = Regex("^第\\s*(\\d+)\\s*[章话]").find(title.trim())
             ?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it > 0 }
     }
+}
+
+const val NOVEL_SEARCH_RESULT_LIMIT = 10
+
+/** Keep exact titles ahead of broad site matches before applying the per-source bound. */
+fun limitNovelSearchResults(books: List<NovelBook>, keyword: String): List<NovelBook> {
+    fun normalized(text: String) = text.lowercase().filter { it.isLetterOrDigit() }
+    val query = normalized(keyword)
+    return books.distinctBy { it.id }.sortedBy { book ->
+        val title = normalized(book.title)
+        when {
+            title == query -> 0
+            query.isNotEmpty() && title.contains(query) -> 1
+            else -> 2
+        }
+    }.take(NOVEL_SEARCH_RESULT_LIMIT)
 }
 
 private fun JsonObject.s(key: String) = get(key)?.jsonPrimitive?.content.orEmpty()

@@ -211,7 +211,7 @@ fun NovelDetailsRoute(
         }
     }
     if (sources) NovelSourcesDialog(state, book.title, { sources = false }, vm::search,
-        { vm.select(it); sources = false }, vm::autoSelect, vm::saveSourceSettings, vm::loginZlibrary)
+        { vm.select(it); sources = false }, vm::autoSelect, vm::saveSourceSettings, vm::loginZlibrary, vm::loadSourceSearches)
     if (cache) MediaSelectorDialog({ cache = false }) { _ ->
         var delete by remember { mutableStateOf<NovelDownload?>(null) }
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

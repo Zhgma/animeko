@@ -18,6 +18,19 @@ class NovelSourcePanelTest {
     private val book = NovelBook(NovelSource.QUANBEN, "santi", "三体")
     private val settings = NovelSourceSettings(subscriptions = listOf(NovelSubscription.defaults().single().copy(sources = DefaultNovelSources.all.take(2))))
 
+    @Test fun automaticBoundsResultsAndShowsEachSourcesStatus() = runAniComposeUiTest {
+        val books = (1..30).map { book.copy(id = "$it", title = "作品$it") }
+        setContent { ProvideCompositionLocalsForPreview {
+            NovelSourcePanel(NovelState(sourceSettings = settings, sourceSearches = mapOf(
+                book.source to NovelSearchState("作品", books),
+                NovelSource.HUANMENG to NovelSearchState("作品", error = "请登录"))),
+                "作品", {}, { _, _ -> }, {}, {}, false, {}, Modifier.requiredSize(900.dp, 900.dp))
+        } }
+        onNodeWithText("作品10", substring = false).assertExists()
+        onNodeWithText("作品11", substring = false).assertDoesNotExist()
+        onNodeWithTag("novel-source-status-HUANMENG").assertTextEquals("幻梦轻小说：请登录")
+    }
+
     @Test fun automaticUsesSharedRowsAndSelectsAnExplicitBook() = runAniComposeUiTest {
         var picked: NovelBook? = null
         var automatic = 0
