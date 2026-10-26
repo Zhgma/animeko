@@ -49,7 +49,7 @@ internal data class NovelState(
     val autoSelecting: Boolean = false, val sourcePinned: Boolean = false,
 )
 
-internal class NovelViewModel(private val id: Int, context: Context, private val title: String = "", private val coverUrl: String = "") : AbstractViewModel(), KoinComponent {
+internal class NovelViewModel(private val id: Int, context: Context, private val title: String = "", private var coverUrl: String = "") : AbstractViewModel(), KoinComponent {
     private val sourceSettingsStore = get<NovelSourceSettingsStore>()
     private val zlibrary = ZlibraryApi(get<HttpClientProvider>().get(), ZlibrarySessionStore(context.dataStores.preferencesStore))
     val zlibraryLogin = ZlibraryLoginController(zlibrary, get<CaptchaBrowserFactory>())
@@ -99,6 +99,8 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
             try {
                 val saved = preferences.data.first()
                 memory = saved[key]?.let { json.decodeFromString<NovelMemory>(it) }
+                coverUrl = coverUrl.ifBlank { memory?.coverUrl.orEmpty() }
+                memory = memory?.copy(coverUrl = coverUrl)
                 val settings = saved[settingsKey]?.let { json.decodeFromString<NovelReaderSettings>(it) } ?: NovelReaderSettings()
                 val localBooks = saved[filesKey]?.let { json.decodeFromString<List<NovelBook>>(it) }.orEmpty()
                 val sourceSettings = sourceSettingsStore.read()
@@ -306,12 +308,22 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
     fun rememberPosition(paragraph: Int, offset: Int) {
         val chapter = state.value.chapter ?: return
         if (state.value.blocks.isEmpty()) return
-        memory = memory?.copy(chapterId = chapter.id, paragraph = paragraph.coerceAtLeast(0), offset = offset.coerceAtLeast(0))
+        memory = memory?.copy(chapterId = chapter.id, paragraph = paragraph.coerceAtLeast(0), offset = offset.coerceAtLeast(0), coverUrl = coverUrl)
         val value = memory ?: return
         latestHistory = ReadingHistoryEntry(id, if (id == 0) value.book.title else title.ifBlank { value.book.title },
             coverUrl, chapter.title, Clock.System.now().toEpochMilliseconds(), novel = value)
         val history = latestHistory!!
         saveJob?.cancel(); saveJob = backgroundScope.launch { delay(250); persist(); historyStore.record(history) }
+    }
+    fun updateCover(value: String) {
+        if (value.isBlank() || value == coverUrl) return
+        coverUrl = value
+        memory = memory?.copy(coverUrl = value)
+        latestHistory = latestHistory?.copy(coverUrl = value, novel = latestHistory?.novel?.copy(coverUrl = value))
+        backgroundScope.launch {
+            persist()
+            historyStore.fillMissingCover(id, value)
+        }
     }
     private fun positionKey(book: NovelBook) = stringPreferencesKey("novel.position.$id.${book.source}.${book.id}")
     private suspend fun savedPosition(book: NovelBook): NovelMemory? = preferences.data.first()[positionKey(book)]?.let { json.decodeFromString(it) }

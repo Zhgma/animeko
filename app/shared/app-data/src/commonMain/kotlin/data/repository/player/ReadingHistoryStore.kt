@@ -61,8 +61,25 @@ class ReadingHistoryStore(private val store: DataStore<Preferences>) {
         store.edit { prefs ->
             val previous = decodeEntries(prefs)
             if (previous.any { it.key == entry.key && it.updatedAtMillis > entry.updatedAtMillis }) return@edit
-            prefs[entriesKey] = json.encodeToString((previous.filterNot { it.key == entry.key } + entry)
+            val cover = entry.coverUrl.ifBlank { entry.novel?.coverUrl.orEmpty() }
+                .ifBlank { previous.firstOrNull { it.key == entry.key }?.coverUrl.orEmpty() }
+            prefs[entriesKey] = json.encodeToString((previous.filterNot { it.key == entry.key } + entry.copy(coverUrl = cover))
                 .sortedByDescending { it.updatedAtMillis }.take(200))
+        }
+    }
+
+    /** Enrich existing book records without changing their position, ordering or deletion state. */
+    suspend fun fillMissingCover(subjectId: Int, coverUrl: String) {
+        if (subjectId <= 0 || coverUrl.isBlank()) return
+        migrate()
+        store.edit { prefs ->
+            val entries = decodeEntries(prefs)
+            val updated = entries.map { entry ->
+                if (entry.subjectId == subjectId && entry.coverUrl.isBlank()) entry.copy(
+                    coverUrl = coverUrl, novel = entry.novel?.copy(coverUrl = coverUrl),
+                ) else entry
+            }
+            if (entries != updated) prefs[entriesKey] = json.encodeToString(updated)
         }
     }
 
@@ -113,6 +130,7 @@ class ReadingHistoryStore(private val store: DataStore<Preferences>) {
                             val id = key.name.split('.').getOrNull(2)?.toIntOrNull() ?: return@runCatching null
                             val memory = json.decodeFromString<NovelMemory>(raw)
                             if (memory.chapterId == null) null else ReadingHistoryEntry(id, memory.book.title,
+                                coverUrl = memory.coverUrl,
                                 chapterTitle = memory.chapters.firstOrNull { it.id == memory.chapterId }?.title ?: "上次阅读章节",
                                 updatedAtMillis = 0, novel = memory)
                         }

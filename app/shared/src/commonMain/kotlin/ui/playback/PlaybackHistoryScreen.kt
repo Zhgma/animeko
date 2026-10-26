@@ -86,6 +86,9 @@ import me.him188.ani.app.data.repository.player.EpisodePlayHistoryRepository
 import me.him188.ani.app.data.repository.player.PlaybackHistoryPendingOp
 import me.him188.ani.app.data.repository.player.PlaybackHistorySyncer
 import me.him188.ani.app.data.repository.player.ReadingHistoryStore
+import me.him188.ani.app.data.repository.player.ReadingHistoryCoverLoader
+import me.him188.ani.app.data.repository.manga.MangaDetailsRepository
+import me.him188.ani.app.data.repository.manga.MangaBangumiNetwork
 import me.him188.ani.app.data.repository.player.ReadingHistoryEntry
 import me.him188.ani.app.data.repository.player.ReadingHistoryKind
 import me.him188.ani.app.tools.formatDateTime
@@ -172,6 +175,15 @@ class PlaybackHistoryViewModel : AbstractViewModel(), KoinComponent {
     private val episodeCollectionSyncer: EpisodeCollectionSyncer by inject()
     private val readingStore: ReadingHistoryStore by inject()
     val readingHistory = readingStore.entries.stateInBackground(emptyList())
+    private val bookNetwork: MangaBangumiNetwork by inject()
+    init {
+        backgroundScope.launch {
+            val covers = ReadingHistoryCoverLoader(readingStore) { id ->
+                MangaDetailsRepository(bookNetwork.http).details(id, null).cover
+            }
+            readingStore.entries.collect { covers.restore(it) }
+        }
+    }
     val cloudSyncEnabled = readingStore.cloudSyncEnabled.stateInBackground(false)
     fun setCloudSyncEnabled(enabled: Boolean) { backgroundScope.launch { readingStore.setCloudSyncEnabled(enabled) } }
     fun deleteReading(entry: ReadingHistoryEntry) { backgroundScope.launch { readingStore.remove(entry.key) } }

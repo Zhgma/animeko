@@ -2,10 +2,13 @@
 package me.him188.ani.app.ui.update
 
 import io.ktor.client.plugins.expectSuccess
+import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
+import kotlinx.atomicfu.atomic
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -15,6 +18,9 @@ import me.him188.ani.utils.ktor.ScopedHttpClient
 import me.him188.ani.utils.platform.Arch
 import me.him188.ani.utils.platform.Platform
 import me.him188.ani.utils.platform.currentPlatform
+import me.him188.ani.utils.platform.currentTimeMillis
+import me.him188.ani.utils.logging.logger
+import me.him188.ani.utils.logging.warn
 
 internal const val FORK_RELEASES_URL = "https://github.com/Zhgma/animeko/releases"
 internal const val FORK_RELEASE_TAG_PREFIX = "$FORK_RELEASES_URL/tag/"
@@ -22,11 +28,42 @@ internal const val FORK_RELEASE_TAG_PREFIX = "$FORK_RELEASES_URL/tag/"
 internal fun forkReleaseDetailsUrl(tag: String): String = "$FORK_RELEASE_TAG_PREFIX$tag"
 
 /** Uses the configured application network client and the fork's published release assets. */
-class UpdateChecker(private val client: ScopedHttpClient) {
+class UpdateChecker(
+    private val client: ScopedHttpClient,
+    private val nowMillis: () -> Long = ::currentTimeMillis,
+) {
+    private val apiRetryAfter = atomic(0L)
+
     suspend fun checkLatestVersion(
         releaseClass: ReleaseClass,
         currentVersion: String = currentAniBuildConfig.versionName,
     ): NewVersion? {
+        val releases = loadReleases(releaseClass, currentVersion)
+        return selectForkRelease(releases, currentVersion, releaseClass, currentPlatform(),
+            currentAniBuildConfig.isDebug, currentAniBuildConfig.distroChannel)
+    }
+
+    internal suspend fun loadReleases(releaseClass: ReleaseClass, currentVersion: String): List<ForkRelease> {
+        if (nowMillis() >= apiRetryAfter.value) {
+            try {
+                return loadApiReleases()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (e is ClientRequestException && e.response.status.value in listOf(403, 429)) {
+                    val headers = e.response.headers
+                    val retryDelay = headers["Retry-After"]?.toLongOrNull()?.coerceIn(0, 86400)?.times(1000)
+                    val reset = headers["X-RateLimit-Reset"]?.toLongOrNull()?.times(1000)
+                    apiRetryAfter.value = maxOf(nowMillis() + 60_000,
+                        retryDelay?.let { nowMillis() + it } ?: reset ?: (nowMillis() + 3_600_000))
+                }
+                logger<UpdateChecker>().warn { "Release API unavailable; checking public release pages (${e::class.simpleName})" }
+            }
+        }
+        return loadPublicForkReleases(client, currentVersion, releaseClass)
+    }
+
+    private suspend fun loadApiReleases(): List<ForkRelease> {
         val releases = mutableListOf<ForkRelease>()
         for (page in 1..5) {
             val batch = client.use {
@@ -41,8 +78,7 @@ class UpdateChecker(private val client: ScopedHttpClient) {
             releases.addAll(batch)
             if (batch.size < 100) break
         }
-        return selectForkRelease(releases, currentVersion, releaseClass, currentPlatform(),
-            currentAniBuildConfig.isDebug, currentAniBuildConfig.distroChannel)
+        return releases
     }
 }
 
@@ -61,17 +97,22 @@ internal data class ForkRelease(
 @Serializable
 internal data class ForkAsset(val name: String, @SerialName("browser_download_url") val url: String)
 
+internal fun ForkRelease.releaseClass(): ReleaseClass {
+    val version = ForkVersion.parse(tag) ?: return ReleaseClass.ALPHA
+    return when {
+        !prerelease && version.pre.isEmpty() -> ReleaseClass.STABLE
+        version.pre.firstOrNull()?.startsWith("rc") == true -> ReleaseClass.RC
+        version.pre.firstOrNull()?.let { it.startsWith("alpha") || it.startsWith("dev") } == true -> ReleaseClass.ALPHA
+        else -> ReleaseClass.BETA
+    }
+}
+
 internal fun selectForkRelease(releases: List<ForkRelease>, current: String, channel: ReleaseClass,
     platform: Platform, debug: Boolean, distro: String): NewVersion? {
     val installed = ForkVersion.parse(current) ?: return null
     val eligible = releases.mapNotNull { release ->
         val version = ForkVersion.parse(release.tag) ?: return@mapNotNull null
-        val releaseChannel = when {
-            !release.prerelease && version.pre.isEmpty() -> ReleaseClass.STABLE
-            version.pre.firstOrNull()?.startsWith("rc") == true -> ReleaseClass.RC
-            version.pre.firstOrNull()?.let { it.startsWith("alpha") || it.startsWith("dev") } == true -> ReleaseClass.ALPHA
-            else -> ReleaseClass.BETA
-        }
+        val releaseChannel = release.releaseClass()
         if (release.draft || version <= installed || releaseChannel.ordinal < channel.ordinal) return@mapNotNull null
         val names = forkAssetNames(release.tag.removePrefix("v"), platform, debug, distro)
         val asset = names.firstNotNullOfOrNull { name -> release.assets.firstOrNull { it.name == name &&

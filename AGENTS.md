@@ -6,6 +6,8 @@ Read docs/contributing for project guidelines. Before modifying a subsystem, che
 
 Additional requirements:
 
+- 用户未明确要求正式版时，默认发布测试版，使用 beta 版本号和 GitHub prerelease，不替换正式版 Latest。
+
 - 项目所有正式版、测试版及 CI 附件仅发布 Release APK；禁止推送或上传 debug APK 及其摘要。本地调试构建可以保留。已发布的历史附件无需删除。
 - 真机部署使用设备已有应用的包名和签名，安装前核对已安装 APK；通过覆盖安装保留应用 UID、账号与缓存。不可用另一个 applicationId 的新安装代替升级，也不可为解决签名冲突卸载原应用或清除数据。平板当前使用 `me.him188.ani.debug2`，每次部署仍须现场核验。
 

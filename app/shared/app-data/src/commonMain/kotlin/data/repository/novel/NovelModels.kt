@@ -36,6 +36,7 @@ data class NovelReaderSettings(val fontSize: Int = 20, val lineHeight: Float = 1
 data class NovelMemory(
     val book: NovelBook, val chapters: List<NovelChapter>, val chapterId: String? = null,
     val paragraph: Int = 0, val offset: Int = 0, val sourcePinned: Boolean = true,
+    val coverUrl: String = "",
 )
 
 /** Stable paragraph boundaries are independent of screen width and font settings. */

@@ -65,7 +65,10 @@ fun NovelDetailsRoute(
         if (onReadRequested != null) onReadRequested(chapter.id) else vm.open(chapter)
     }
     LaunchedEffect(details.details) {
-        details.details?.let { vm.updateAliases(listOf(it.title, it.originalTitle) + it.aliases) }
+        details.details?.let {
+            vm.updateAliases(listOf(it.title, it.originalTitle) + it.aliases)
+            vm.updateCover(it.cover)
+        }
     }
     val scope = rememberCoroutineScope()
     var fullscreen by rememberSaveable { mutableStateOf(false) }
