@@ -44,6 +44,31 @@ import kotlin.test.assertTrue
 
 @OptIn(TestOnly::class)
 class MangaReaderTest {
+    @Test
+    fun imageRowsTouchInSinglePageAndSpreadLayouts() = runAniComposeUiTest {
+        var spread by mutableStateOf(false)
+        setContent {
+            ProvideCompositionLocalsForPreview {
+                MangaReaderPages(
+                    List(4) { MangaPage("page-$it", "", width = 800, height = 300) },
+                    0, {}, { error("Test image unavailable") }, null, null,
+                    Modifier.requiredSize(380.dp, 650.dp), spreadOverride = spread,
+                )
+            }
+        }
+        fun assertAdjacent(first: Int, second: Int) {
+            val upper = onNodeWithTag("manga-page-viewport-$first").fetchSemanticsNode().boundsInRoot
+            val lower = onNodeWithTag("manga-page-viewport-$second").fetchSemanticsNode().boundsInRoot
+            assertTrue(upper.height > 0 && lower.height > 0)
+            assertEquals(upper.bottom, lower.top, "Image rows must meet without exposing the reader background")
+        }
+        assertAdjacent(1, 2)
+        assertAdjacent(2, 3)
+        runOnIdle { spread = true }
+        assertAdjacent(1, 3)
+        assertAdjacent(2, 4)
+    }
+
     @Test fun pageButtonScrollsThroughIntermediatePositions() = runAniComposeUiTest {
         setContent { ProvideCompositionLocalsForPreview {
             MangaReaderPages(List(4) { MangaPage("page-$it", "", width = 400, height = 800) }, 0, {},

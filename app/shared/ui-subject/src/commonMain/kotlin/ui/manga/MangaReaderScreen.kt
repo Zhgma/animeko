@@ -361,7 +361,7 @@ internal fun MangaReaderPages(
                 .semantics { onClick(label = "显示或隐藏阅读控制栏") { toggleControls(); true } }) {
             val viewportHeight = maxHeight
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize().testTag("manga-reader-scroll").semantics { onClick { toggleControls(); true } },
-                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                verticalArrangement = Arrangement.Top) {
                 itemsIndexed(rows, key = { _, row -> row.joinToString("-") }) { rowIndex, row ->
                     var imageRowHeight by remember { mutableStateOf<Int?>(null) }
                     val density = LocalDensity.current
