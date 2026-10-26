@@ -211,7 +211,7 @@ fun NovelDetailsRoute(
         }
     }
     if (sources) NovelSourcesDialog(state, book.title, { sources = false }, vm::search,
-        { vm.select(it); sources = false }, vm::autoSelect, vm::saveSourceSettings)
+        { vm.select(it); sources = false }, vm::autoSelect, vm::saveSourceSettings, vm::loginZlibrary)
     if (cache) MediaSelectorDialog({ cache = false }) { _ ->
         var delete by remember { mutableStateOf<NovelDownload?>(null) }
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -235,4 +235,5 @@ fun NovelDetailsRoute(
             confirmButton = { TextButton({ vm.downloads.remove(entry); delete = null }) { Text("删除") } },
             dismissButton = { TextButton({ delete = null }) { Text("取消") } }) }
     }
+    ZlibraryLoginDialog(vm.zlibraryLogin)
 }

@@ -45,3 +45,15 @@ MOBI Huff/CDIC 与 KF8 重组参考并移植 calibre 的 GPLv3 算法，来源�
 关联作品卡片和关系图节点通过 `rememberOpenBookRelation` 打开应用内详情。书籍关系缺少平台时，通过现有书籍通道读取被点击条目的 `platform`，小说进入 `NovelDetail`，漫画进入 `MangaDetail`；番剧使用原有详情路由。请求失败保留当前页面并显示错误。
 
 在线插图请求携带书源主页的 Referer 和 User-Agent；订阅可覆盖这两个字段，账号 Authorization 与 Cookie 不转发到图片域名。阅读与离线缓存共用同一图片请求。正文解析保留普通、延迟加载和 SVG image 引用的顺序，EPUB 资源继续由本地路径校验和解析。`NovelSourceRepositoryTest` 覆盖插图请求头及相对地址，`NovelFileReaderTest` 覆盖 SVG 包装与纯插图章节；设置 `NOVEL_ILLUSTRATION_FIXTURE` 可用真实下载图片运行阅读器绘制测试。
+
+## Z-Library
+
+维护订阅包含 `ZLIBRARY`，协议为 `zlibrary`，主页来自订阅的 HTTPS `home`。`ZlibraryApi` 按 [Zlibrary-API](https://github.com/bipinkrish/Zlibrary-API) 的 EAPI 协议搜索和获取整本文件；支持 EPUB、TXT、MOBI、AZW3 / AZW。搜索结果显示作者、格式、语言和年份，供用户区分版本。
+
+手动搜索或选择书籍缺少有效会话时，`ZlibraryLoginController` 打开站点登录页。用户在网页中完成登录，App 从该站点浏览器 Cookie 获取 `remix_userid` / `remix_userkey`，通过 `/eapi/user/profile` 验证后保存到应用私有 DataStore，自动关闭登录页并重试原操作一次。密码和表单内容不进入应用会话缓存。来源管理提供“登录／更新登录”入口。自动匹配和后台离线队列不弹出登录页，登录需求显示为可重试错误，用户可通过手动搜索完成登录。
+
+会话绑定 HTTPS origin；订阅域名变化需要重新登录。401 或明确的未登录响应使旧凭据失效，网络失败、HTML 验证页和额度不足保留会话。账号接口禁止自动跟随重定向；下载接口限制 HTTPS 和重定向次数，下载主机不接收登录 Cookie。站点下载额度照常生效。
+
+`ZlibraryBookCache` 在首次选择版本时下载整本文件，复用本地电子书解析器，将完整正文和插图保存到应用私有 `zlibrary-books` 目录。文件上限 96 MB，只有解析完成后才原子发布目录索引；取消或解析失败不标记成功。相同版本的缓存可跨页面和进程复用，不重复消耗下载次数，登录过期不妨碍读取完整本地缓存。阅读进度和章节离线队列使用现有小说实现。
+
+`ZlibraryApiTest` 覆盖会话验证与恢复、origin 隔离、登录过期、网络及额度错误、搜索格式筛选和下载凭据隔离。`ZlibraryBookCacheTest` 覆盖重启后的无网络阅读；`ZlibraryLoginControllerTest` 验证登录后只重试一次及取消操作清理登录请求。真实账号登录、下载配额与源站可用性需单独实测，模拟接口测试不代表真实账号验证成功。

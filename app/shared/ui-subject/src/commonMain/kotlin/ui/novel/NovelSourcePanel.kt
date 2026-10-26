@@ -30,6 +30,7 @@ import me.him188.ani.datasources.api.source.MediaSourceInfo
 internal fun NovelSourcesDialog(state: NovelState, keyword: String, onDismiss: () -> Unit,
     onSearch: (NovelSource, String) -> Unit, onBook: (NovelBook) -> Unit, onAuto: () -> Unit,
     onSettings: (NovelSourceSettings) -> Unit,
+    onZlibraryLogin: () -> Unit = {},
 ) {
     var query by rememberSaveable { mutableStateOf(keyword) }
     var manage by rememberSaveable { mutableStateOf(false) }
@@ -62,6 +63,9 @@ internal fun NovelSourcesDialog(state: NovelState, keyword: String, onDismiss: (
                                 if (index > 0) { order.removeAt(index); order.add(index - 1, source); onSettings(state.sourceSettings.copy(order = order)) }
                             }, enabled = state.sourceSettings.all.first() != source, modifier = Modifier.testTag("novel-source-up-${source.name}")) { Text("上移") }
                             TextButton({ state.sourceSettings.definition(source)?.home?.let(uri::openUri) }) { Text("打开网站") }
+                            if (source == NovelSource.ZLIBRARY) {
+                                TextButton(onZlibraryLogin, Modifier.testTag("zlibrary-login-action")) { Text("登录／更新登录") }
+                            }
                             state.sourceSettings.subscriptionUrl(source)?.let { link -> TextButton({ uri.openUri(link) }) { Text("订阅链接") } }
                         }
                     }
@@ -89,7 +93,7 @@ internal fun NovelSourcePanel(state: NovelState, keyword: String, onKeyword: (St
     if (manual) {
         val result = state.sourceSearches[selected]
         val current = books[selected].orEmpty()
-        fun NovelBook.browse() = BrowseSubject(title, id)
+        fun NovelBook.browse() = BrowseSubject(listOf(title, author, edition).filter { it.isNotBlank() }.joinToString(" · "), id)
         val load = when {
             result?.loading == true -> ManualLoadState.Loading
             result?.error != null -> ManualLoadState.Failed(IllegalStateException(result.error))
@@ -109,7 +113,7 @@ internal fun NovelSourcePanel(state: NovelState, keyword: String, onKeyword: (St
         val rows = settings.enabled.map { source ->
             val result = state.sourceSearches[source]
             WebSource(source.name, source.name, "", settings.title(source), books.getValue(source).mapIndexed { index, book ->
-                WebSourceChannel(if (books.getValue(source).count { it.title == book.title } > 1) "${book.title} · ${book.author.ifBlank { (index + 1).toString() }} · ${index + 1}" else book.title)
+                WebSourceChannel(if (books.getValue(source).count { it.title == book.title } > 1) "${book.title} · ${book.author.ifBlank { (index + 1).toString() }} · ${book.edition} · ${index + 1}" else listOf(book.title, book.edition).filter { it.isNotBlank() }.joinToString(" · "))
             },
                 isLoading = result?.loading == true, isError = result?.error != null, isPreferred = state.book?.source == source)
         }

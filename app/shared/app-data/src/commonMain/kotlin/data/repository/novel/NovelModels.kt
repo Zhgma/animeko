@@ -7,17 +7,18 @@ import kotlinx.serialization.Serializable
 @Serializable
 @JvmInline
 value class NovelSource(val name: String) {
-    val title: String get() = when (this) { QUANBEN -> "全本小说"; HUANMENG -> "幻梦轻小说"; LOCAL -> "本地文件"; else -> name }
+    val title: String get() = when (this) { QUANBEN -> "全本小说"; HUANMENG -> "幻梦轻小说"; ZLIBRARY -> "Z-Library"; LOCAL -> "本地文件"; else -> name }
     override fun toString() = name
     companion object {
         val QUANBEN = NovelSource("QUANBEN")
         val HUANMENG = NovelSource("HUANMENG")
         val LOCAL = NovelSource("LOCAL")
+        val ZLIBRARY = NovelSource("ZLIBRARY")
     }
 }
 
 @Serializable
-data class NovelBook(val source: NovelSource, val id: String, val title: String, val author: String = "")
+data class NovelBook(val source: NovelSource, val id: String, val title: String, val author: String = "", val edition: String = "")
 
 @Serializable
 data class NovelChapter(val id: String, val title: String, val number: Int? = null)

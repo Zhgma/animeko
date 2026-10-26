@@ -24,6 +24,7 @@ import me.him188.ani.app.data.repository.novel.*
 import me.him188.ani.app.domain.foundation.HttpClientProvider
 import me.him188.ani.app.domain.foundation.get
 import me.him188.ani.app.domain.media.download.MediaDownloadManager
+import me.him188.ani.app.domain.mediasource.web.captcha.CaptchaBrowserFactory
 import me.him188.ani.app.platform.Context
 import me.him188.ani.app.platform.files
 import me.him188.ani.app.ui.foundation.AbstractViewModel
@@ -47,7 +48,12 @@ internal data class NovelState(
 
 internal class NovelViewModel(private val id: Int, context: Context, private val title: String = "") : AbstractViewModel(), KoinComponent {
     private val sourceSettingsStore = get<NovelSourceSettingsStore>()
-    private val source = NovelSourceRepository(get<HttpClientProvider>().get(), sourceSettingsStore)
+    private val zlibrary = ZlibraryApi(get<HttpClientProvider>().get(), ZlibrarySessionStore(context.dataStores.preferencesStore))
+    val zlibraryLogin = ZlibraryLoginController(zlibrary, get<CaptchaBrowserFactory>())
+    private val zlibraryBooks = ZlibraryBookCache(zlibrary, context.files.dataDir.resolve("zlibrary-books")) {
+        sourceSettingsStore.read().definition(NovelSource.ZLIBRARY)?.home ?: error("Z-Library 来源已停用")
+    }
+    private val source = NovelSourceRepository(get<HttpClientProvider>().get(), sourceSettingsStore, zlibrary, zlibraryBooks)
     private val preferences = context.dataStores.preferencesStore
     private val key = stringPreferencesKey("novel.reader.$id")
     private val settingsKey = stringPreferencesKey("novel.reader.settings")
@@ -117,6 +123,15 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
         }
     }
 
+    fun loginZlibrary() { backgroundScope.launch {
+        try {
+            val home = sourceSettingsStore.read().definition(NovelSource.ZLIBRARY)?.home ?: error("Z-Library 来源已停用")
+            zlibraryLogin.login(ZlibraryApi.origin(home))
+            if (title.isNotBlank()) search(NovelSource.ZLIBRARY, title)
+        } catch (e: CancellationException) { throw e }
+        catch (e: Exception) { mutable.update { it.copy(error = e.message) } }
+    } }
+
     fun saveSourceSettings(settings: NovelSourceSettings) { backgroundScope.launch { sourceSettingsStore.savePreferences(settings) } }
 
     fun search(provider: NovelSource, keyword: String) {
@@ -125,7 +140,7 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
         fun update(value: NovelSearchState) { mutable.update { it.copy(sourceSearches = it.sourceSearches + (provider to value)) } }
         update(NovelSearchState(keyword, loading = true))
         searchJobs[provider] = backgroundScope.launch {
-            try { update(NovelSearchState(keyword, source.search(provider, keyword))) }
+            try { update(NovelSearchState(keyword, zlibraryLogin.retryWithLogin { source.search(provider, keyword) })) }
             catch (e: CancellationException) { throw e }
             catch (e: Exception) { update(NovelSearchState(keyword, error = e.message ?: "搜索失败")) }
         }
@@ -178,7 +193,7 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
                 memory = (savedPosition(book) ?: NovelMemory(book, emptyList())).copy(sourcePinned = true)
                 persist()
                 mutable.update { it.copy(book = book, chapters = memory!!.chapters, chapter = null, blocks = emptyList()) }
-                bind(book, source.chapters(book), true)
+                bind(book, zlibraryLogin.retryWithLogin { source.chapters(book) }, true)
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { mutable.update { it.copy(loading = false, error = e.message ?: "目录加载失败") } }
         }
@@ -238,7 +253,7 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
         mutable.update { it.copy(chapter = chapter, blocks = emptyList(), loading = true, error = null, readAhead = "") }
         chapterJob = backgroundScope.launch {
             try {
-                val blocks = content(book, chapter)
+                val blocks = zlibraryLogin.retryWithLogin { content(book, chapter) }
                 if (currentGeneration != generation) return@launch
                 val saved = memory?.takeIf { it.chapterId == chapter.id }
                 mutable.update { it.copy(blocks = blocks, loading = false, initialParagraph = saved?.paragraph ?: 0, initialOffset = saved?.offset ?: 0) }

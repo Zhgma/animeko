@@ -24,7 +24,8 @@ data class NovelSourceDefinition(
     fun validate(): NovelSourceDefinition {
         require(key.matches(Regex("[A-Za-z0-9_.-]{1,160}")) && key != "LOCAL" && name.isNotBlank()) { "书源名称或标识不正确" }
         NovelSubscriptionParser.validateUrl(home)
-        require(engine in setOf("html", "quanben", "huanmeng")) { "不支持的书源协议：$engine" }
+        if (engine == "zlibrary") ZlibraryApi.origin(home)
+        require(engine in setOf("html", "quanben", "huanmeng", "zlibrary")) { "不支持的书源协议：$engine" }
         require(engine == "html" || key == engine.uppercase()) { "原生协议的书源标识不匹配" }
         require(searchMethod in setOf("GET", "POST")) { "仅支持 GET / POST 书源" }
         require(searchUrl.isNotBlank()) { "缺少搜索规则" }

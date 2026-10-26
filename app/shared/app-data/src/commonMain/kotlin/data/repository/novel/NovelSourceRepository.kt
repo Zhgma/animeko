@@ -27,9 +27,11 @@ class NovelSourceRepository(
     private val request: suspend (NovelRequest) -> String,
     private val fetchImage: suspend (NovelRequest) -> ByteArray,
     private val definitions: suspend () -> List<NovelSourceDefinition>,
+    private val zlibrary: ZlibraryApi? = null,
+    private val zlibraryBooks: ZlibraryBookCache? = null,
 ) {
     constructor(fetch: suspend (String) -> String) : this({ fetch(it.url) }, { error("图片下载不可用") }, { DefaultNovelSources.all })
-    constructor(client: ScopedHttpClient, store: NovelSourceSettingsStore? = null) : this({ req -> client.use {
+    constructor(client: ScopedHttpClient, store: NovelSourceSettingsStore? = null, zlibrary: ZlibraryApi? = null, zlibraryBooks: ZlibraryBookCache? = null) : this({ req -> client.use {
         val response = request(req.url) {
             method = HttpMethod.parse(req.method)
             header("User-Agent", "Mozilla/5.0 Animecomic")
@@ -47,12 +49,13 @@ class NovelSourceRepository(
         check(response.status.value in 200..299) { "插图下载失败 (${response.status.value})" }
         check(response.headers["Content-Type"]?.startsWith("image/") == true) { "书源没有返回插图" }
         response.body<ByteArray>().also { require(it.size <= 20 * 1024 * 1024) { "插图过大" } }
-    } }, { store?.read()?.definitions ?: DefaultNovelSources.all })
+    } }, { store?.read()?.definitions ?: DefaultNovelSources.all }, zlibrary, zlibraryBooks)
     private val rules = NovelRuleReader(request)
     private suspend fun definition(source: NovelSource) = definitions().firstOrNull { it.source == source } ?: error("该书源已停用或删除，请重新选择")
     private suspend fun fetch(url: String) = request(NovelRequest(url))
 
     suspend fun image(book: NovelBook, url: String): ByteArray {
+        if (book.source == NovelSource.ZLIBRARY) return requireNotNull(zlibraryBooks).image(book, url)
         require(Url(url).protocol.name in setOf("https", "http"))
         val source = definition(book.source)
         // Image CDNs need the referring site; account headers never cross to another host.
@@ -76,6 +79,7 @@ class NovelSourceRepository(
                     NovelBook(source, path.trimEnd('/').substringAfterLast('/'), a.text(), item.select("[itemprop=author]").text())
                 }
             }
+            "zlibrary" -> requireNotNull(zlibrary).search(definition.home, keyword)
             "huanmeng" -> api("search", "key=${keyword.encodeURLParameter()}&page=1&size=50")
                 .list().map { NovelBook(source, it.s("id"), it.s("name"), it.s("author")) }
             else -> rules.search(definition, keyword)
@@ -85,6 +89,7 @@ class NovelSourceRepository(
     suspend fun chapters(book: NovelBook): List<NovelChapter> {
         val definition = definition(book.source)
         val result = when (definition.engine) {
+            "zlibrary" -> requireNotNull(zlibraryBooks).document(book).chapters
             "quanben" -> {
                 validateId(book)
                 val url = novelUrl(definition.home, novelTemplate(definition.tocUrl, id = book.id))
@@ -113,6 +118,9 @@ class NovelSourceRepository(
     suspend fun content(book: NovelBook, chapter: NovelChapter): List<NovelBlock> {
         val definition = definition(book.source)
         val blocks = when (definition.engine) {
+            "zlibrary" -> requireNotNull(zlibraryBooks).document(book).let { doc ->
+                doc.contents.getOrNull(doc.chapters.indexOfFirst { it.id == chapter.id }) ?: error("电子书章节不存在")
+            }
             "quanben" -> {
                 val url = Url(chapter.id)
                 require(url.protocol.name in setOf("https", "http") && url.host.removePrefix("www.") == Url(definition.home).host.removePrefix("www.") &&

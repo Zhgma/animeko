@@ -81,7 +81,7 @@ class NovelSubscriptionTest {
         assertEquals(NovelSource.QUANBEN, book.source)
         val dynamic = book.copy(source = NovelSource("some-new-site"))
         assertEquals(dynamic, Json.decodeFromString<NovelBook>(Json.encodeToString(dynamic)))
-        assertEquals(6, DefaultNovelSources.all.size)
+        assertEquals(7, DefaultNovelSources.all.size)
         DefaultNovelSources.all.forEach { it.validate() }
     }
 

@@ -116,6 +116,18 @@
           "nextContent": "a:containsOwn(下一页)@href",
           "reference": "https://shuyuan-api.yiove.com/import/book-source/c43049cb-87bb-40d1-b29b-81cae6b090ac"
         }
+      },
+      {
+        "factoryId": "novel-rules",
+        "version": 1,
+        "arguments": {
+          "key": "ZLIBRARY",
+          "name": "Z-Library",
+          "home": "https://1lib.sk",
+          "engine": "zlibrary",
+          "searchUrl": "/eapi/book/search",
+          "reference": "https://github.com/bipinkrish/Zlibrary-API"
+        }
       }
     ]
   }
