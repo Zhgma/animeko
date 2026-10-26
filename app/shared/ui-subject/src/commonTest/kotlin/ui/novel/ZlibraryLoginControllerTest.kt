@@ -53,4 +53,18 @@ class ZlibraryLoginControllerTest {
             assertEquals(1, attempts)
         } finally { client.close() }
     }
+    @Test fun searchChallengeOpensWebVerificationAndRetriesOnce() = runTest {
+        val client = HttpClient(MockEngine { error("No network expected") })
+        try {
+            val controller = ZlibraryLoginController(ZlibraryApi(client.asScopedHttpClient(), ZlibrarySessionStore(preferences())), browsers)
+            var attempts = 0
+            val task = async { controller.retryWithLogin { if (++attempts == 1) throw ZlibraryVerificationRequired("https://zlib.test"); "books" } }
+            runCurrent()
+            assertTrue(controller.pending.value!!.verification)
+            controller.pending.value!!.result.complete(Unit)
+            assertEquals("books", task.await())
+            assertEquals(2, attempts)
+            assertNull(controller.pending.value)
+        } finally { client.close() }
+    }
 }

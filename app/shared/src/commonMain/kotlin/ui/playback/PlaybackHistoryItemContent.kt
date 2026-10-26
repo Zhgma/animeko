@@ -34,6 +34,7 @@ data class PlaybackHistoryUiItem(
     val positionMillis: Long,
     val durationMillis: Long?,
     val updatedAtMillis: Long,
+    val progressLabel: String? = null,
 )
 
 
@@ -46,6 +47,7 @@ fun PlaybackHistoryListItem(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
+    trailingContent: @Composable () -> Unit = {},
 ) {
     val subjectName = item.subjectName?.takeIf { it.isNotBlank() }
         ?: stringResource(Lang.playback_history_unknown_subject)
@@ -95,14 +97,14 @@ fun PlaybackHistoryListItem(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        formatDateTime(item.updatedAtMillis),
+                        if (item.updatedAtMillis > 0) formatDateTime(item.updatedAtMillis) else "历史阅读位置",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         modifier = Modifier.testTag(PlaybackHistoryTestTags.DATE),
                     )
                     Text(
-                        progressText(item),
+                        item.progressLabel ?: progressText(item),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -126,6 +128,7 @@ fun PlaybackHistoryListItem(
                     modifier = Modifier.testTag("${PlaybackHistoryTestTags.CHECKBOX_PREFIX}${item.episodeId}"),
                 )
             }
+            trailingContent()
         }
     }
 }

@@ -16,12 +16,91 @@ import me.him188.ani.utils.ktor.asScopedHttpClient
 import kotlin.test.*
 
 class ZlibraryApiTest {
+    @Test fun browserCookiesAreScopedAndVerificationMustPassBeforeSessionIsSaved() = runTest {
+        val store = ZlibrarySessionStore(preferences())
+        val session = ZlibrarySession(home, "123", "secret_key", "Browser UA", mapOf(
+            "__diamwall" to "site_verification", "c_token" to "bad\r\nheader", "unrelated" to "private"))
+        var allowed = false
+        val client = HttpClient(MockEngine { req ->
+            assertEquals("zlib.test", req.url.host)
+            assertContains(req.headers["Cookie"].orEmpty(), "__diamwall=site_verification")
+            assertFalse(req.headers["Cookie"].orEmpty().contains("bad"))
+            assertFalse(req.headers["Cookie"].orEmpty().contains("private"))
+            when (req.url.encodedPath) {
+                "/eapi/user/profile" -> respond("""{"success":1,"user":{"id":123}}""")
+                "/eapi/book/search" -> if (allowed) respond("""{"success":1,"books":[]}""")
+                    else respond("verification", HttpStatusCode.TemporaryRedirect)
+                else -> error("Unexpected endpoint")
+            }
+        })
+        try {
+            val api = ZlibraryApi(client.asScopedHttpClient(), store)
+            assertFailsWith<ZlibraryVerificationRequired> { api.accept(session, verifySearch = true) }
+            assertNull(store.read(home))
+            allowed = true
+            api.accept(session, verifySearch = true)
+            assertContains(store.read(home)!!.cookieHeader(), "__diamwall=site_verification")
+            assertFalse(session.toString().contains("site_verification"))
+        } finally { client.close() }
+    }
     private val home = "https://zlib.test"
     private fun preferences() = object : DataStore<Preferences> {
         override val data = MutableStateFlow(emptyPreferences())
         override suspend fun updateData(transform: suspend (Preferences) -> Preferences) = transform(data.value).also { data.value = it }
     }
     private fun credentials() = ZlibrarySession(home, "123", "secret_key")
+
+    @Test fun passwordLoginValidatesProfileThenSearchesAndDownloadsWithoutPersistingPassword() = runTest {
+        val prefs = preferences()
+        val paths = mutableListOf<String>()
+        val client = HttpClient(MockEngine { req ->
+            paths += req.url.encodedPath
+            when (req.url.encodedPath) {
+                "/eapi/user/login" -> {
+                    assertEquals("POST", req.method.value)
+                    assertEquals("siteLanguageV2=en", req.headers["Cookie"])
+                    assertEquals("email=reader%2Btest%40example.com&password=p%26%3D%2Bword", (req.body as TextContent).text)
+                    respond("""{"success":1,"user":{"id":123,"remix_userkey":"secret_key"}}""")
+                }
+                "/eapi/user/profile" -> {
+                    assertContains(req.headers["Cookie"].orEmpty(), "remix_userkey=secret_key")
+                    respond("""{"success":1,"user":{"id":123}}""")
+                }
+                "/eapi/book/search" -> respond("""{"success":1,"books":[{"id":1,"hash":"abcd","title":"Alice","extension":"txt"}]}""")
+                "/eapi/book/1/abcd/file" -> respond("""{"success":1,"file":{"extension":"txt","downloadLink":"https://files.test/alice"}}""")
+                "/alice" -> { assertNull(req.headers["Cookie"]); respond("Alice text") }
+                else -> error("Unexpected endpoint")
+            }
+        })
+        try {
+            val api = ZlibraryApi(client.asScopedHttpClient(), ZlibrarySessionStore(prefs))
+            api.login(home, "reader+test@example.com", "p&=+word")
+            assertFalse(prefs.data.value.asMap().values.any { "p&=+word" in it.toString() || "reader" in it.toString() })
+            val restored = ZlibraryApi(client.asScopedHttpClient(), ZlibrarySessionStore(prefs))
+            val book = restored.search(home, "Alice").single()
+            assertEquals("Alice text", restored.download(home, book).second.decodeToString())
+            assertEquals(listOf("/eapi/user/login", "/eapi/user/profile", "/eapi/book/search", "/eapi/book/1/abcd/file", "/alice"), paths)
+        } finally { client.close() }
+    }
+
+    @Test fun rejectedLoginAndWebsiteChallengePreserveExistingSessionAndNeverFollowRedirects() = runTest {
+        val store = ZlibrarySessionStore(preferences()); store.save(credentials())
+        var challenge = false
+        var calls = 0
+        val client = HttpClient(MockEngine { req ->
+            calls++; assertEquals("zlib.test", req.url.host)
+            if (challenge) respond("html", HttpStatusCode.TemporaryRedirect, headersOf("Location", "https://other.test"))
+            else respond("""{"success":0,"error":"Incorrect email or password"}""", HttpStatusCode.BadRequest)
+        })
+        try {
+            val api = ZlibraryApi(client.asScopedHttpClient(), store)
+            assertEquals("邮箱或密码不正确", assertFailsWith<ZlibraryLoginFailed> { api.login(home, "reader@example.com", "wrong") }.message)
+            challenge = true
+            assertContains(assertFailsWith<ZlibraryLoginFailed> { api.login(home, "reader@example.com", "wrong") }.message.orEmpty(), "网页验证")
+            assertEquals(2, calls)
+            assertEquals("secret_key", store.read(home)?.userKey)
+        } finally { client.close() }
+    }
 
     @Test fun missingSessionRequiresLoginWithoutSendingSearch() = runTest {
         val client = HttpClient(MockEngine { error("Must not send anonymously") })

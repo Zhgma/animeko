@@ -435,6 +435,15 @@ private fun AniAppContentImpl(
                     onOpenSyncStatus = {
                         aniNavigator.navigatePlaybackHistorySyncStatus()
                     },
+                    onOpenReadingHistory = { history ->
+                        if (history.manga != null) {
+                            aniNavigator.navigate(NavRoutes.MangaDetail(history.subjectId, history.title, "", history.coverUrl,
+                                initialChapterId = history.chapterId))
+                        } else {
+                            aniNavigator.navigate(NavRoutes.NovelDetail(history.subjectId, history.title, coverUrl = history.coverUrl,
+                                startReading = true, initialChapterId = history.chapterId))
+                        }
+                    },
                     modifier = Modifier.fillMaxSize(),
                     navigationIcon = {
                         BackNavigationIconButton(

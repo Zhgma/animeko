@@ -50,10 +50,10 @@ MOBI Huff/CDIC 与 KF8 重组参考并移植 calibre 的 GPLv3 算法，来源�
 
 维护订阅包含 `ZLIBRARY`，协议为 `zlibrary`，主页来自订阅的 HTTPS `home`。`ZlibraryApi` 按 [Zlibrary-API](https://github.com/bipinkrish/Zlibrary-API) 的 EAPI 协议搜索和获取整本文件；支持 EPUB、TXT、MOBI、AZW3 / AZW。搜索结果显示作者、格式、语言和年份，供用户区分版本。
 
-手动搜索或选择书籍缺少有效会话时，`ZlibraryLoginController` 打开站点登录页。用户在网页中完成登录，App 从该站点浏览器 Cookie 获取 `remix_userid` / `remix_userkey`，通过 `/eapi/user/profile` 验证后保存到应用私有 DataStore，自动关闭登录页并重试原操作一次。密码和表单内容不进入应用会话缓存。来源管理提供“登录／更新登录”入口。自动匹配和后台离线队列不弹出登录页，登录需求显示为可重试错误，用户可通过手动搜索完成登录。
+手动搜索或选择书籍缺少有效会话时，`ZlibraryLoginController` 打开登录界面。账号登录按开源协议向 `/eapi/user/login` 提交邮箱和密码，从响应读取 `user.id` / `user.remix_userkey`，再通过 `/eapi/user/profile` 验证后保存到应用私有 DataStore。密码仅保留在当前界面内存中，请求结束或切换方式时清空，不进入保存状态、日志或会话缓存。网页登录选项从该站点 Cookie 获取同一组会话凭据，并同时验证账号和搜索接口；搜索仍要求网页验证时保持页面打开。本站的 DiamWall 验证 Cookie 随会话保存在私有缓存，仅发送给所选站点，不发送给文件下载域名。搜索或下载遇到网页验证时，手动操作进入网页验证并在完成后重试；刷新按浏览器实例重建整个网页区域，旧实例关闭时不会清除新实例状态。验证成功自动关闭登录页并重试原操作一次。来源管理提供“登录／更新登录”入口。自动匹配和后台离线队列不弹出登录页，登录需求显示为可重试错误，用户可通过手动搜索完成登录。
 
 会话绑定 HTTPS origin；订阅域名变化需要重新登录。401 或明确的未登录响应使旧凭据失效，网络失败、HTML 验证页和额度不足保留会话。账号接口禁止自动跟随重定向；下载接口限制 HTTPS 和重定向次数，下载主机不接收登录 Cookie。站点下载额度照常生效。
 
 `ZlibraryBookCache` 在首次选择版本时下载整本文件，复用本地电子书解析器，将完整正文和插图保存到应用私有 `zlibrary-books` 目录。文件上限 96 MB，只有解析完成后才原子发布目录索引；取消或解析失败不标记成功。相同版本的缓存可跨页面和进程复用，不重复消耗下载次数，登录过期不妨碍读取完整本地缓存。阅读进度和章节离线队列使用现有小说实现。
 
-`ZlibraryApiTest` 覆盖会话验证与恢复、origin 隔离、登录过期、网络及额度错误、搜索格式筛选和下载凭据隔离。`ZlibraryBookCacheTest` 覆盖重启后的无网络阅读；`ZlibraryLoginControllerTest` 验证登录后只重试一次及取消操作清理登录请求。真实账号登录、下载配额与源站可用性需单独实测，模拟接口测试不代表真实账号验证成功。
+`ZlibraryApiTest` 覆盖账号登录、表单编码、完整登录至文件请求链路、失败保留旧会话、会话验证与恢复、origin 隔离、登录过期、网络及额度错误、搜索格式筛选和下载凭据隔离。`ZlibraryBookCacheTest` 覆盖重启后的无网络阅读；`ZlibraryLoginControllerTest` 验证登录后只重试一次及取消操作清理登录请求。真实账号登录、下载配额与源站可用性需单独实测，模拟接口测试不代表真实账号验证成功。

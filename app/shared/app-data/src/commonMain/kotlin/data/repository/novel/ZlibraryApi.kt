@@ -26,11 +26,19 @@ import kotlinx.serialization.json.*
 import me.him188.ani.utils.ktor.ScopedHttpClient
 
 class ZlibraryLoginRequired(val origin: String) : IllegalStateException("请登录 Z-Library 后重试")
+class ZlibraryLoginFailed(message: String) : IllegalStateException(message)
+class ZlibraryVerificationRequired(val origin: String) : IllegalStateException("Z-Library 要求网页验证，请完成验证后重试")
 
 /** Site session only; passwords and login form contents are never stored. */
 @Serializable
-class ZlibrarySession(val origin: String, val userId: String, val userKey: String, val userAgent: String = "Mozilla/5.0") {
+class ZlibrarySession(val origin: String, val userId: String, val userKey: String, val userAgent: String = "Mozilla/5.0",
+    val siteCookies: Map<String, String> = emptyMap()) {
     fun isValid() = userId.matches(Regex("[0-9]+")) && userKey.matches(Regex("[A-Za-z0-9_-]{1,512}"))
+    fun cookieHeader(): String = (siteCookies.filter { (name, value) ->
+        name in setOf("__diamwall", "_dwa", "_dwbi", "c_token", "dwid", "bsrv") &&
+            value.length <= 8192 && value.all { it.code in 33..126 && it != ';' }
+    } + mapOf("remix_userid" to userId, "remix_userkey" to userKey, "siteLanguageV2" to "en"))
+        .entries.joinToString("; ") { (name, value) -> "$name=$value" }
     override fun toString() = "ZlibrarySession(origin=$origin, credentials=redacted)"
 }
 
@@ -57,6 +65,7 @@ class ZlibrarySessionStore(private val store: DataStore<Preferences>) {
 class ZlibraryApi(private val client: ScopedHttpClient, val sessions: ZlibrarySessionStore) {
     companion object {
         val formats = setOf("epub", "txt", "mobi", "azw3", "azw")
+        const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
         fun origin(home: String): String {
             val url = Url(home)
             require(url.protocol.name == "https" && url.user.isNullOrEmpty() && url.password.isNullOrEmpty()) { "Z-Library 需要 HTTPS 地址" }
@@ -64,10 +73,35 @@ class ZlibraryApi(private val client: ScopedHttpClient, val sessions: ZlibrarySe
         }
     }
 
-    suspend fun accept(session: ZlibrarySession) {
+    /** The password is sent once to the selected origin; only the validated session is persisted. */
+    suspend fun login(home: String, email: String, password: String) {
+        val origin = origin(home)
+        require(email.isNotBlank() && password.isNotEmpty()) { "请输入邮箱和密码" }
+        val form = "email=${email.trim().encodeURLParameter()}&password=${password.encodeURLParameter()}"
+        val (status, bytes) = transfer("$origin/eapi/user/login", null, form, 1024 * 1024)
+        val root = runCatching { Json.parseToJsonElement(bytes.decodeToString()).jsonObject }.getOrNull()
+        if (status in 300..399 || root == null) throw ZlibraryLoginFailed("站点要求网页验证，请使用网页登录")
+        if (root.text("success") !in setOf("1", "true")) {
+            val message = root.text("error").lowercase()
+            throw ZlibraryLoginFailed(when {
+                "incorrect email or password" in message -> "邮箱或密码不正确"
+                "captcha" in message || "verification" in message -> "站点要求网页验证，请使用网页登录"
+                else -> "登录失败，请稍后重试（$status）"
+            })
+        }
+        if (status !in 200..299) throw ZlibraryLoginFailed("登录请求失败（$status）")
+        val user = root["user"] as? JsonObject ?: throw ZlibraryLoginFailed("登录接口未返回账号信息")
+        val session = ZlibrarySession(origin, user.text("id"), user.text("remix_userkey"), USER_AGENT)
+        if (!session.isValid()) throw ZlibraryLoginFailed("登录接口未返回有效会话")
+        accept(session)
+    }
+
+    suspend fun accept(session: ZlibrarySession, verifySearch: Boolean = false) {
         val root = api(session, "/eapi/user/profile")
         val user = root["user"] as? JsonObject ?: error("登录信息尚未就绪")
         check(user.text("id") == session.userId) { "登录信息尚未就绪" }
+        // Profile may work while search is still blocked by the site's browser verification.
+        if (verifySearch) api(session, "/eapi/book/search", "message=Alice&limit=1&page=1")
         sessions.save(session)
     }
 
@@ -81,8 +115,8 @@ class ZlibraryApi(private val client: ScopedHttpClient, val sessions: ZlibrarySe
         val message = root?.text("error").orEmpty().lowercase()
         val expired = message.contains("please login") || message.contains("not logged") || message.contains("not authorized") || message.contains("token expired")
         if (expired) { sessions.invalidate(session); throw ZlibraryLoginRequired(session.origin) }
+        if (status in 300..399 || root == null) throw ZlibraryVerificationRequired(session.origin)
         check(status in 200..299) { "Z-Library 请求失败（$status），请重试" }
-        check(root != null) { "Z-Library 未返回有效数据，请重试或打开登录页面" }
         check(root.text("success") in setOf("1", "true")) {
             if (message.contains("limit") || message.contains("quota")) "Z-Library 下载额度不足，请稍后重试"
             else "Z-Library 暂时无法完成请求，请重试"
@@ -139,13 +173,14 @@ class ZlibraryApi(private val client: ScopedHttpClient, val sessions: ZlibrarySe
         } finally { isolated.close() }
     }
 
-    private suspend fun transfer(url: String, session: ZlibrarySession, form: String?, limit: Int): Pair<Int, ByteArray> = client.use {
+    private suspend fun transfer(url: String, session: ZlibrarySession?, form: String?, limit: Int): Pair<Int, ByteArray> = client.use {
         val isolated = config { followRedirects = false; expectSuccess = false; install(HttpCookies) { storage = AcceptAllCookiesStorage() } }
         try {
             isolated.prepareRequest(url) {
                 method = if (form == null) HttpMethod.Get else HttpMethod.Post
-                header("User-Agent", session.userAgent)
-                header("Cookie", "remix_userid=${session.userId}; remix_userkey=${session.userKey}; siteLanguageV2=en")
+                header("User-Agent", session?.userAgent ?: USER_AGENT)
+                header("Accept-Language", "en-US,en;q=0.9")
+                header("Cookie", session?.cookieHeader() ?: "siteLanguageV2=en")
                 if (form != null) { header("Content-Type", "application/x-www-form-urlencoded"); setBody(form) }
                 timeout { requestTimeoutMillis = 30_000 }
             }.execute { it.status.value to boundedBytes(it.bodyAsChannel(), limit) }

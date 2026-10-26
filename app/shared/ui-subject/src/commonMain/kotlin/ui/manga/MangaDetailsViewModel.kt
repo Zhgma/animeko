@@ -30,6 +30,9 @@ import me.him188.ani.app.ui.rating.EditableRatingActions
 import me.him188.ani.app.ui.rating.EditableRatingUiState
 import me.him188.ani.app.ui.rating.RateRequest
 import me.him188.ani.app.data.persistent.dataStores
+import me.him188.ani.app.data.repository.player.ReadingHistoryStore
+import me.him188.ani.app.data.repository.player.ReadingHistoryEntry
+import kotlin.time.Clock
 import me.him188.ani.app.data.repository.manga.MangaChapter
 import me.him188.ani.app.data.repository.manga.MangaCollection
 import me.him188.ani.app.data.repository.manga.MangaComment
@@ -97,6 +100,8 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context, privat
         get<MediaDownloadManager>().backgroundScope, sources)
     private val offlineStore get() = offlineDownloads.store
     private val readingStore = MangaReadingStore(context.dataStores.preferencesStore)
+    private val historyStore = ReadingHistoryStore(context.dataStores.preferencesStore)
+    private var latestHistory: ReadingHistoryEntry? = null
     private val imageDirectory = context.files.cacheDir.resolve("manga-reader")
     private val cache = MangaReadAheadCache(backgroundScope, sources::pages, ::downloadImage) { uri ->
         imageDirectory.resolve(uri.substringAfterLast('/')).delete()
@@ -458,7 +463,11 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context, privat
 
     fun close() {
         backgroundScope.cancel()
-        backgroundScope.launch(NonCancellable) { cache.clear() }
+        backgroundScope.launch(NonCancellable) {
+            state.value.memory?.let { readingStore.save(manga.subjectId, it) }
+            latestHistory?.let { historyStore.record(it) }
+            cache.clear()
+        }
     }
 
     fun rememberPage(chapterId: String, page: Int) {
@@ -467,7 +476,17 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context, privat
         val memory = (snapshot.memory ?: MangaReadingMemory(snapshot.book ?: return))
             .copy(chapterId = chapterId, page = page.coerceIn(snapshot.pages.indices))
         mutableState.update { it.copy(memory = memory) }
-        backgroundScope.launch { readingStore.save(manga.subjectId, memory) }
+        val history = ReadingHistoryEntry(
+            subjectId = manga.subjectId, title = manga.title.ifBlank { memory.book.title },
+            coverUrl = manga.coverUrl.ifBlank { memory.book.cover },
+            chapterTitle = snapshot.chapter.title, updatedAtMillis = Clock.System.now().toEpochMilliseconds(),
+            totalPages = snapshot.pages.size, manga = memory,
+        )
+        latestHistory = history
+        backgroundScope.launch {
+            readingStore.save(manga.subjectId, memory)
+            historyStore.record(history)
+        }
 
     }
 

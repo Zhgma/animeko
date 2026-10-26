@@ -85,6 +85,9 @@ import me.him188.ani.app.data.repository.episode.EpisodeCollectionSyncer
 import me.him188.ani.app.data.repository.player.EpisodePlayHistoryRepository
 import me.him188.ani.app.data.repository.player.PlaybackHistoryPendingOp
 import me.him188.ani.app.data.repository.player.PlaybackHistorySyncer
+import me.him188.ani.app.data.repository.player.ReadingHistoryStore
+import me.him188.ani.app.data.repository.player.ReadingHistoryEntry
+import me.him188.ani.app.data.repository.player.ReadingHistoryKind
 import me.him188.ani.app.tools.formatDateTime
 import me.him188.ani.app.ui.adaptive.AniTopAppBar
 import me.him188.ani.app.ui.adaptive.AniTopAppBarDefaults
@@ -167,6 +170,12 @@ class PlaybackHistoryViewModel : AbstractViewModel(), KoinComponent {
     private val syncer: PlaybackHistorySyncer by inject()
     private val episodeCollectionRepository: EpisodeCollectionRepository by inject()
     private val episodeCollectionSyncer: EpisodeCollectionSyncer by inject()
+    private val readingStore: ReadingHistoryStore by inject()
+    val readingHistory = readingStore.entries.stateInBackground(emptyList())
+    val cloudSyncEnabled = readingStore.cloudSyncEnabled.stateInBackground(false)
+    fun setCloudSyncEnabled(enabled: Boolean) { backgroundScope.launch { readingStore.setCloudSyncEnabled(enabled) } }
+    fun deleteReading(entry: ReadingHistoryEntry) { backgroundScope.launch { readingStore.remove(entry.key) } }
+    suspend fun prepareReading(entry: ReadingHistoryEntry) { readingStore.prepareResume(entry) }
 
     val stateFlow = repository.flow
         .stateInBackground(emptyList())
@@ -249,6 +258,7 @@ fun PlaybackHistoryScreen(
     onNavigateBack: () -> Unit,
     onOpenHistory: (PlaybackHistoryUiItem) -> Unit,
     onOpenSyncStatus: () -> Unit,
+    onOpenReadingHistory: (ReadingHistoryEntry) -> Unit,
     modifier: Modifier = Modifier,
     navigationIcon: @Composable () -> Unit = {},
     windowInsets: WindowInsets = AniWindowInsets.forPageContent(),
@@ -256,6 +266,9 @@ fun PlaybackHistoryScreen(
     val asyncHandler = rememberAsyncHandler()
     val histories by vm.stateFlow.collectAsStateWithLifecycle()
     val pendingSyncEpisodes by vm.pendingSyncEpisodesFlow.collectAsStateWithLifecycle()
+    val readingHistory by vm.readingHistory.collectAsStateWithLifecycle()
+    val cloudSyncEnabled by vm.cloudSyncEnabled.collectAsStateWithLifecycle()
+    var tab by rememberSaveable { mutableStateOf(0) }
     fun requestSync() {
         if (asyncHandler.isWorking) return
         asyncHandler.launch {
@@ -268,7 +281,7 @@ fun PlaybackHistoryScreen(
     }
 
     PlaybackHistoryScreen(
-        histories = histories.toUiItems(),
+        histories = if (tab == 0) histories.toUiItems() else emptyList(),
         pendingOpCount = pendingSyncEpisodes.size,
         onNavigateBack = onNavigateBack,
         onOpenHistory = onOpenHistory,
@@ -279,6 +292,19 @@ fun PlaybackHistoryScreen(
         modifier = modifier,
         navigationIcon = navigationIcon,
         windowInsets = windowInsets,
+        showSyncStatus = cloudSyncEnabled,
+        headerContent = {
+            HistoryPageControls(tab, { tab = it }, cloudSyncEnabled, vm::setCloudSyncEnabled)
+        },
+        readingContent = if (tab == 0) null else {
+            {
+                ReadingHistoryList(
+                    entries = readingHistory.filter { it.kind == if (tab == 1) ReadingHistoryKind.MANGA else ReadingHistoryKind.NOVEL },
+                    onOpen = { entry -> asyncHandler.launch { vm.prepareReading(entry); onOpenReadingHistory(entry) } },
+                    onDelete = vm::deleteReading,
+                )
+            }
+        },
     )
 }
 
@@ -296,6 +322,9 @@ fun PlaybackHistoryScreen(
     modifier: Modifier = Modifier,
     navigationIcon: @Composable () -> Unit = {},
     windowInsets: WindowInsets = AniWindowInsets.forPageContent(),
+    showSyncStatus: Boolean = true,
+    headerContent: @Composable () -> Unit = {},
+    readingContent: (@Composable () -> Unit)? = null,
 ) {
     val appBarColors = AniThemeDefaults.topAppBarColors()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -311,6 +340,7 @@ fun PlaybackHistoryScreen(
     LaunchedEffect(histories) {
         val validIds = histories.mapTo(mutableSetOf()) { it.episodeId }
         selectedEpisodeIds = selectedEpisodeIds.filterTo(mutableSetOf()) { it in validIds }
+        if (readingContent != null) selectionMode = false
     }
 
     BackHandler(inSelection) {
@@ -336,6 +366,7 @@ fun PlaybackHistoryScreen(
     Scaffold(
         modifier = modifier,
         topBar = {
+            Column {
             PlaybackHistoryTopBar(
                 inSelection = inSelection,
                 selectedCount = selectedEpisodeIds.size,
@@ -359,7 +390,10 @@ fun PlaybackHistoryScreen(
                 onDeleteSelected = { showDeleteDialog = true },
                 navigationIcon = navigationIcon,
                 windowInsets = AniWindowInsets.forTopAppBarWithoutDesktopTitle(),
+                showSyncStatus = showSyncStatus,
             )
+            headerContent()
+            }
         },
         containerColor = AniThemeDefaults.pageContentBackgroundColor,
         contentWindowInsets = windowInsets.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom),
@@ -371,10 +405,12 @@ fun PlaybackHistoryScreen(
                 .padding(padding)
                 .nestedScroll(scrollBehavior.nestedScrollConnection)
                 .fillMaxSize(),
-            enabled = !inSelection,
+            enabled = !inSelection && readingContent == null,
             touchOnly = true,
         ) {
-            if (histories.isEmpty()) {
+            if (readingContent != null) {
+                readingContent()
+            } else if (histories.isEmpty()) {
                 EmptyPlaybackHistory(Modifier.fillMaxSize())
             } else {
                 LazyColumn(
@@ -426,6 +462,7 @@ private fun PlaybackHistoryTopBar(
     onDeleteSelected: () -> Unit,
     navigationIcon: @Composable () -> Unit,
     windowInsets: WindowInsets,
+    showSyncStatus: Boolean = true,
 ) {
     if (inSelection) {
         val selectedCountText = stringResource(Lang.playback_history_selected_count, selectedCount)
@@ -463,7 +500,7 @@ private fun PlaybackHistoryTopBar(
             title = { AniTopAppBarDefaults.Title(stringResource(Lang.playback_history_title)) },
             navigationIcon = navigationIcon,
             actions = {
-                IconButton(onClick = onOpenSyncStatus) {
+                if (showSyncStatus) IconButton(onClick = onOpenSyncStatus) {
                     Icon(
                         if (pendingOpCount > 0) Icons.Rounded.CloudUpload else Icons.Rounded.CloudDone,
                         syncStatusText,

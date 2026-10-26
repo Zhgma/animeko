@@ -58,6 +58,7 @@ import me.him188.ani.app.data.repository.media.MediaSourceSubscriptionRepository
 import me.him188.ani.app.data.repository.episode.EpisodeCollectionRepository
 import me.him188.ani.app.data.repository.episode.EpisodeCollectionSyncer
 import me.him188.ani.app.data.repository.player.PlaybackHistorySyncer
+import me.him188.ani.app.data.repository.player.ReadingHistoryStore
 import me.him188.ani.app.data.repository.repositoryModules
 import me.him188.ani.app.data.repository.torrent.peer.PeerFilterSubscriptionRepository
 import me.him188.ani.app.data.repository.user.AccessTokenSession
@@ -310,10 +311,12 @@ private fun KoinApplication.otherModules(
             scope = coroutineScope,
         ).also { it.start() }
     }
+    single { ReadingHistoryStore(getContext().dataStores.preferencesStore) }
     single(createdAtStart = true) {
         PlaybackHistorySyncer(
             repository = get(),
             api = aniApiProvider.playbackHistoryApi,
+            cloudSyncEnabled = get<ReadingHistoryStore>().cloudSyncEnabled,
             sessionStateProvider = get(),
             scope = coroutineScope,
         ).also { it.start() }

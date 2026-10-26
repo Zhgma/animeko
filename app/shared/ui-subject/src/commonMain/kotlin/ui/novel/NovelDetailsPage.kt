@@ -47,7 +47,7 @@ fun NovelDetailsRoute(
 ) {
     val context = LocalContext.current
     val social = remember(book.subjectId, context) { MangaDetailsViewModel(book, context, enableReading = false) }
-    val vm = remember(book.subjectId, context) { NovelViewModel(book.subjectId, context, book.title) }
+    val vm = remember(book.subjectId, context) { NovelViewModel(book.subjectId, context, book.title, book.coverUrl) }
     DisposableEffect(vm, social) { onDispose { vm.close(); social.close() } }
     val state by vm.state.collectAsStateWithLifecycle()
     val details by social.state.collectAsStateWithLifecycle()

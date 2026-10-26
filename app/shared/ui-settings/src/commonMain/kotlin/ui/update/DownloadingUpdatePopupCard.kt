@@ -42,6 +42,7 @@ import me.him188.ani.app.domain.foundation.LoadError
 import me.him188.ani.app.tools.update.FileDownloaderState
 import me.him188.ani.app.ui.foundation.ProvideCompositionLocalsForPreview
 import me.him188.ani.app.ui.lang.Lang
+import me.him188.ani.app.ui.lang.settings_update_popup_background_download
 import me.him188.ani.app.ui.lang.settings_update_popup_cancel
 import me.him188.ani.app.ui.lang.settings_update_popup_cancel_download
 import me.him188.ani.app.ui.lang.settings_update_popup_cancel_install
@@ -66,6 +67,7 @@ fun DownloadingUpdatePopupCard(
     onCancelClick: () -> Unit,
     onRetryClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onBackgroundDownloadClick: (() -> Unit)? = null,
 ) {
     var showConfirmCancel by rememberSaveable { mutableStateOf(false) }
     val onRequestCancel = {
@@ -132,6 +134,13 @@ fun DownloadingUpdatePopupCard(
         },
         subtitle = { Text(version.name) },
         actions = {
+            if (!isInstalling && fileDownloaderStats.state is FileDownloaderState.Downloading &&
+                onBackgroundDownloadClick != null
+            ) {
+                TextButton(onClick = onBackgroundDownloadClick) {
+                    Text(stringResource(Lang.settings_update_popup_background_download))
+                }
+            }
             if (!isInstalling && fileDownloaderStats.state is FileDownloaderState.Succeed) {
                 Button(
                     onClick = onInstallClick,

@@ -21,6 +21,9 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import me.him188.ani.app.data.persistent.dataStores
 import me.him188.ani.app.data.repository.novel.*
+import me.him188.ani.app.data.repository.player.ReadingHistoryStore
+import me.him188.ani.app.data.repository.player.ReadingHistoryEntry
+import kotlin.time.Clock
 import me.him188.ani.app.domain.foundation.HttpClientProvider
 import me.him188.ani.app.domain.foundation.get
 import me.him188.ani.app.domain.media.download.MediaDownloadManager
@@ -46,7 +49,7 @@ internal data class NovelState(
     val autoSelecting: Boolean = false, val sourcePinned: Boolean = false,
 )
 
-internal class NovelViewModel(private val id: Int, context: Context, private val title: String = "") : AbstractViewModel(), KoinComponent {
+internal class NovelViewModel(private val id: Int, context: Context, private val title: String = "", private val coverUrl: String = "") : AbstractViewModel(), KoinComponent {
     private val sourceSettingsStore = get<NovelSourceSettingsStore>()
     private val zlibrary = ZlibraryApi(get<HttpClientProvider>().get(), ZlibrarySessionStore(context.dataStores.preferencesStore))
     val zlibraryLogin = ZlibraryLoginController(zlibrary, get<CaptchaBrowserFactory>())
@@ -55,6 +58,8 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
     }
     private val source = NovelSourceRepository(get<HttpClientProvider>().get(), sourceSettingsStore, zlibrary, zlibraryBooks)
     private val preferences = context.dataStores.preferencesStore
+    private val historyStore = ReadingHistoryStore(preferences)
+    private var latestHistory: ReadingHistoryEntry? = null
     private val key = stringPreferencesKey("novel.reader.$id")
     private val settingsKey = stringPreferencesKey("novel.reader.settings")
     private val filesKey = novelLocalFilesKey(id)
@@ -300,8 +305,13 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
     fun closeReader() { chapterJob?.cancel(); prefetchJob?.cancel(); mutable.update { it.copy(chapter = null, loading = false) } }
     fun rememberPosition(paragraph: Int, offset: Int) {
         val chapter = state.value.chapter ?: return
-        memory = memory?.copy(chapterId = chapter.id, paragraph = paragraph, offset = offset)
-        saveJob?.cancel(); saveJob = backgroundScope.launch { delay(250); persist() }
+        if (state.value.blocks.isEmpty()) return
+        memory = memory?.copy(chapterId = chapter.id, paragraph = paragraph.coerceAtLeast(0), offset = offset.coerceAtLeast(0))
+        val value = memory ?: return
+        latestHistory = ReadingHistoryEntry(id, if (id == 0) value.book.title else title.ifBlank { value.book.title },
+            coverUrl, chapter.title, Clock.System.now().toEpochMilliseconds(), novel = value)
+        val history = latestHistory!!
+        saveJob?.cancel(); saveJob = backgroundScope.launch { delay(250); persist(); historyStore.record(history) }
     }
     private fun positionKey(book: NovelBook) = stringPreferencesKey("novel.position.$id.${book.source}.${book.id}")
     private suspend fun savedPosition(book: NovelBook): NovelMemory? = preferences.data.first()[positionKey(book)]?.let { json.decodeFromString(it) }
@@ -320,6 +330,7 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
         backgroundScope.cancel()
         backgroundScope.launch(NonCancellable) {
             persist()
+            latestHistory?.let { historyStore.record(it) }
             preferences.edit { it[settingsKey] = json.encodeToString(state.value.settings) }
             cacheMutex.withLock { cachedImages.forEach { it.delete() }; readAhead.clear() }
         }

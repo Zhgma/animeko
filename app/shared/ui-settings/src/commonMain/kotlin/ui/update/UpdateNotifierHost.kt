@@ -122,6 +122,12 @@ fun BoxScope.UpdateNotifier(
         mutableStateOf(false)
     }
 
+    val isDownloadRunning = presentation.state is AppUpdateState.Downloading
+    // Only the active download is hidden; completion and failure always reveal the card.
+    var downloadInBackground by rememberSaveable(presentation.newVersion?.name, isDownloadRunning) {
+        mutableStateOf(false)
+    }
+
     val newVersion = presentation.newVersion
     if (newVersion != null) {
         if (presentation.isDownloading) {
@@ -131,7 +137,7 @@ fun BoxScope.UpdateNotifier(
                     .align(Alignment.BottomCenter)
             }
 
-            if (!dismissedManually) {
+            if (!dismissedManually && !(isDownloadRunning && downloadInBackground)) {
                 DownloadingUpdatePopupCard(
                     version = presentation.newVersion,
                     fileDownloaderStats = presentation.fileDownloaderStats,
@@ -146,6 +152,7 @@ fun BoxScope.UpdateNotifier(
                     },
                     onRetryClick = onRetryClick,
                     modifier = positionModifiers,
+                    onBackgroundDownloadClick = { downloadInBackground = true },
                 )
             }
         } else {

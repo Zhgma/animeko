@@ -635,6 +635,7 @@
     <string name="settings_update_popup_cancel_download">要取消下载吗?</string>
     <string name="settings_update_popup_cancel_install">要取消更新吗?</string>
     <string name="settings_update_popup_cancel">取消</string>
+    <string name="settings_update_popup_background_download">后台下载</string>
     <string name="settings_update_popup_continue_download">继续下载</string>
     <string name="settings_update_popup_continue_update">继续更新</string>
     <string name="settings_update_popup_restart_update">重启更新</string>

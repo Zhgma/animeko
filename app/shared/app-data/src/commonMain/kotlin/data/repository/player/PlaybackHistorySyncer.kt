@@ -17,6 +17,9 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -50,6 +53,7 @@ class PlaybackHistorySyncer(
     private val scope: CoroutineScope,
     private val ioDispatcher: CoroutineContext = Dispatchers.IO_,
     requestCooldown: Duration = 5.seconds,
+    private val cloudSyncEnabled: Flow<Boolean> = flowOf(false),
 ) : Repository() {
     private val syncMutex = Mutex()
     private val requestGate = LeadingTrailingSyncGate(
@@ -59,6 +63,11 @@ class PlaybackHistorySyncer(
     )
 
     fun start() {
+        scope.launch {
+            cloudSyncEnabled.distinctUntilChanged().collect { enabled ->
+                if (enabled) requestSync()
+            }
+        }
         scope.launch(CoroutineName("PlaybackHistorySyncer")) {
             sessionStateProvider.stateFlow
                 .filterIsInstance<SessionState.Valid>()
@@ -78,6 +87,7 @@ class PlaybackHistorySyncer(
     }
 
     suspend fun syncOnce() = syncMutex.withLock {
+        if (!cloudSyncEnabled.first()) return@withLock
         if (sessionStateProvider.stateFlow.first() !is SessionState.Valid) return@withLock
 
         val pendingOps = repository.pendingOpsFlow.first()
@@ -85,6 +95,7 @@ class PlaybackHistorySyncer(
         val cursor = repository.lastSyncAtMillisFlow.first()
 
         val response = withContext(ioDispatcher) {
+            if (!cloudSyncEnabled.first()) return@withContext null
             api {
                 sync(
                     AniSyncRequest(
@@ -93,8 +104,9 @@ class PlaybackHistorySyncer(
                     ),
                 ).body()
             }
-        }
+        } ?: return@withLock
 
+        if (!cloudSyncEnabled.first()) return@withLock
         repository.applySyncResult(
             sentPendingOpIds = pendingOps.map { it.id },
             records = response.upserts.map { it.toEpisodeHistory() } +
