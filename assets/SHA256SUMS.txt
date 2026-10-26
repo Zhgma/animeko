@@ -1,1 +1,1 @@
-2f5ffedfbb3b480a38acfcdd30ecc2716af2487324f5adee77b17f0fb8de7dfe  ani-0.3.0-arm64-v8a.apk
+e7f0d801aa6b4d14356493b51331e94ae2758a47adf56dbc4f51afb5c2fe741b  ani-0.3.1-arm64-v8a.apk
