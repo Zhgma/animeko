@@ -11,6 +11,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import kotlin.test.Test
+import kotlin.test.assertEquals
 import me.him188.ani.app.tools.update.FileDownloaderState
 import me.him188.ani.app.ui.foundation.ProvideCompositionLocalsForPreview
 import me.him188.ani.app.ui.framework.runAniComposeUiTest
@@ -23,8 +25,6 @@ import me.him188.ani.app.ui.lang.settings_update_popup_download_complete
 import me.him188.ani.app.ui.lang.settings_update_popup_restart_update
 import me.him188.ani.utils.platform.annotations.TestOnly
 import org.jetbrains.compose.resources.stringResource
-import kotlin.test.Test
-import kotlin.test.assertEquals
 
 @OptIn(TestOnly::class)
 class UpdateNotifierBackgroundDownloadTest {
@@ -39,6 +39,52 @@ class UpdateNotifierBackgroundDownloadTest {
 
     @Test
     fun mobileReappearsOnFailureAndRetryCanRunInBackground() = verifyBackgroundDownload(UpdateNotifierLayoutKind.SNACKBAR, true)
+
+    @Test
+    fun notificationCanReopenAndBackgroundRepeatedly() = runAniComposeUiTest {
+        var request by mutableStateOf(0L)
+        var backgroundLabel = ""
+        var cancels = 0
+        setContent {
+            ProvideCompositionLocalsForPreview {
+                backgroundLabel = stringResource(Lang.settings_update_popup_background_download)
+                Box(Modifier.fillMaxSize()) {
+                    UpdateNotifier(
+                        presentation = downloading(),
+                        onStartUpdateClick = {}, onInstallClick = {},
+                        onCancelClick = { cancels++ }, onRetryClick = {},
+                        foregroundRequest = request,
+                    )
+                }
+            }
+        }
+        repeat(3) {
+            onNodeWithText(backgroundLabel).assertIsDisplayed().performClick()
+            onNodeWithText(TestNewVersion.name).assertDoesNotExist()
+            runOnIdle { request++ }
+            onNodeWithText(backgroundLabel).assertIsDisplayed()
+        }
+        runOnIdle { assertEquals(0, cancels) }
+    }
+
+    @Test
+    fun deniedNotificationsKeepProgressVisible() = runAniComposeUiTest {
+        var backgroundLabel = ""
+        setContent {
+            ProvideCompositionLocalsForPreview {
+                backgroundLabel = stringResource(Lang.settings_update_popup_background_download)
+                Box(Modifier.fillMaxSize()) {
+                    UpdateNotifier(
+                        presentation = downloading(),
+                        onStartUpdateClick = {}, onInstallClick = {}, onCancelClick = {}, onRetryClick = {},
+                        onBackgroundDownloadRequest = { false },
+                    )
+                }
+            }
+        }
+        onNodeWithText(backgroundLabel).performClick()
+        onNodeWithText(backgroundLabel).assertIsDisplayed()
+    }
 
     private fun verifyBackgroundDownload(kind: UpdateNotifierLayoutKind, failFirst: Boolean) = runAniComposeUiTest {
         var presentation by mutableStateOf(downloading())

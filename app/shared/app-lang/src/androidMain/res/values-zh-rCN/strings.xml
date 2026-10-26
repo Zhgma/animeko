@@ -1820,6 +1820,8 @@
     <string name="video_player_screenshot_failed_no_frame">截图失败: 当前没有可截取的画面</string>
     <string name="video_player_screenshot_failed_save">截图保存失败</string>
     <string name="video_player_screenshot_failed_save_reason">截图保存失败: %1$s</string>
+    <string name="settings_update_notification_required">请在系统设置中允许更新下载通知，以便在后台查看进度</string>
+    <string name="settings_update_view_download">查看更新下载进度</string>
 </resources>
 
 <!--@formatter:on-->

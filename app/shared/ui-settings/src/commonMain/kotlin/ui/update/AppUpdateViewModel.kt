@@ -12,14 +12,18 @@ package me.him188.ani.app.ui.update
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.platform.UriHandler
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.him188.ani.app.data.repository.RepositoryNetworkException
 import me.him188.ani.app.data.repository.user.SettingsRepository
@@ -31,9 +35,9 @@ import me.him188.ani.app.platform.ContextMP
 import me.him188.ani.app.platform.currentAniBuildConfig
 import me.him188.ani.app.tools.MonoTasker
 import me.him188.ani.app.tools.update.DefaultFileDownloader
-import me.him188.ani.app.tools.update.PARALLEL_DOWNLOAD_CONNECTIONS
 import me.him188.ani.app.tools.update.FileDownloaderState
 import me.him188.ani.app.tools.update.InstallationResult
+import me.him188.ani.app.tools.update.PARALLEL_DOWNLOAD_CONNECTIONS
 import me.him188.ani.app.tools.update.UpdateInstallationRunner
 import me.him188.ani.app.tools.update.UpdateInstallationState
 import me.him188.ani.app.tools.update.UpdateInstaller
@@ -46,7 +50,6 @@ import me.him188.ani.utils.platform.annotations.TestOnly
 import me.him188.ani.utils.platform.currentTimeMillis
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * 主页使用的自动更新检查
@@ -80,6 +83,25 @@ class AppUpdateViewModel : AbstractViewModel(), KoinComponent {
     // Track that work separately so the UI can show installation state and cancel it safely.
     private val installationTasker = MonoTasker(backgroundScope)
     private val checkUpdateErrorFlow = MutableStateFlow<LoadError?>(null)
+
+    private val backgroundDownloadFailure = MutableStateFlow<Throwable?>(null)
+    private var notificationsBound = false
+
+    fun bindDownloadNotifications(context: ContextMP) {
+        if (notificationsBound) return
+        notificationsBound = true
+        backgroundScope.launch(Dispatchers.Main) {
+            val notifier = createUpdateDownloadNotifier(context) {
+                downloadTasker.cancel()
+                backgroundDownloadFailure.value = IllegalStateException("系统限制了后台更新下载，请返回应用后重试")
+            }
+            try {
+                presentationFlow.map { it.downloadNotice() }.distinctUntilChanged().collect(notifier::update)
+            } finally {
+                notifier.close()
+            }
+        }
+    }
 
     val presentationFlow = combine(
         latestVersionFlow,
@@ -123,6 +145,11 @@ class AppUpdateViewModel : AbstractViewModel(), KoinComponent {
             installationFailure = (installationState as? UpdateInstallationState.Failed)?.result,
             isPlaceholder = latestVersion == null && fileDownloaderStats.isPlaceholder,
         )
+    }.combine(backgroundDownloadFailure) { presentation, failure ->
+        val version = presentation.newVersion
+        if (failure != null && version != null) {
+            presentation.copy(state = AppUpdateState.DownloadFailed(version, failure))
+        } else presentation
     }.stateIn(
         scope = backgroundScope,
         started = SharingStarted.WhileSubscribed(),
@@ -151,6 +178,7 @@ class AppUpdateViewModel : AbstractViewModel(), KoinComponent {
     fun startCheckLatestVersion(
         uriHandler: UriHandler?
     ) {
+        if (downloadTasker.isRunning.value || installationTasker.isRunning.value) return
         autoCheckTasker.launch {
             val updateSettings = updateSettings.first()
 
@@ -183,6 +211,10 @@ class AppUpdateViewModel : AbstractViewModel(), KoinComponent {
     }
 
     fun startDownload(ver: NewVersion, uriHandler: UriHandler?) {
+        if (downloadTasker.isRunning.value) return
+        backgroundDownloadFailure.value = null
+        latestVersionFlow.value = ver
+        lastCheckTime.value = currentTimeMillis()
         downloadTasker.launch {
             val settings = updateSettings.first()
             if (!settings.inAppDownload) {

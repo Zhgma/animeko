@@ -40,9 +40,11 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import androidx.paging.compose.collectAsLazyPagingItemsWithLifecycle
 import me.him188.ani.app.data.models.subject.SubjectInfo
+import me.him188.ani.app.data.repository.manga.MangaCollection
 import me.him188.ani.app.domain.mediasource.rss.RssMediaSource
 import me.him188.ani.app.domain.mediasource.web.SelectorMediaSource
 import me.him188.ani.app.domain.search.SubjectSearchQuery
+import me.him188.ani.app.domain.search.SubjectType
 import me.him188.ani.app.domain.session.auth.OAuthPlatform
 import me.him188.ani.app.navigation.AniNavigator
 import me.him188.ani.app.navigation.LocalNavigator
@@ -81,16 +83,18 @@ import me.him188.ani.app.ui.lang.main_network_check_failed
 import me.him188.ani.app.ui.login.EmailLoginStartScreen
 import me.him188.ani.app.ui.login.EmailLoginVerifyScreen
 import me.him188.ani.app.ui.login.EmailLoginViewModel
+import me.him188.ani.app.ui.manga.MangaDetailsRoute
+import me.him188.ani.app.ui.novel.NovelDetailsRoute
 import me.him188.ani.app.ui.oauth.OAuthAuthorizeScreen
 import me.him188.ani.app.ui.oauth.OAuthAuthorizeViewModel
-import me.him188.ani.app.ui.qrlogin.QrLoginConfirmScreen
-import me.him188.ani.app.ui.qrlogin.QrLoginConfirmViewModel
-import me.him188.ani.app.ui.qrlogin.QrLoginScanScreen
-import me.him188.ani.app.ui.qrlogin.isQrCodeScannerSupported
 import me.him188.ani.app.ui.playback.PlaybackHistoryScreen
 import me.him188.ani.app.ui.playback.PlaybackHistorySyncStatusScreen
 import me.him188.ani.app.ui.playback.PlaybackHistoryViewModel
 import me.him188.ani.app.ui.profile.auth.AniContactList
+import me.him188.ani.app.ui.qrlogin.QrLoginConfirmScreen
+import me.him188.ani.app.ui.qrlogin.QrLoginConfirmViewModel
+import me.him188.ani.app.ui.qrlogin.QrLoginScanScreen
+import me.him188.ani.app.ui.qrlogin.isQrCodeScannerSupported
 import me.him188.ani.app.ui.search.SearchScreen
 import me.him188.ani.app.ui.settings.SettingsScreen
 import me.him188.ani.app.ui.settings.SettingsViewModel
@@ -100,10 +104,6 @@ import me.him188.ani.app.ui.settings.mediasource.selector.EditSelectorMediaSourc
 import me.him188.ani.app.ui.settings.mediasource.selector.EditSelectorMediaSourceViewModel
 import me.him188.ani.app.ui.settings.tabs.media.torrent.peer.PeerFilterSettingsScreen
 import me.him188.ani.app.ui.settings.tabs.media.torrent.peer.PeerFilterSettingsViewModel
-import me.him188.ani.app.data.repository.manga.MangaCollection
-import me.him188.ani.app.domain.search.SubjectType
-import me.him188.ani.app.ui.novel.NovelDetailsRoute
-import me.him188.ani.app.ui.manga.MangaDetailsRoute
 import me.him188.ani.app.ui.subject.details.SubjectDetailsScreen
 import me.him188.ani.app.ui.subject.details.SubjectDetailsViewModel
 import me.him188.ani.app.ui.subject.episode.EpisodeScreen
@@ -114,6 +114,7 @@ import me.him188.ani.app.ui.subject.person.PersonDetailsScreen
 import me.him188.ani.app.ui.subject.person.PersonDetailsViewModel
 import me.him188.ani.app.ui.subject.relations.SubjectRelationGraphScreen
 import me.him188.ani.app.ui.subject.relations.SubjectRelationGraphViewModel
+import me.him188.ani.app.ui.update.UpdateNotifier
 import me.him188.ani.app.ui.user.SelfInfoStateProducer
 import me.him188.ani.app.ui.watchtogether.LocalWatchTogetherPlayerController
 import me.him188.ani.app.ui.watchtogether.WatchTogetherOverlayHost
@@ -154,6 +155,7 @@ fun AniAppContent(aniNavigator: AniNavigator) {
                     appState.mainSceneInitialPage,
                     Modifier.fillMaxSize(),
                 )
+                UpdateNotifier()
                 BangumiSessionExpiredPromptHost(
                     viewModel = aniAppViewModel,
                     enabled = appState.initialNavRoute is NavRoutes.Main,

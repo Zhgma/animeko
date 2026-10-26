@@ -31,6 +31,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -40,24 +41,30 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.window.core.layout.WindowSizeClass
+import kotlinx.coroutines.launch
 import me.him188.ani.app.platform.LocalContext
+import me.him188.ani.app.platform.PermissionManager
 import me.him188.ani.app.ui.foundation.ProvideCompositionLocalsForPreview
 import me.him188.ani.app.ui.foundation.animation.AniAnimatedVisibility
 import me.him188.ani.app.ui.foundation.layout.currentWindowAdaptiveInfo1
 import me.him188.ani.app.ui.foundation.layout.isHeightAtLeastMedium
 import me.him188.ani.app.ui.foundation.layout.isWidthAtLeastMedium
+import me.him188.ani.app.ui.foundation.widgets.LocalToaster
+import me.him188.ani.app.ui.lang.Lang
+import me.him188.ani.app.ui.lang.settings_update_notification_required
 import me.him188.ani.utils.platform.annotations.TestOnly
+import org.jetbrains.compose.resources.getString
+import org.koin.mp.KoinPlatform
 
 @Composable
 fun BoxScope.UpdateNotifier(
-    viewModel: AppUpdateViewModel = viewModel { AppUpdateViewModel() },
+    viewModel: AppUpdateViewModel = LocalAppUpdateViewModel.current,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     layoutKind: UpdateNotifierLayoutKind = UpdateNotifierDefaults.layoutKind(),
 ) {
     SideEffect {
-        // 用户每次从别的页面回到主页, 都会触发一次检查.
+        // Global host; the ViewModel throttles automatic checks.
         viewModel.startAutomaticCheckLatestVersion()
     }
 
@@ -65,12 +72,20 @@ fun BoxScope.UpdateNotifier(
 
     val presentation by viewModel.presentationFlow.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val permissionManager = remember { KoinPlatform.getKoin().get<PermissionManager>() }
+    val toaster = LocalToaster.current
+    val foregroundRequest by UpdateDownloadUiRequests.foregroundRequests.collectAsStateWithLifecycle()
+    LaunchedEffect(viewModel) { viewModel.bindDownloadNotifications(context) }
+    val requestNotifications: suspend () -> Boolean = {
+        permissionManager.requestNotificationPermission(context) && canShowUpdateDownloadNotification(context)
+    }
 
     UpdateNotifier(
         presentation = presentation,
         onStartUpdateClick = {
             presentation.newVersion?.let {
-                viewModel.startDownload(it, uriHandler)
+                scope.launch { requestNotifications(); viewModel.startDownload(it, uriHandler) }
             }
         },
         onInstallClick = {
@@ -80,7 +95,14 @@ fun BoxScope.UpdateNotifier(
             viewModel.cancelDownload()
         },
         onRetryClick = {
-            viewModel.restartDownload(uriHandler)
+            scope.launch { requestNotifications(); viewModel.restartDownload(uriHandler) }
+        },
+        foregroundRequest = foregroundRequest,
+        onBackgroundDownloadRequest = {
+            if (requestNotifications()) true else {
+                toaster.toast(getString(Lang.settings_update_notification_required))
+                false
+            }
         },
         snackbarHostState = snackbarHostState,
         layoutKind = layoutKind,
@@ -110,6 +132,8 @@ fun BoxScope.UpdateNotifier(
     onInstallClick: () -> Unit,
     onCancelClick: () -> Unit,
     onRetryClick: () -> Unit,
+    foregroundRequest: Long = 0L,
+    onBackgroundDownloadRequest: suspend () -> Boolean = { true },
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     layoutKind: UpdateNotifierLayoutKind = UpdateNotifierDefaults.layoutKind(),
 ) {
@@ -122,9 +146,13 @@ fun BoxScope.UpdateNotifier(
         mutableStateOf(false)
     }
 
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(foregroundRequest) {
+        if (foregroundRequest > 0) dismissedManually = false
+    }
     val isDownloadRunning = presentation.state is AppUpdateState.Downloading
     // Only the active download is hidden; completion and failure always reveal the card.
-    var downloadInBackground by rememberSaveable(presentation.newVersion?.name, isDownloadRunning) {
+    var downloadInBackground by rememberSaveable(presentation.newVersion?.name, isDownloadRunning, foregroundRequest) {
         mutableStateOf(false)
     }
 
@@ -152,7 +180,11 @@ fun BoxScope.UpdateNotifier(
                     },
                     onRetryClick = onRetryClick,
                     modifier = positionModifiers,
-                    onBackgroundDownloadClick = { downloadInBackground = true },
+                    onBackgroundDownloadClick = {
+                        scope.launch {
+                            if (onBackgroundDownloadRequest()) downloadInBackground = true
+                        }
+                    },
                 )
             }
         } else {

@@ -1783,6 +1783,8 @@
     <string name="video_player_screenshot_failed_no_frame">截圖失敗: 目前沒有可擷取的畫面</string>
     <string name="video_player_screenshot_failed_save">截圖儲存失敗</string>
     <string name="video_player_screenshot_failed_save_reason">截圖儲存失敗: %1$s</string>
+    <string name="settings_update_notification_required">請在系統設定中允許更新下載通知，以便在背景查看進度</string>
+    <string name="settings_update_view_download">查看更新下載進度</string>
 </resources>
 
 <!--@formatter:on-->

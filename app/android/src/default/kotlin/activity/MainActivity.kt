@@ -26,6 +26,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import me.him188.ani.android.BuildConfig
@@ -44,10 +45,10 @@ import me.him188.ani.app.ui.foundation.widgets.LocalToaster
 import me.him188.ani.app.ui.foundation.widgets.Toaster
 import me.him188.ani.app.ui.main.AniApp
 import me.him188.ani.app.ui.main.AniAppContent
+import me.him188.ani.app.ui.update.UpdateDownloadUiRequests
 import me.him188.ani.utils.logging.error
 import me.him188.ani.utils.logging.logger
 import org.koin.android.ext.android.inject
-import java.util.concurrent.CopyOnWriteArrayList
 
 class MainActivity : AniComponentActivity(), PictureInPictureHost {
     private val logger = logger<MainActivity>()
@@ -85,6 +86,11 @@ class MainActivity : AniComponentActivity(), PictureInPictureHost {
     }
 
     private fun handleStartIntent(intent: Intent) {
+        if (intent.action == UpdateDownloadUiRequests.ACTION_SHOW_DOWNLOAD) {
+            UpdateDownloadUiRequests.showDownload()
+            intent.action = Intent.ACTION_MAIN
+            return
+        }
         val data = intent.data ?: return
         if (data.scheme != "ani") return
         when (data.host) {

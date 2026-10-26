@@ -37,6 +37,7 @@ android {
     compileSdk = getIntProperty("android.compile.sdk")
     defaultConfig {
         applicationId = "me.him188.ani"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         minSdk = getIntProperty("android.min.sdk")
         targetSdk = getIntProperty("android.compile.sdk")
         versionCode = getIntProperty("android.version.code")
@@ -124,6 +125,8 @@ android {
 }
 
 dependencies {
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.junit4)
     // 两个 flavor 共用共享库；TV 对手机页面的访问边界靠约定 + Konsist 维护。
     implementation(projects.app.shared)
     implementation(projects.app.shared.application)

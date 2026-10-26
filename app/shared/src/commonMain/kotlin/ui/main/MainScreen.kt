@@ -72,10 +72,10 @@ import me.him188.ani.app.ui.adaptive.navigation.AniNavigationSuite
 import me.him188.ani.app.ui.adaptive.navigation.AniNavigationSuiteDefaults
 import me.him188.ani.app.ui.adaptive.navigation.AniNavigationSuiteLayout
 import me.him188.ani.app.ui.bangumi.merge.BangumiConflictNotifier
-import me.him188.ani.app.ui.exploration.ExplorationPageViewModel
 import me.him188.ani.app.ui.download.DownloadManagementScreen
 import me.him188.ani.app.ui.download.DownloadManagementViewModel
 import me.him188.ani.app.ui.download.createDownloadManagementViewModel
+import me.him188.ani.app.ui.exploration.ExplorationPageViewModel
 import me.him188.ani.app.ui.exploration.ExplorationScreen
 import me.him188.ani.app.ui.foundation.LocalPlatform
 import me.him188.ani.app.ui.foundation.animation.LocalAniMotionScheme
@@ -110,8 +110,7 @@ import me.him188.ani.app.ui.settings.account.ProfilePopup
 import me.him188.ani.app.ui.settings.account.ProfileViewModel
 import me.him188.ani.app.ui.subject.collection.CollectionPage
 import me.him188.ani.app.ui.subject.collection.UserCollectionsViewModel
-import me.him188.ani.app.ui.update.AppUpdateViewModel
-import me.him188.ani.app.ui.update.UpdateNotifier
+import me.him188.ani.app.ui.update.LocalAppUpdateViewModel
 import me.him188.ani.app.ui.user.SelfInfoUiState
 import me.him188.ani.utils.platform.isAndroid
 import org.jetbrains.compose.resources.getString
@@ -456,7 +455,7 @@ internal fun BottomNotifierStack(
 @Composable
 private fun BoxScope.UpdateNotifierWithVersionExpiryCheck() {
     // Force check when version expired
-    val updateVm = viewModel { AppUpdateViewModel() }
+    val updateVm = LocalAppUpdateViewModel.current
     val versionExpiryService = remember { KoinPlatform.getKoin().get<VersionExpiryService>() }
     val expired by versionExpiryService.state.collectAsStateWithLifecycle(null)
     LaunchedEffect(expired) {
@@ -528,5 +527,4 @@ private fun BoxScope.UpdateNotifierWithVersionExpiryCheck() {
             }
         }
     }
-    UpdateNotifier(viewModel = updateVm)
 }

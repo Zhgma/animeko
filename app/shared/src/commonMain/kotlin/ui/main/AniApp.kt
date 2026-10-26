@@ -46,9 +46,9 @@ import me.him188.ani.app.navigation.NavRoutes
 import me.him188.ani.app.tools.LocalTimeFormatter
 import me.him188.ani.app.tools.TimeFormatter
 import me.him188.ani.app.ui.foundation.AbstractViewModel
+import me.him188.ani.app.ui.foundation.LocalEpisodeProgressSettings
 import me.him188.ani.app.ui.foundation.LocalPlatform
 import me.him188.ani.app.ui.foundation.LocalPlatformFontFamily
-import me.him188.ani.app.ui.foundation.LocalEpisodeProgressSettings
 import me.him188.ani.app.ui.foundation.LocalSketch
 import me.him188.ani.app.ui.foundation.LocalSubjectAppearanceSettings
 import me.him188.ani.app.ui.foundation.ifThen
@@ -63,6 +63,8 @@ import me.him188.ani.app.ui.foundation.rememberPlatformFontFamily
 import me.him188.ani.app.ui.foundation.theme.AniTheme
 import me.him188.ani.app.ui.foundation.theme.LocalThemeSettings
 import me.him188.ani.app.ui.lang.LocaleZhCN
+import me.him188.ani.app.ui.update.AppUpdateViewModel
+import me.him188.ani.app.ui.update.LocalAppUpdateViewModel
 import me.him188.ani.torrent.pikpak.PikPakNotEnoughSpaceException
 import me.him188.ani.utils.ktor.ScopedHttpClient
 import me.him188.ani.utils.platform.Platform
@@ -148,10 +150,12 @@ fun AniApp(
     content: @Composable () -> Unit,
 ) {
     val viewModel = viewModel { AniAppViewModel() }
+    val updateViewModel = viewModel { AppUpdateViewModel() }
     // 主题读好再进入 APP, 防止黑白背景闪烁
     val appState = viewModel.appState.collectAsStateWithLifecycle(null).value ?: return
 
     CompositionLocalProvider(
+        LocalAppUpdateViewModel provides updateViewModel,
         LocalSketch provides rememberAniSketchInstance(appState.imageLoaderClient),
         LocalTimeFormatter provides remember { TimeFormatter() },
         LocalThemeSettings provides appState.themeSettings,

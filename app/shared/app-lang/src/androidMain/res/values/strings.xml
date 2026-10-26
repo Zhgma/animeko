@@ -1780,6 +1780,8 @@
     <string name="video_player_screenshot_failed_no_frame">Screenshot failed: no video frame to capture</string>
     <string name="video_player_screenshot_failed_save">Screenshot could not be saved</string>
     <string name="video_player_screenshot_failed_save_reason">Screenshot could not be saved: %1$s</string>
+    <string name="settings_update_notification_required">Allow update download notifications in system settings to view progress in the background.</string>
+    <string name="settings_update_view_download">View update download</string>
 </resources>
 
 <!--@formatter:on-->

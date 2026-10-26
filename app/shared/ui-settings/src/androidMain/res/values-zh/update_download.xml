@@ -1,0 +1,10 @@
+<resources>
+    <string name="update_download_channel">应用更新</string>
+    <string name="update_download_title">正在下载更新 %1$s</string>
+    <string name="update_download_complete">更新 %1$s 下载完成</string>
+    <string name="update_download_failed">更新 %1$s 下载失败</string>
+    <string name="update_download_progress">已下载 %1$d%% · 点按查看</string>
+    <string name="update_download_verifying">正在校验安装包 · 点按查看</string>
+    <string name="update_download_install">点按打开并安装</string>
+    <string name="update_download_retry">点按查看并重试</string>
+</resources>

@@ -105,5 +105,9 @@
                 android:exported="false"
                 android:foregroundServiceType="dataSync" />
 
+        <service
+            android:name="me.him188.ani.app.ui.update.UpdateDownloadService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
     </application>
 </manifest>

@@ -1,0 +1,10 @@
+<resources>
+    <string name="update_download_channel">App updates</string>
+    <string name="update_download_title">Downloading update %1$s</string>
+    <string name="update_download_complete">Update %1$s ready</string>
+    <string name="update_download_failed">Update %1$s download failed</string>
+    <string name="update_download_progress">Downloaded %1$d%% · Tap to view</string>
+    <string name="update_download_verifying">Verifying package · Tap to view</string>
+    <string name="update_download_install">Tap to install</string>
+    <string name="update_download_retry">Tap to retry</string>
+</resources>

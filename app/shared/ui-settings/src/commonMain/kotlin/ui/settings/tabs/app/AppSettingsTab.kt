@@ -9,11 +9,11 @@
 
 package me.him188.ani.app.ui.settings.tabs.app
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowOutward
 import androidx.compose.material3.Icon
@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlin.time.Duration.Companion.seconds
 import me.him188.ani.app.data.models.danmaku.DanmakuFilterConfig
 import me.him188.ani.app.data.models.preference.BackgroundBehavior
 import me.him188.ani.app.data.models.preference.DesktopCloseBehavior
@@ -43,15 +44,14 @@ import me.him188.ani.app.data.models.preference.PlayerKernelConfig
 import me.him188.ani.app.data.models.preference.ThemeSettings
 import me.him188.ani.app.data.models.preference.UISettings
 import me.him188.ani.app.data.models.preference.UpdateSettings
-import me.him188.ani.app.data.models.preference.VideoScaffoldConfig
 import me.him188.ani.app.data.models.preference.VideoEnhancementDefaultMode
+import me.him188.ani.app.data.models.preference.VideoScaffoldConfig
 import me.him188.ani.app.data.models.preference.WatchTogetherSettings
 import me.him188.ani.app.data.network.protocol.ReleaseClass
 import me.him188.ani.app.navigation.MainScreenPage
 import me.him188.ani.app.navigation.getIcon
 import me.him188.ani.app.navigation.getText
 import me.him188.ani.app.platform.currentAniBuildConfig
-import me.him188.ani.app.ui.update.forkReleaseDetailsUrl
 import me.him188.ani.app.ui.foundation.LocalPlatform
 import me.him188.ani.app.ui.foundation.SteppedSlider
 import me.him188.ani.app.ui.foundation.animation.AniAnimatedVisibility
@@ -61,11 +61,11 @@ import me.him188.ani.app.ui.lang.Lang
 import me.him188.ani.app.ui.lang.settings_app_close_behavior
 import me.him188.ani.app.ui.lang.settings_app_close_behavior_exit
 import me.him188.ani.app.ui.lang.settings_app_close_behavior_minimize_to_tray
+import me.him188.ani.app.ui.lang.settings_app_episode_images
+import me.him188.ani.app.ui.lang.settings_app_episode_images_description
 import me.him188.ani.app.ui.lang.settings_app_episode_playback
 import me.him188.ani.app.ui.lang.settings_app_initial_page
 import me.him188.ani.app.ui.lang.settings_app_initial_page_description
-import me.him188.ani.app.ui.lang.settings_app_episode_images
-import me.him188.ani.app.ui.lang.settings_app_episode_images_description
 import me.him188.ani.app.ui.lang.settings_app_light_up_mode
 import me.him188.ani.app.ui.lang.settings_app_light_up_mode_description
 import me.him188.ani.app.ui.lang.settings_app_list_animation
@@ -88,17 +88,14 @@ import me.him188.ani.app.ui.lang.settings_player_auto_mark_done
 import me.him188.ani.app.ui.lang.settings_player_auto_play_next
 import me.him188.ani.app.ui.lang.settings_player_auto_skip_op_ed
 import me.him188.ani.app.ui.lang.settings_player_auto_skip_op_ed_description
+import me.him188.ani.app.ui.lang.settings_player_auto_switch_media_on_error
 import me.him188.ani.app.ui.lang.settings_player_background_behavior
 import me.him188.ani.app.ui.lang.settings_player_background_behavior_auto_pip
 import me.him188.ani.app.ui.lang.settings_player_background_behavior_background_playback
 import me.him188.ani.app.ui.lang.settings_player_background_behavior_description
 import me.him188.ani.app.ui.lang.settings_player_background_behavior_pause
-import me.him188.ani.app.ui.lang.settings_player_auto_switch_media_on_error
-import me.him188.ani.app.utils.formatSpeedValue
 import me.him188.ani.app.ui.lang.settings_player_default_playback_speed
 import me.him188.ani.app.ui.lang.settings_player_default_playback_speed_description
-import me.him188.ani.app.ui.lang.settings_player_hls_ad_filter
-import me.him188.ani.app.ui.lang.settings_player_hls_ad_filter_description
 import me.him188.ani.app.ui.lang.settings_player_enable_regex_filter
 import me.him188.ani.app.ui.lang.settings_player_foldable_hover_mode
 import me.him188.ani.app.ui.lang.settings_player_foldable_hover_mode_description
@@ -110,6 +107,8 @@ import me.him188.ani.app.ui.lang.settings_player_fullscreen_button
 import me.him188.ani.app.ui.lang.settings_player_fullscreen_button_description
 import me.him188.ani.app.ui.lang.settings_player_fullscreen_only_in_controller
 import me.him188.ani.app.ui.lang.settings_player_hide_selector_on_select
+import me.him188.ani.app.ui.lang.settings_player_hls_ad_filter
+import me.him188.ani.app.ui.lang.settings_player_hls_ad_filter_description
 import me.him188.ani.app.ui.lang.settings_player_long_press_fast_forward_speed
 import me.him188.ani.app.ui.lang.settings_player_long_press_fast_forward_speed_description
 import me.him188.ani.app.ui.lang.settings_player_op_ed_skip_duration
@@ -121,9 +120,6 @@ import me.him188.ani.app.ui.lang.settings_player_remember_playback_speed
 import me.him188.ani.app.ui.lang.settings_player_remember_playback_speed_description
 import me.him188.ani.app.ui.lang.settings_player_video_enhancement_default
 import me.him188.ani.app.ui.lang.settings_player_video_enhancement_default_description
-import me.him188.ani.app.ui.lang.video_player_off
-import me.him188.ani.app.ui.lang.video_player_performance
-import me.him188.ani.app.ui.lang.video_player_quality
 import me.him188.ani.app.ui.lang.settings_update_auto_check
 import me.him188.ani.app.ui.lang.settings_update_auto_check_description
 import me.him188.ani.app.ui.lang.settings_update_auto_download
@@ -146,8 +142,12 @@ import me.him188.ani.app.ui.lang.settings_update_type_stable
 import me.him188.ani.app.ui.lang.settings_update_type_stable_short
 import me.him188.ani.app.ui.lang.settings_update_up_to_date
 import me.him188.ani.app.ui.lang.settings_update_view_changelog
+import me.him188.ani.app.ui.lang.settings_update_view_download
 import me.him188.ani.app.ui.lang.settings_watch_together_description
 import me.him188.ani.app.ui.lang.settings_watch_together_social
+import me.him188.ani.app.ui.lang.video_player_off
+import me.him188.ani.app.ui.lang.video_player_performance
+import me.him188.ani.app.ui.lang.video_player_quality
 import me.him188.ani.app.ui.lang.watch_together_title
 import me.him188.ani.app.ui.settings.SettingsTab
 import me.him188.ani.app.ui.settings.danmaku.DanmakuRegexFilterGroup
@@ -168,16 +168,17 @@ import me.him188.ani.app.ui.settings.rendering.ReleaseClassIcon
 import me.him188.ani.app.ui.settings.rendering.guessReleaseClass
 import me.him188.ani.app.ui.settings.tabs.theme.ThemeGroup
 import me.him188.ani.app.ui.update.AppUpdateState
-import me.him188.ani.app.ui.update.AppUpdateViewModel
+import me.him188.ani.app.ui.update.LocalAppUpdateViewModel
 import me.him188.ani.app.ui.update.NewVersion
-import me.him188.ani.app.ui.update.UpdateNotifier
+import me.him188.ani.app.ui.update.UpdateDownloadUiRequests
+import me.him188.ani.app.ui.update.forkReleaseDetailsUrl
+import me.him188.ani.app.utils.formatSpeedValue
 import me.him188.ani.utils.platform.annotations.TestOnly
 import me.him188.ani.utils.platform.isAndroid
 import me.him188.ani.utils.platform.isDesktop
 import me.him188.ani.utils.platform.isIos
 import me.him188.ani.utils.platform.isMobile
 import org.jetbrains.compose.resources.stringResource
-import kotlin.time.Duration.Companion.seconds
 
 sealed class CheckVersionResult {
     data class HasNewVersion(
@@ -252,7 +253,7 @@ fun SettingsScope.SoftwareUpdateGroup(
     state: SoftwareUpdateGroupState,
     modifier: Modifier = Modifier,
 ) {
-    val autoUpdate: AppUpdateViewModel = viewModel { AppUpdateViewModel() }
+    val autoUpdate = LocalAppUpdateViewModel.current
     Group(title = { Text(stringResource(Lang.settings_update_software)) }, modifier = modifier) {
         TextItem(
             description = { Text(stringResource(Lang.settings_update_current_version)) },
@@ -343,10 +344,15 @@ fun SettingsScope.SoftwareUpdateGroup(
                 if (updatePresentation.isCheckingUpdate) {
                     return@TextButtonItem
                 }
-                autoUpdate.startCheckLatestVersion(uriHandler)
+                if (updatePresentation.isDownloading) UpdateDownloadUiRequests.showDownload()
+                else autoUpdate.startCheckLatestVersion(uriHandler)
             },
             title = {
                 when {
+                    updatePresentation.isDownloading -> {
+                        Text(stringResource(Lang.settings_update_view_download))
+                    }
+
                     updatePresentation.isCheckingUpdate -> {
                         Text(stringResource(Lang.settings_update_checking))
                     }
@@ -370,9 +376,6 @@ fun SettingsScope.SoftwareUpdateGroup(
                 }
             },
         )
-        Box(Modifier.fillMaxWidth()) {
-            UpdateNotifier(autoUpdate)
-        }
     }
 }
 
