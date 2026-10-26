@@ -126,11 +126,6 @@ import me.him188.ani.app.ui.foundation.layout.LocalPlatformWindow
 import me.him188.ani.app.ui.foundation.layout.currentWindowAdaptiveInfo1
 import me.him188.ani.app.ui.foundation.layout.desktopTitleBar
 import me.him188.ani.app.ui.foundation.layout.desktopTitleBarPadding
-import me.him188.ani.app.ui.foundation.layout.isHeightAtLeastMedium
-import me.him188.ani.app.ui.foundation.layout.isHeightCompact
-import me.him188.ani.app.ui.foundation.layout.isWidthAtLeastExpanded
-import me.him188.ani.app.ui.foundation.layout.isWidthAtLeastMedium
-import me.him188.ani.app.ui.foundation.layout.isWidthCompact
 import me.him188.ani.app.ui.foundation.layout.setRequestFullScreen
 import me.him188.ani.app.ui.foundation.layout.setSystemBarVisible
 import me.him188.ani.app.ui.foundation.navigation.BackHandler
@@ -330,17 +325,7 @@ private fun EpisodeScreenContent(
         }
     }
 
-    BoxWithConstraints(modifier) {
-        val windowSizeClass = currentWindowAdaptiveInfo1().windowSizeClass
-
-        val showExpandedUI = when {
-            windowSizeClass.isWidthCompact && windowSizeClass.isHeightCompact -> false
-            windowSizeClass.isWidthCompact && windowSizeClass.isHeightAtLeastMedium -> false
-            windowSizeClass.isWidthAtLeastMedium && windowSizeClass.isHeightCompact -> true // #1279
-            windowSizeClass.isWidthAtLeastExpanded -> true // #932
-            else -> false
-        }
-
+    EpisodeScreenViewport(modifier) { showExpandedUI ->
         // only show dark caption button on compact ui and full screen mode(windows only).
         if (vm.isFullscreen || !showExpandedUI) {
             OverrideCaptionButtonAppearance(isDark = true)

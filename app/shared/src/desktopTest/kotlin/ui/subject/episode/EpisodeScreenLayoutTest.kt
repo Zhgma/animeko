@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -129,6 +130,61 @@ class EpisodeScreenLayoutTest {
 
         onNodeWithTag(TAG_VIDEO).assertBounds(0.dp, 0.dp, WIDTH, HEIGHT)
         assertTrue { onNodeWithTag(TAG_SECONDARY).doesNotExist() }
+    }
+
+    @Test
+    fun `portrait returns after fullscreen exits before rotation completes`() =
+        assertPortraitRestored(rotationFirst = false)
+
+    @Test
+    fun `portrait returns when rotation completes before fullscreen exits`() =
+        assertPortraitRestored(rotationFirst = true)
+
+    private fun assertPortraitRestored(rotationFirst: Boolean) = runAniComposeUiTest {
+        var width by mutableStateOf(400.dp)
+        var height by mutableStateOf(700.dp)
+        var fullscreen by mutableStateOf(false)
+        setContent {
+            // The containing window stays wide while the actual player viewport rotates.
+            Box(Modifier.requiredSize(1000.dp, 700.dp)) {
+                EpisodeScreenViewport(Modifier.size(width, height)) { expanded ->
+                    EpisodeScreenLayout(
+                        episodeScreenLayoutMode(fullscreen, expanded, sidebarVisible = true, isDesktop = false),
+                        video = {
+                            DisposableEffect(Unit) {
+                                videoEnterCount++
+                                onDispose { videoLeaveCount++ }
+                            }
+                            Box(Modifier.fillMaxWidth().height(VIDEO_HEIGHT).testTag(TAG_VIDEO))
+                        },
+                        secondary = { Box(Modifier.fillMaxSize().testTag(TAG_SECONDARY)) },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+        }
+        repeat(3) {
+            onNodeWithTag(TAG_VIDEO).assertBounds(0.dp, 0.dp, 400.dp, VIDEO_HEIGHT)
+            onNodeWithTag(TAG_SECONDARY).assertBounds(0.dp, VIDEO_HEIGHT, 400.dp, 700.dp - VIDEO_HEIGHT)
+            runOnIdle { fullscreen = true; width = 700.dp; height = 400.dp }
+            onNodeWithTag(TAG_VIDEO).assertBounds(0.dp, 0.dp, 700.dp, 400.dp)
+            assertTrue { onNodeWithTag(TAG_SECONDARY).doesNotExist() }
+            if (rotationFirst) {
+                runOnIdle { width = 400.dp; height = 700.dp }
+                onNodeWithTag(TAG_VIDEO).assertBounds(0.dp, 0.dp, 400.dp, 700.dp)
+                runOnIdle { fullscreen = false }
+            } else {
+                runOnIdle { fullscreen = false }
+                onNodeWithTag(TAG_SECONDARY).assertBounds(360.dp, 0.dp, 340.dp, 400.dp)
+                runOnIdle { width = 400.dp; height = 700.dp }
+            }
+            onNodeWithTag(TAG_VIDEO).assertBounds(0.dp, 0.dp, 400.dp, VIDEO_HEIGHT)
+            onNodeWithTag(TAG_SECONDARY).assertBounds(0.dp, VIDEO_HEIGHT, 400.dp, 700.dp - VIDEO_HEIGHT)
+        }
+        runOnIdle {
+            assertEquals(1, videoEnterCount)
+            assertEquals(0, videoLeaveCount)
+        }
     }
 
     private fun SemanticsNodeInteraction.assertBounds(left: Dp, top: Dp, width: Dp, height: Dp) {

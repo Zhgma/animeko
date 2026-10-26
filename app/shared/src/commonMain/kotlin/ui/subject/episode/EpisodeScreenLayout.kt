@@ -9,10 +9,30 @@
 
 package me.him188.ani.app.ui.subject.episode
 
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.window.core.layout.WindowSizeClass
+
+/** 播放页按实际容器尺寸选择布局, 屏幕旋转和窗口调整时随测量结果更新. */
+@Composable
+internal fun EpisodeScreenViewport(
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.(showExpandedUI: Boolean) -> Unit,
+) {
+    BoxWithConstraints(modifier) {
+        val expanded = maxWidth >= WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND.dp ||
+                (maxWidth >= WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND.dp &&
+                        maxHeight < WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND.dp)
+        content(expanded)
+    }
+}
 
 /** 桌面端宽屏布局在全屏时也由侧边栏开关决定是否显示次要内容. */
 internal fun episodeScreenLayoutMode(
