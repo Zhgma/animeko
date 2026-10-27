@@ -73,6 +73,7 @@ tasks.register("podInstall", Exec::class) {
     description = "Builds the iOS framework"
     dependsOn(
         ":app:shared:application:podspec",
+        ":app:shared:application:generateDummyFramework",
         patchInfoPlist,
     )
 
