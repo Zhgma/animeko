@@ -38,14 +38,15 @@ jobs:
           EOF
           xcodebuild -version
           pod --version
+          sysctl hw.memsize
           mkdir -p ipa-output
       - name: Install iOS dependencies
         shell: bash
         run: |
           set -euo pipefail
-          ./gradlew :app:ios:podInstall --console=plain --no-configuration-cache --max-workers=2 \
-            '-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8' \
-            '-Dkotlin.daemon.jvm.options=-Xmx3g' 2>&1 | tee ipa-output/pod-install.log
+          ./gradlew :app:ios:podInstall --console=plain --no-configuration-cache --max-workers=1 \
+            '-Dorg.gradle.jvmargs=-Xmx10g -Dfile.encoding=UTF-8' \
+            -Pkotlin.compiler.execution.strategy=in-process 2>&1 | tee ipa-output/pod-install.log
       - name: Build Release IPA for user signing
         shell: bash
         run: |
@@ -63,9 +64,9 @@ jobs:
           ) &
           progress_pid=$!
           trap 'kill "$progress_pid" 2>/dev/null || true' EXIT
-          ./gradlew :app:ios:buildReleaseIpa --console=plain --no-configuration-cache --max-workers=2 \
-            '-Dorg.gradle.jvmargs=-Xmx6g -Dfile.encoding=UTF-8' \
-            '-Dkotlin.daemon.jvm.options=-Xmx3g' 2>&1 | tee ipa-output/build.log
+          ./gradlew :app:ios:buildReleaseIpa --console=plain --no-configuration-cache --max-workers=1 \
+            '-Dorg.gradle.jvmargs=-Xmx10g -Dfile.encoding=UTF-8' \
+            -Pkotlin.compiler.execution.strategy=in-process 2>&1 | tee ipa-output/build.log
       - name: Verify and collect IPA
         run: python3 ci-helper/verify/unsigned_ipa.py app/ios/build/archives/release/Animeko.ipa ipa-output
       - uses: actions/upload-artifact@v4
