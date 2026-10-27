@@ -50,6 +50,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          touch ipa-output/build.log
+          (
+            previous_task=''
+            while sleep 60; do
+              current_task=$(sed -n 's/^> Task //p' ipa-output/build.log | tail -n 1)
+              if [ -n "$current_task" ] && [ "$current_task" != "$previous_task" ]; then
+                printf '::notice title=iOS build progress::%s\n' "$current_task"
+                previous_task="$current_task"
+              fi
+            done
+          ) &
+          progress_pid=$!
+          trap 'kill "$progress_pid" 2>/dev/null || true' EXIT
           ./gradlew :app:ios:buildReleaseIpa --console=plain --no-configuration-cache --max-workers=2 \
             '-Dorg.gradle.jvmargs=-Xmx6g -Dfile.encoding=UTF-8' \
             '-Dkotlin.daemon.jvm.options=-Xmx3g' 2>&1 | tee ipa-output/build.log
