@@ -41,9 +41,68 @@ import kotlin.io.encoding.Base64
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.math.abs
 
 @OptIn(TestOnly::class)
 class MangaReaderTest {
+    @Test
+    fun singlePageTurnsRetainFifteenPercentAndAdvanceOnRepeatedClicks() = runAniComposeUiTest {
+        var page = -1
+        setContent { ProvideCompositionLocalsForPreview {
+            MangaReaderPages(List(4) { MangaPage("page-$it", "", width = 400, height = 800) },
+                0, { page = it }, { "fixture" }, null, null,
+                Modifier.requiredSize(380.dp, 650.dp), spreadOverride = false, fullscreen = true)
+        } }
+        fun assertPageAtAnchor(number: Int) {
+            val viewport = onNodeWithTag("manga-reader-scroll").fetchSemanticsNode().boundsInRoot
+            val row = onNodeWithTag("manga-reader-row-${number - 1}").fetchSemanticsNode().boundsInRoot
+            assertTrue(abs(row.top - viewport.top - viewport.height * 0.15f) <= 1f,
+                "Page $number should start at 15% of the reader viewport: $row / $viewport")
+            val previous = onNodeWithTag("manga-reader-row-${number - 2}").fetchSemanticsNode().boundsInRoot
+            assertEquals(row.top, previous.bottom, "Previous page fills the overlap without a blank gap")
+            assertEquals(number - 1, page)
+        }
+        onNodeWithTag("manga-page-viewport-1").performTouchInput { click(Offset(width * 0.1f, height * 0.25f)) }
+        mainClock.advanceTimeBy(1000)
+        assertPageAtAnchor(2)
+        onNodeWithTag("manga-page-viewport-2").performTouchInput { click(Offset(width * 0.1f, height * 0.25f)) }
+        mainClock.advanceTimeBy(1000)
+        assertPageAtAnchor(3)
+        onNodeWithTag("manga-reader-scroll").performClick()
+        mainClock.advanceTimeBy(400)
+        onNodeWithTag("manga-previous-page").performClick()
+        mainClock.advanceTimeBy(1000)
+        assertPageAtAnchor(2)
+        // Free scrolling must not snap back to the automatic-turn anchor.
+        onNodeWithTag("manga-reader-scroll").performClick()
+        mainClock.advanceTimeBy(400)
+        onNodeWithTag("manga-reader-scroll").performTouchInput {
+            swipeUp(startY = centerY, endY = centerY - 80, durationMillis = 1000)
+        }
+        val viewport = onNodeWithTag("manga-reader-scroll").fetchSemanticsNode().boundsInRoot
+        val row = onNodeWithTag("manga-reader-row-1").fetchSemanticsNode().boundsInRoot
+        assertTrue(abs(row.top - viewport.top - viewport.height * 0.15f) > 1f)
+    }
+
+    @Test
+    fun spreadTurnsRemainTopAlignedIncludingStandaloneCover() = runAniComposeUiTest {
+        var page = -1
+        setContent { ProvideCompositionLocalsForPreview {
+            MangaReaderPages(List(5) { MangaPage("page-$it", "", width = 400, height = 600) },
+                0, { page = it }, { error("Test image unavailable") }, null, null,
+                Modifier.requiredSize(700.dp, 450.dp), spreadOverride = true, initialFirstPageSingle = true)
+        } }
+        onNodeWithTag("manga-reader-scroll").performClick()
+        repeat(2) { index ->
+            onNodeWithTag("manga-next-page").performClick()
+            mainClock.advanceTimeBy(1000)
+            val viewport = onNodeWithTag("manga-reader-scroll").fetchSemanticsNode().boundsInRoot
+            val row = onNodeWithTag("manga-reader-row-${index + 1}").fetchSemanticsNode().boundsInRoot
+            assertEquals(viewport.top, row.top)
+            assertEquals(index * 2 + 1, page)
+        }
+    }
+
     @Test
     fun imageRowsTouchInSinglePageAndSpreadLayouts() = runAniComposeUiTest {
         var spread by mutableStateOf(false)

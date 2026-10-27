@@ -70,6 +70,8 @@ import me.him188.ani.app.ui.mediaselect.common.MediaSelectorDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.derivedStateOf
+import kotlin.math.roundToInt
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -304,9 +306,14 @@ internal fun MangaReaderPages(
         val spread = spreadOverride ?: (maxWidth > maxHeight)
         val rows = remember(pages.size, spread, firstPageSingle) { mangaReaderRows(pages.size, spread, firstPageSingle) }
         val listState = remember(rows) { LazyListState(rows.indexOfFirst { currentPage in it }.coerceAtLeast(0)) }
-        val currentRow = listState.firstVisibleItemIndex.coerceIn(rows.indices)
+        val currentRow by remember(listState, spread) { derivedStateOf {
+            val layout = listState.layoutInfo
+            val anchor = if (spread) 0 else (layout.viewportSize.height * 0.15f).roundToInt()
+            (layout.visibleItemsInfo.lastOrNull { it.offset <= anchor }?.index
+                ?: listState.firstVisibleItemIndex).coerceIn(rows.indices)
+        } }
         LaunchedEffect(listState) {
-            snapshotFlow { listState.firstVisibleItemIndex }.distinctUntilChanged().collect { row ->
+            snapshotFlow { currentRow }.distinctUntilChanged().collect { row ->
                 currentPage = rows[row.coerceIn(rows.indices)].first()
                 onPage(currentPage)
             }
@@ -325,14 +332,16 @@ internal fun MangaReaderPages(
             interaction++
             scope.launch {
                 val layout = listState.layoutInfo
+                // Single-page turns retain the previous page above the reading anchor.
+                val topOverlap = if (spread) 0 else (layout.viewportSize.height * 0.15f).roundToInt()
                 val targetOffset = layout.visibleItemsInfo.firstOrNull { it.index == target }?.offset
                     ?: if (delta > 0) layout.visibleItemsInfo.firstOrNull { it.index == currentRow }?.let {
                         it.offset + it.size + layout.mainAxisItemSpacing
                     } else null
                 if (targetOffset != null) {
-                    listState.animateScrollBy(targetOffset.toFloat(), tween(320, easing = FastOutSlowInEasing))
+                    listState.animateScrollBy((targetOffset - topOverlap).toFloat(), tween(320, easing = FastOutSlowInEasing))
                 } else {
-                    listState.animateScrollToItem(target)
+                    listState.animateScrollToItem(target, scrollOffset = -topOverlap)
                 }
             }
         }

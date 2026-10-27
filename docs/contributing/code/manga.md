@@ -84,6 +84,8 @@ Bangumi 话 / 卷进度匹配目录，找不到对应章节时显示首个分组
 
 `MangaReadingStore` 在已有 Preferences DataStore 中使用 `manga.reader.{subjectId}` 命名空间，保存来源绑定、章节、页码、左右阅读顺序与首张配对方式。本地页码独立保存；章节末行图片成功解码并显示两秒后，仅对明确的正整数主章节 / 单行本编号递增 Bangumi 话数 / 卷数。小数话、番外和无明确编号的章节由用户手动编辑进度，图片加载失败不计为读完。漫画模块不写入番剧数据库。Android、桌面和 iOS 共用阅读器实现；iOS 编译与真机验证需要 macOS / Xcode。
 
+单页阅读模式的点击、按钮及键盘翻页，以阅读视口高度的 15% 为新页顶部位置；上方继续显示上一页末尾，没有额外空白。页码与连续翻页目标依据同一阅读位置判定。手动滚动不吸附，双页模式（包括首张单独显示）按原有顶部对齐方式翻组。
+
 ## 评价与关联作品
 
 漫画详情和阅读器使用同一组评分、评论入口。`EditableRatingDialogsHost` / `RatingEditorDialog` 显示十星评分、短评和隐私选项；评论使用番剧的 `CommentItem`，包含头像、星级、时间、BBCode 富文本、图片查看器与复制菜单。`GET /v0/users/{username}/collections/{subjectId}` 读取本人的完整评价，未收藏时提示先收藏；`PATCH /v0/users/-/collections/{subjectId}` 只提交 `rate`、`comment`、`private`，保留收藏分类、话数、卷数和标签。提交失败保留编辑内容并显示错误。
