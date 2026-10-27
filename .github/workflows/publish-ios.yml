@@ -13,7 +13,7 @@ jobs:
   publish:
     if: github.repository == 'Zhgma/animeko' && github.ref == 'refs/heads/ios-release-artifacts'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 200
     permissions:
       contents: write
       actions: read
@@ -21,6 +21,13 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
+      - name: Wait for the existing IPA build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          run_id=$(python3 -c 'import json; print(json.load(open("ipa-release.json"))["run_id"])')
+          gh run watch "$run_id" --exit-status --interval 60
       - name: Verify existing IPA, upload and verify release assets
         env:
           GH_TOKEN: ${{ github.token }}
