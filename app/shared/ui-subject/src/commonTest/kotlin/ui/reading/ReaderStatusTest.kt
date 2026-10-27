@@ -61,12 +61,21 @@ class ReaderStatusTest {
         onNodeWithTag("reader-status-footer").assertExists()
         val footer = onNodeWithTag("reader-status-footer").fetchSemanticsNode().boundsInRoot
         val reading = onNodeWithTag("$prefix-reader-scroll").fetchSemanticsNode().boundsInRoot
-        assertTrue(reading.bottom <= footer.top, "Status must occupy space below the reading surface")
+        if (novel) {
+            assertTrue(reading.bottom <= footer.top, "Novel status occupies space below the text")
+        } else {
+            assertEquals(reading.bottom, footer.bottom, "Manga status overlays the bottom of the reading surface")
+            assertTrue(footer.top >= reading.top)
+        }
         onNodeWithTag("$prefix-reader-scroll").performClick()
         onNodeWithTag(if (novel) "novel-settings" else "manga-reader-settings").performClick()
         onNodeWithTag("reader-status-setting").performClick()
         onNodeWithText("完成").performClick()
         onNodeWithTag("reader-status-footer").assertDoesNotExist()
+        if (!novel) {
+            assertEquals(reading, onNodeWithTag("manga-reader-scroll").fetchSemanticsNode().boundsInRoot,
+                "Disabling the overlay must not resize the manga")
+        }
         runOnIdle { assertTrue(!enabled); fullscreen = false }
         runOnIdle { fullscreen = true }
         onNodeWithTag("reader-status-footer").assertDoesNotExist()

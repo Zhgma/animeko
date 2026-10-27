@@ -2,6 +2,12 @@
 
 构建与运行方式见 [贡献文档](../../docs/contributing/README.md)。
 
+## 自行签名的安装包
+
+`ios-unsigned.yml` 在云端 Mac 上执行 `podInstall` 与 `buildReleaseIpa`，输出 ARM64 Release IPA、SHA-256 校验和与构建来源信息。
+构建无需 Apple 开发者账号、证书或设备描述文件。IPA 仅含不依赖证书的 ad-hoc 占位签名，用户通过爱思助手等工具重新签名后安装。
+输出前检查真机平台、主程序架构、版本与必需的内嵌框架。安装与运行情况需要另行在 iPhone/iPad 上验证。
+
 ## 未捕获异常
 
 Kotlin/Native 的异常钩子在处理异常时获取当前日志 writer，将原始异常与堆栈写入文件并 flush，然后委托给先前的钩子或终止进程。

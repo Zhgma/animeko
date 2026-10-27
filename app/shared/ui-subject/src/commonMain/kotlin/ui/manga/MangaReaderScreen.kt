@@ -3,8 +3,6 @@ package me.him188.ani.app.ui.manga
 
 import me.him188.ani.app.ui.reading.ReaderStatusFooter
 import me.him188.ani.app.ui.reading.ReaderStatusSetting
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.only
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -288,9 +286,6 @@ internal fun MangaReaderPages(
     var decodedPages by remember(pages) { mutableStateOf(emptySet<Int>()) }
     val currentReadCompleted by rememberUpdatedState(onReadCompleted)
     val controller = remember(fullscreen) { PlayerControllerState() }
-    val readerInsets = if (fullscreen && showReaderStatus) {
-        WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
-    } else WindowInsets.safeDrawing
     var showSettings by remember { mutableStateOf(false) }
     var interaction by remember { mutableIntStateOf(0) }
     val toggleControls: () -> Unit = { controller.toggleFullVisible(); interaction++ }
@@ -362,9 +357,8 @@ internal fun MangaReaderPages(
                 else -> false
             }
         }.focusable()) {
-            Column(Modifier.fillMaxSize()) {
             VideoScaffold(expanded = true, maintainAspectRatio = false, controllerState = controller,
-                modifier = Modifier.weight(1f).fillMaxWidth(), contentWindowInsets = readerInsets,
+                modifier = Modifier.fillMaxSize(), contentWindowInsets = WindowInsets.safeDrawing,
                 topBar = {
                     IconButton(onBack, Modifier.testTag("manga-reader-back")) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "返回漫画详情") }
                     Text(title, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -414,6 +408,9 @@ internal fun MangaReaderPages(
                     }
                 }
             }
+            if (fullscreen && showReaderStatus) {
+                ReaderStatusFooter(Color.Transparent, Color.White, Modifier.align(Alignment.BottomEnd))
+            }
             }
                 }, bottomBar = {
                 Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp).testTag("manga-reader-controls")) {
@@ -433,8 +430,6 @@ internal fun MangaReaderPages(
                     }
                 }
             })
-            if (fullscreen && showReaderStatus) ReaderStatusFooter(Color(0xff101014), Color.White)
-            }
 
         }
     }

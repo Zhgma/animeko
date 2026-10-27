@@ -74,9 +74,9 @@ internal fun ReaderStatusSetting(enabled: Boolean, onChange: (Boolean) -> Unit) 
 internal fun readerClockText(hour: Int, minute: Int): String =
     hour.toString().padStart(2, '0') + ":" + minute.toString().padStart(2, '0')
 
-/** 独立于阅读控制栏, 占用底部空间以避免遮住正文或漫画. */
+/** 独立于阅读控制栏, 由阅读器决定底部占位或透明叠加. */
 @Composable
-internal fun ReaderStatusFooter(background: Color, foreground: Color) {
+internal fun ReaderStatusFooter(background: Color, foreground: Color, modifier: Modifier = Modifier) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val now by produceState(Clock.System.now(), lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -87,13 +87,13 @@ internal fun ReaderStatusFooter(background: Color, foreground: Color) {
         }
     }
     val local = now.toLocalDateTime(TimeZone.currentSystemDefault())
-    ReaderStatusContent(readerClockText(local.hour, local.minute), rememberReaderBatteryLevel(), background, foreground)
+    ReaderStatusContent(readerClockText(local.hour, local.minute), rememberReaderBatteryLevel(), background, foreground, modifier)
 }
 
 @Composable
-internal fun ReaderStatusContent(time: String, battery: Int?, background: Color, foreground: Color) {
+internal fun ReaderStatusContent(time: String, battery: Int?, background: Color, foreground: Color, modifier: Modifier = Modifier) {
     Row(
-        Modifier.fillMaxWidth().background(background).testTag("reader-status-footer")
+        modifier.fillMaxWidth().background(background).testTag("reader-status-footer")
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
             .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),

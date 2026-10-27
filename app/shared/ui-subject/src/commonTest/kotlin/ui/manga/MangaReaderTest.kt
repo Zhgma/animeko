@@ -236,11 +236,10 @@ class MangaReaderTest {
         onNodeWithTag("manga-reader-bottom-gap").performTouchInput { click() }
         runOnIdle { assertEquals(0, nextChapter); fullscreen = true }
         val fullscreenGap = onNodeWithTag("manga-reader-bottom-gap").fetchSemanticsNode().boundsInRoot
-        val status = onNodeWithTag("reader-status-footer").fetchSemanticsNode().boundsInRoot
         assertEquals(originalGap.left, fullscreenGap.left)
         assertEquals(originalGap.top, fullscreenGap.top)
         assertEquals(originalGap.width, fullscreenGap.width)
-        assertEquals(originalGap.bottom - status.height, fullscreenGap.bottom, 1f)
+        assertEquals(originalGap.bottom, fullscreenGap.bottom, 1f)
         onNodeWithTag("manga-reader-bottom-gap").performTouchInput { click() }
         runOnIdle { assertEquals(1, nextChapter) }
         onNodeWithTag("manga-reader-controls").assertDoesNotExist()
