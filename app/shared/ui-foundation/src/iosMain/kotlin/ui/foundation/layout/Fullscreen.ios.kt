@@ -13,6 +13,7 @@ import me.him188.ani.app.platform.Context
 import me.him188.ani.app.platform.MainViewControllerPropertyProvider
 import me.him188.ani.app.platform.SwiftBridge
 import platform.Foundation.NSThread
+import platform.UIKit.UIApplication
 import platform.UIKit.UINavigationController
 import platform.UIKit.attemptRotationToDeviceOrientation
 import platform.UIKit.setNeedsUpdateOfHomeIndicatorAutoHidden
@@ -25,13 +26,12 @@ actual suspend fun Context.setRequestFullScreen(
     lockLandscape: Boolean,
 ) {
     ensureMainThread {
-        SwiftBridge.setDeviceOrientation(window.uiViewController, fullscreen)
-
-        // Trigger a rotation update
-        UINavigationController.attemptRotationToDeviceOrientation()
-        // TODO: attemptRotationToDeviceOrientation was deprecated in ios 16, https://developer.apple.com/documentation/uikit/uiviewcontroller/attemptrotationtodeviceorientation()
-        //  we should use `window.uiViewController.setNeedsUpdateOfSupportedInterfaceOrientations()` installed, need testing.
-
+        // 阅读器跟随设备方向, 视频全屏才请求横屏.
+        if (lockLandscape) {
+            SwiftBridge.setDeviceOrientation(window.uiViewController, fullscreen)
+            UINavigationController.attemptRotationToDeviceOrientation()
+        }
+        UIApplication.sharedApplication.idleTimerDisabled = fullscreen
     }
 }
 
