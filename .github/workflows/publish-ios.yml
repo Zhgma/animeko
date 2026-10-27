@@ -1,0 +1,28 @@
+name: Publish existing iOS IPA
+on:
+  push:
+    branches: [ios-release-artifacts]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: publish-animecomic-ios
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.repository == 'Zhgma/animeko' && github.ref == 'refs/heads/ios-release-artifacts'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Verify existing IPA, upload and verify release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: python3 publish_ios.py
