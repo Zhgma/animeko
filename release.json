@@ -19,6 +19,60 @@
     "SHA256SUMS.txt": {
       "sha256": "2b4ed83adea82a484c2521c74ced00572d4eeed025599a03c70a41c70a421764",
       "size": 97
+    },
+    "ani-0.3.2-beta.6-windows-x86_64.zip": {
+      "size": 318953317,
+      "sha256": "089637579ea8640c3b99ec929e5b11ee21cc142205cdbafb28640e48b19bae43",
+      "parts": [
+        {
+          "name": "ani-0.3.2-beta.6-windows-x86_64.zip.part000",
+          "size": 50331648,
+          "sha256": "026be04b9df180e0d7105694cc26945cac9a81d60c5cb8ddb44f6754dd8f5ee2"
+        },
+        {
+          "name": "ani-0.3.2-beta.6-windows-x86_64.zip.part001",
+          "size": 50331648,
+          "sha256": "1b6e24d60fe762a7aa6c6457e3435e90b69d51ca4eb5c4bc3596b8688a0c09bd"
+        },
+        {
+          "name": "ani-0.3.2-beta.6-windows-x86_64.zip.part002",
+          "size": 50331648,
+          "sha256": "c38c0982dc26d6244ccc1ea4cba3d3a418ccde9460a996dc1d3d18b609d282e7"
+        },
+        {
+          "name": "ani-0.3.2-beta.6-windows-x86_64.zip.part003",
+          "size": 50331648,
+          "sha256": "a066e12f36ec21cf5756260c8ba52cd94e8d3da0e5a0be7232cc5177d2a8e374"
+        },
+        {
+          "name": "ani-0.3.2-beta.6-windows-x86_64.zip.part004",
+          "size": 50331648,
+          "sha256": "4a38f9b142b95cd549b72eb1aaa60fcc86b7b78f3064ec83fea8190b4e2fd2d3"
+        },
+        {
+          "name": "ani-0.3.2-beta.6-windows-x86_64.zip.part005",
+          "size": 50331648,
+          "sha256": "a9ca4f7fb84676fb493eaa0a00ec4b50c4e38504970578d4bf0f5b9f467a0187"
+        },
+        {
+          "name": "ani-0.3.2-beta.6-windows-x86_64.zip.part006",
+          "size": 16963429,
+          "sha256": "e7014c98a9266b847c58cb58734e261ae589e9cf718960060234684720ca608d"
+        }
+      ]
+    },
+    "ani-0.3.2-beta.6-windows-x86_64.zip.sha1": {
+      "size": 40,
+      "sha256": "2dff93aecb4ded30d617131e11e76980121884dfb63af909364d358fa4341501"
+    },
+    "ani-0.3.2-beta.6-windows-x86_64.zip.sha256": {
+      "size": 102,
+      "sha256": "034f9bd418152782136cb27783a311a5153586c4956a3321039f52b11ed7a10e"
     }
+  },
+  "updateNotes": true,
+  "iosBuild": {
+    "runId": 40653567697,
+    "waitMinutes": 155
   }
 }

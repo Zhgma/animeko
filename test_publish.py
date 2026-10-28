@@ -23,10 +23,10 @@ class PublicationChannelTest(unittest.TestCase):
     def test_release_only_publication_is_accepted(self):
         publish.validate_public_assets({"assets": {"ani-0.3.0.apk": {"package": "me.him188.ani"}}})
 
-    def exercise(self, prerelease, existing=None):
+    def exercise(self, prerelease, existing=None, update_notes=False):
         calls = []
         tag = "0.2.0-beta.1" if prerelease else "0.2.0"
-        meta = dict(tag=tag, prerelease=prerelease, sourceCommit="a" * 40)
+        meta = dict(tag=tag, prerelease=prerelease, sourceCommit="a" * 40, updateNotes=update_notes)
         def run(*args, **kwargs):
             calls.append(args)
             if args[1] == "api":
@@ -59,6 +59,14 @@ class PublicationChannelTest(unittest.TestCase):
     def test_wrong_public_channel_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "Unexpected release channel"):
             self.exercise(True, dict(isDraft=False, isPrerelease=False))
+
+
+    def test_append_can_update_notes_without_changing_release_channel(self):
+        calls = self.exercise(True, dict(isDraft=False, isPrerelease=True), update_notes=True)
+        edits = [c for c in calls if c[1:3] == ("release", "edit")]
+        self.assertEqual(len(edits), 1)
+        self.assertIn("--notes-file", edits[0])
+        self.assertFalse(any(arg.startswith(("--draft", "--latest", "--prerelease")) for arg in edits[0]))
 
 
 class DesktopPublicationTest(unittest.TestCase):

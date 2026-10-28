@@ -198,6 +198,9 @@ def main():
         if not state["isDraft"]:
             require(state["isPrerelease"] == prerelease, "Unexpected release channel")
             add_missing_public_assets(tag, files, state.get("assets", []))
+            if meta.get("updateNotes", False):
+                run("gh", "release", "edit", tag, "--title", f"Animecomic {tag}",
+                    "--notes-file", str(ROOT / "release-notes.md"))
             print("Verified public release; added missing assets without replacing existing bytes")
             return
     else:
