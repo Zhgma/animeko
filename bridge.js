@@ -2,7 +2,6 @@
 // Browser transport for shared Kotlin policies, local storage and media adapters.
 (() => {
   'use strict';
-  const API = window.aniApi.bangumi;
   window.aniAnimekoToken = callback => window.aniAuthSession().then(session => {
     const token = session?.tokens.accessToken;
     callback(token || '', '');
@@ -39,7 +38,7 @@
     collection: s.collection || {}, histogram: s.rating?.count || {}, relation: s.relation || '',
     progress: s.progress || 0, volumeProgress: s.volumeProgress || 0, nsfw: Boolean(s.nsfw) }); };
   async function fetchJson(path, options = {}, token = '', manga = false) {
-    let target = API + path, timeout = 20000;
+    let target = window.aniApi.bangumi + path, timeout = 20000;
     if (manga) {
       if (!mangaRoute) throw new Error('共享漫画接口尚未初始化');
       const [pathname, query] = path.split('?');
@@ -82,9 +81,9 @@
   }
   window.aniMangaIdentity = token => fetchJson('/v0/me', {}, token, true);
   async function api(action, p) {
-    if (action.startsWith('config')) return (await import('./config-io.mjs?v=8f56b5a9aa236bdc')).configAction(action, p, localStorage, prefix,
-      async settings => (await import('./browser-media.mjs?v=8f56b5a9aa236bdc')).mediaAction('mediaSettings', {settings}));
-    if (/^(media|mangaSubscription|torrent|subscription)/.test(action)) return {raw:JSON.stringify(await (await import('./browser-media.mjs?v=8f56b5a9aa236bdc')).mediaAction(action,p))};
+    if (action.startsWith('config')) return (await import('./config-io.mjs?v=e4b45ed5afdb9ce0')).configAction(action, p, localStorage, prefix,
+      async settings => (await import('./browser-media.mjs?v=e4b45ed5afdb9ce0')).mediaAction('mediaSettings', {settings}));
+    if (/^(media|mangaSubscription|torrent|subscription)/.test(action)) return {raw:JSON.stringify(await (await import('./browser-media.mjs?v=e4b45ed5afdb9ce0')).mediaAction(action,p))};
     if (action === 'networkCheck') {
       await fetchJson('/v0/subjects/355555', {}, '', true);
       return {raw:'App / 网页共享书籍 API 连接正常。此检查不代表浏览器授权页面的网络路径正常。'};
