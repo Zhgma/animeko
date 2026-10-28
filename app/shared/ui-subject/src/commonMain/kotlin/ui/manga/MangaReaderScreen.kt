@@ -409,7 +409,8 @@ internal fun MangaReaderPages(
                 }
             }
             if (fullscreen && showReaderStatus) {
-                ReaderStatusFooter(Color.Transparent, Color.White, Modifier.align(Alignment.BottomEnd))
+                ReaderStatusFooter(Color.Transparent, Color.White, Modifier.align(Alignment.BottomEnd),
+                    visible = !controller.visibility.topBar && !controller.visibility.bottomBar && !showSettings)
             }
             }
                 }, bottomBar = {

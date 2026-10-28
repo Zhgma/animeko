@@ -122,17 +122,6 @@ class MangaBangumiNetworkTest {
             transform(data.value).also { data.value = it }
     }
 
-    @Test fun proxyIsIndependentAndPersists() = runTest {
-        val data = preferences()
-        val settings = MangaBangumiSettingsStore(data)
-        val initial = settings.flow.first()
-        assertEquals(ProxyMode.DISABLED, initial.default.mode)
-        settings.save(initial.copy(default = initial.default.copy(mode = ProxyMode.CUSTOM,
-            customConfig = ProxyConfig(url = "http://127.0.0.1:7890"))))
-        assertEquals("http://127.0.0.1:7890", MangaBangumiSettingsStore(data).flow.first().default.customConfig.url)
-        assertEquals(1, data.data.value.asMap().size)
-    }
-
     @Test fun persistedCollectionAndDetailsRemainUsableWhenBangumiFails() = runTest {
         val data = preferences()
         var offline = false

@@ -29,6 +29,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -76,7 +77,7 @@ internal fun readerClockText(hour: Int, minute: Int): String =
 
 /** 独立于阅读控制栏, 由阅读器决定底部占位或透明叠加. */
 @Composable
-internal fun ReaderStatusFooter(background: Color, foreground: Color, modifier: Modifier = Modifier) {
+internal fun ReaderStatusFooter(background: Color, foreground: Color, modifier: Modifier = Modifier, visible: Boolean = true) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val now by produceState(Clock.System.now(), lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -87,15 +88,24 @@ internal fun ReaderStatusFooter(background: Color, foreground: Color, modifier: 
         }
     }
     val local = now.toLocalDateTime(TimeZone.currentSystemDefault())
-    ReaderStatusContent(readerClockText(local.hour, local.minute), rememberReaderBatteryLevel(), background, foreground, modifier)
+    ReaderStatusContent(readerClockText(local.hour, local.minute), rememberReaderBatteryLevel(), background, foreground, modifier, visible)
 }
 
 @Composable
-internal fun ReaderStatusContent(time: String, battery: Int?, background: Color, foreground: Color, modifier: Modifier = Modifier) {
+internal fun ReaderStatusContent(
+    time: String, battery: Int?, background: Color, foreground: Color, modifier: Modifier = Modifier,
+    visible: Boolean = true, windowInsets: WindowInsets = WindowInsets.safeDrawing,
+) {
     Row(
-        modifier.fillMaxWidth().background(background).testTag("reader-status-footer")
-            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+        modifier.fillMaxWidth().layout { measurable, constraints ->
+            val placeable = measurable.measure(constraints)
+            // 菜单显示时保留测量尺寸, 阅读正文的位置不随状态内容显隐而变化.
+            layout(placeable.width, placeable.height) {
+                if (visible) placeable.placeRelative(0, 0)
+            }
+        }.background(background).testTag("reader-status-footer")
+            .windowInsetsPadding(windowInsets.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+            .padding(horizontal = 24.dp, vertical = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
         verticalAlignment = Alignment.CenterVertically,
     ) {

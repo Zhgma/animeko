@@ -9,6 +9,7 @@
 
 package me.him188.ani.app.platform
 
+import me.him188.ani.app.data.repository.manga.RelayRoutingPolicy
 import me.him188.ani.app.data.repository.manga.RelaySettingsStore
 import me.him188.ani.app.data.repository.manga.MangaBangumiNetwork
 import me.him188.ani.app.data.repository.manga.MangaSourceSettingsStore
@@ -21,6 +22,7 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import me.him188.ani.app.data.repository.reading.ReadingAutoCache
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -187,7 +189,8 @@ private fun KoinApplication.otherModules(
         )
     }
     single {
-        MangaBangumiNetwork(getContext().dataStores.preferencesStore, coroutineScope,
+        MangaBangumiNetwork(getContext().dataStores.preferencesStore,
+            get<HttpClientProvider>().get(setOf(UserAgentFeature.withValue(ScopedHttpClientUserAgent.ANI))),
             refreshAuthorization = get<SessionManager>()::refreshBangumiAccessToken)
     }
     single { NovelSourceSettingsStore(getContext().dataStores.preferencesStore) }
@@ -513,7 +516,11 @@ fun KoinApplication.startCommonKoinModule(
     runBlocking {
         koin.get<SessionManager>().clearSessionIfAccessTokenExpired()
         koin.get<RelaySettingsStore>().initialize()
-        koin.get<MangaBangumiNetwork>().start()
+        RelayRoutingPolicy.start(
+            koin.get<SettingsRepository>().danmakuSettings.flow.map { it.useGlobal },
+            koin.get<SettingsRepository>().proxySettings.flow, coroutineScope,
+            onChange = { koin.get<MangaBangumiNetwork>().cache.retry() },
+        )
         // We have to block here to read the saved proxy settings
         when (val proxyProvider = koin.get<HttpClientProvider>()) {
             // compile-safe type cast
@@ -521,6 +528,14 @@ fun KoinApplication.startCommonKoinModule(
         }
     }
     // Now, the proxy settings is ready. Other components can use http clients.
+    coroutineScope.launch {
+        while (currentCoroutineContext().isActive) {
+            try { ReadingAutoCache.sweepAll(context.files.dataDir.resolve("reading-auto-cache")) }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { logger("reading-auto-cache").warn(e) { "Automatic cache cleanup failed" } }
+            delay(10.minutes)
+        }
+    }
 
     coroutineScope.launch {
         // Without media cache (TV) there is no HttpDownloader, and nothing below applies.

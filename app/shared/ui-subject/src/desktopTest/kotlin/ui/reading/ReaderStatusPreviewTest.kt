@@ -12,19 +12,26 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import me.him188.ani.app.ui.framework.runAniComposeUiTest
 import me.him188.ani.app.data.repository.manga.MangaPage
+import me.him188.ani.app.data.repository.novel.NovelBlock
+import me.him188.ani.app.data.repository.novel.NovelReaderSettings
 import me.him188.ani.app.ui.foundation.ProvideCompositionLocalsForPreview
 import me.him188.ani.app.ui.manga.MangaReaderPages
 import me.him188.ani.app.ui.manga.mangaImageFileUri
+import me.him188.ani.app.ui.novel.NovelReader
 import me.him188.ani.utils.platform.annotations.TestOnly
 import org.jetbrains.skia.EncodedImageFormat
 import org.jetbrains.skia.Image
@@ -71,7 +78,39 @@ class ReaderStatusPreviewTest {
                     }
                 }
             }
+            onNodeWithTag("manga-reader-scroll").performClick()
+            // Loaded manga images wait for the double-tap zoom window before handling a single tap.
+            mainClock.advanceTimeBy(400)
+            onNodeWithTag("manga-reader-controls").assertIsDisplayed()
+            onNodeWithTag("reader-status-time").assertIsNotDisplayed()
+            savePreview("manga-menu.png", onNodeWithTag("manga-overlay-preview").captureToImage())
         } finally { page.delete() }
+    }
+
+    @OptIn(TestOnly::class)
+    @Test fun novelMenuCoversWholeReaderWithoutStatusOverlap() = runAniComposeUiTest {
+        setContent { ProvideCompositionLocalsForPreview {
+            NovelReader(List(12) { NovelBlock("夜色渐深，窗外的风轻轻翻动书页。".repeat(8)) },
+                0, 0, "阅读预览", NovelReaderSettings(theme = 1), {}, { _, _ -> }, {}, {}, {}, {},
+                null, null, true, {}, Modifier.requiredSize(380.dp, 650.dp).testTag("novel-preview"))
+        } }
+        onNodeWithTag("reader-status-time").assertIsDisplayed()
+        savePreview("novel-status.png", onNodeWithTag("novel-preview").captureToImage())
+        onNodeWithTag("novel-reader-scroll").performClick()
+        onNodeWithTag("novel-reader-controls").assertIsDisplayed()
+        onNodeWithTag("reader-status-time").assertIsNotDisplayed()
+        savePreview("novel-menu.png", onNodeWithTag("novel-preview").captureToImage())
+    }
+
+    private fun savePreview(name: String, bitmap: ImageBitmap) {
+        System.getenv("READER_STATUS_PREVIEW_DIR")?.let { directory ->
+            Image.makeFromBitmap(bitmap.asSkiaBitmap()).use { image ->
+                image.encodeToData(EncodedImageFormat.PNG)!!.use { png ->
+                    File(directory).mkdirs()
+                    File(directory, name).writeBytes(png.bytes)
+                }
+            }
+        }
     }
 
     @Test fun lightPaperAndDarkFooters() = runAniComposeUiTest {

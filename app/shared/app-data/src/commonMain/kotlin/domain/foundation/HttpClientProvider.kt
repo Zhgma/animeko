@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import me.him188.ani.app.data.repository.manga.installRelayImageRouting
 import me.him188.ani.app.data.models.preference.ProxyConfig
 import me.him188.ani.app.domain.media.fetch.toClientProxyConfig
 import me.him188.ani.app.domain.mediasource.web.captcha.WebSourceCookieJar
@@ -186,6 +187,7 @@ class DefaultHttpClientProvider(
             }
             proxy(proxyConfig?.toClientProxyConfig())
         }.apply {
+            installRelayImageRouting()
             registerLogging(clientLogger)
 
             for (feature in features) {

@@ -114,9 +114,8 @@ internal fun NovelReader(
             else -> false
         }
     }.focusable().testTag("novel-reader")) {
-        Column(Modifier.fillMaxSize()) {
         VideoScaffold(expanded = true, maintainAspectRatio = false, controllerState = controller,
-            modifier = Modifier.weight(1f).fillMaxWidth(), contentWindowInsets = readerInsets,
+            modifier = Modifier.fillMaxSize(), contentWindowInsets = WindowInsets.safeDrawing,
             topBar = {
                 IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "返回小说详情") }
                 Text(title, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -135,8 +134,10 @@ internal fun NovelReader(
                         } else toggle()
                     }) }
                     .semantics { onClick("显示或隐藏阅读控制栏") { toggle(); true } }) {
-                    LazyColumn(state = list, modifier = Modifier.fillMaxSize().windowInsetsPadding(readerInsets).testTag("novel-reader-scroll"),
-                        contentPadding = PaddingValues(horizontal = if (maxWidth > 700.dp) (maxWidth - 660.dp) / 2 else 24.dp, vertical = 28.dp),
+                    val textHorizontalPadding = if (maxWidth > 700.dp) (maxWidth - 660.dp) / 2 else 24.dp
+                    Column(Modifier.fillMaxSize()) {
+                    LazyColumn(state = list, modifier = Modifier.weight(1f).fillMaxWidth().windowInsetsPadding(readerInsets).testTag("novel-reader-scroll"),
+                        contentPadding = PaddingValues(horizontal = textHorizontalPadding, vertical = 28.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         itemsIndexed(blocks) { index, block ->
                             if (block.image != null) AsyncImage(block.image, "插图", Modifier.fillMaxWidth().heightIn(min = 160.dp).testTag("novel-illustration-$index"),
@@ -149,6 +150,9 @@ internal fun NovelReader(
                                 Text(if (onNext != null) "本章结束 · 点击阅读下一章" else "已到最后一章", color = foreground)
                             }
                         }
+                    }
+                    if (fullscreen && showReaderStatus) ReaderStatusFooter(background, foreground,
+                        visible = !controller.visibility.topBar && !controller.visibility.bottomBar && !showSettings)
                     }
                 }
             }, bottomBar = {
@@ -165,8 +169,6 @@ internal fun NovelReader(
                     }
                 }
             })
-        if (fullscreen && showReaderStatus) ReaderStatusFooter(background, foreground)
-        }
     }
     if (showSettings) AlertDialog(onDismissRequest = { showSettings = false }, title = { Text("阅读设置") }, text = {
         Column {

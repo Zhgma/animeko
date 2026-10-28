@@ -19,7 +19,7 @@ internal fun migrateMangaApiImages(body: String): String {
             visit(child, imageField || key in setOf("images", "avatar", "imageUrl"))
         })
         is JsonArray -> JsonArray(value.map { visit(it, imageField) })
-        is JsonPrimitive -> if (imageField && value.isString) JsonPrimitive(migrateMangaApiImageUrl(value.content)) else value
+        is JsonPrimitive -> if (imageField && value.isString) JsonPrimitive(RelayEndpoints.imageRoute(value.content).url) else value
     }
     return runCatching { visit(Json.parseToJsonElement(body)).toString() }.getOrDefault(body)
 }

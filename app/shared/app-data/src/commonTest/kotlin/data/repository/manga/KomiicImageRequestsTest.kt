@@ -11,12 +11,16 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import me.him188.ani.utils.ktor.asScopedHttpClient
+import kotlin.test.BeforeTest
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class KomiicImageRequestsTest {
+    @BeforeTest fun enableRelayFixture() { RelayRoutingPolicy.enabled.value = true }
+    @AfterTest fun resetRelayFixture() { RelayRoutingPolicy.enabled.value = false }
     @Test fun concurrentReadersAndDownloadsShareOnePacedQueue() = runTest {
         val gate = KomiicImageRequests { testScheduler.currentTime }
         val starts = mutableListOf<Long>()

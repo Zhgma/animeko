@@ -105,9 +105,15 @@ class MangaSourceRepository internal constructor(
             buildJsonObject { put("comicId", book.id); put("chapterId", chapter.id) },
         ).array("imagesByChapterId").map {
             val p = it.jsonObject
-            val url = migrateMangaApiImageUrl(p.text("url"))
-            check(url.startsWith("$KOMIIC_API_BASE_URL/images/")) { "Komiic 未返回有效的图片地址" }
-            MangaPage(url, "$KOMIIC_API_BASE_URL/", p.number("width"), p.number("height"))
+            val kid = p.text("kid")
+            val url = p.text("url").takeIf { it.isNotBlank() }?.let(::migrateMangaApiImageUrl)
+                ?: run {
+                    check(Regex("[a-f0-9-]{36}").matches(kid)) { "Komiic 未返回有效的图片地址" }
+                    "https://komiic.com/api/image/$kid"
+                }
+            check(url.startsWith("$KOMIIC_API_BASE_URL/images/") ||
+                Regex("https://komiic[.]com/api/image/[a-f0-9-]{36}").matches(url)) { "Komiic 未返回有效的图片地址" }
+            MangaPage(url, "https://komiic.com/comic/${book.id}/chapter/${chapter.id}/images/all", p.number("width"), p.number("height"))
         }
         MangaSource.MANHUAGUI -> {
             val data = ManhuaguiDecoder.chapter(fetchText("${book.source.home}/comic/${book.id}/${chapter.id}.html"))
@@ -121,7 +127,7 @@ class MangaSourceRepository internal constructor(
     }.also { check(it.isNotEmpty()) { "该章节没有返回图片" } }
 
     suspend fun image(page: MangaPage): ByteArray = retryTransient {
-        if (migrateMangaApiImageUrl(page.url).startsWith("$KOMIIC_API_BASE_URL/images/")) {
+        if (migrateMangaApiImageUrl(page.url).startsWith("$KOMIIC_API_BASE_URL/images/") || page.url.startsWith("https://komiic.com/api/image/")) {
             komiicImages.request { fetchImage(page) }
         } else fetchImage(page)
     }
@@ -134,10 +140,11 @@ class MangaSourceRepository internal constructor(
             key.obj("data").text("key").also { check(it.isNotBlank()) { "CCC 未返回图片密钥" } }
         }
         return client.use {
-            val url = migrateMangaApiImageUrl(page.url)
+            val route = RelayEndpoints.imageRoute(page.url)
+            val url = route.url
             val response = get(url) {
                 expectSuccess = false
-                header("Referer", page.referer)
+                header("Referer", route.referer ?: page.referer)
                 header("User-Agent", identities?.userAgentFor(Url(url).host) ?: USER_AGENT)
                 if (!url.startsWith("$KOMIIC_API_BASE_URL/")) cookies?.getCookieHeaderValues(url)?.forEach { header("Cookie", it) }
                 header("Accept", "image/avif,image/webp,image/png,image/jpeg,*/*;q=0.8")
@@ -153,14 +160,23 @@ class MangaSourceRepository internal constructor(
     }
 
     private suspend fun komiic(operation: String, variables: JsonObject): JsonObject = client.use {
-        val url = "$KOMIIC_API_BASE_URL/query"
+        val relay = RelayRoutingPolicy.enabled.value
+        val url = if (relay) "$KOMIIC_API_BASE_URL/query" else "https://komiic.com/api/query"
         val response = post(url) {
             expectSuccess = false
             contentType(ContentType.Application.Json)
             header("User-Agent", USER_AGENT)
             header("Accept", "application/json")
             timeout { requestTimeoutMillis = 25_000; connectTimeoutMillis = 10_000 }
-            setBody(buildJsonObject { put("operation", operation); put("variables", variables) }.toString())
+            if (!relay) {
+                header("Referer", "https://komiic.com/")
+                cookies?.getCookieHeaderValues(url)?.forEach { header("Cookie", it) }
+            }
+            setBody(buildJsonObject {
+                if (relay) put("operation", operation) else put("query", komiicQuery(operation))
+                put("variables", if (!relay && operation == "Images")
+                    buildJsonObject { put("chapterId", variables.getValue("chapterId")) } else variables)
+            }.toString())
         }
         checkKomiicStatus(response)
         val root = Json.parseToJsonElement(response.bodyAsText()).jsonObject
@@ -192,6 +208,13 @@ class MangaSourceRepository internal constructor(
     }
 
     companion object {
+        internal fun komiicQuery(operation: String): String = when (operation) {
+            "Search" -> "query Search(\$keyword: String!) { searchComicsAndAuthors(keyword: \$keyword) { comics { id title imageUrl } } }"
+            "Chapters" -> "query Chapters(\$comicId: ID!) { chaptersByComicId(comicId: \$comicId) { id serial type size } }"
+            "Images" -> "query Images(\$chapterId: ID!) { imagesByChapterId(chapterId: \$chapterId) { kid width height } }"
+            else -> error("Unsupported Komiic operation")
+        }
+
         private const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
         internal fun cleanHtml(text: String): String = text.replace(Regex("<[^>]*>"), "").replace("&amp;", "&")
             .replace("&quot;", "\"").replace("&#39;", "'").replace("&nbsp;", " ").trim()

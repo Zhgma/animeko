@@ -14,12 +14,16 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import me.him188.ani.app.domain.mediasource.web.captcha.WebSourceCookieJar
 import me.him188.ani.utils.ktor.asScopedHttpClient
+import kotlin.test.BeforeTest
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
 class KomiicRelayTest {
+    @BeforeTest fun enableRelayFixture() { RelayRoutingPolicy.enabled.value = true }
+    @AfterTest fun resetRelayFixture() { RelayRoutingPolicy.enabled.value = false }
     @Test fun searchChaptersPagesAndImagesUseRelayWithoutOriginCookiesOrArbitraryGraphql() = runTest {
         val operations = mutableListOf<String>()
         val imageUrl = "$KOMIIC_API_BASE_URL/images/payload/signature"

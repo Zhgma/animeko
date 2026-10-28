@@ -121,6 +121,8 @@ external fun aniWatchRelay(callback: (String, String) -> Unit)
 external fun aniRelayStart()
 
 fun installSharedMangaApi() {
+    // Browser networking uses its CORS relay; native proxy/region settings belong to installed clients.
+    RelayEndpoints.enabled.value = true
     aniWatchRelay { origin, previous -> RelayEndpoints.apply(origin, webJson.decodeFromString<List<String>>(previous)) }
     aniRelayStart()
     aniInstallMangaApi(

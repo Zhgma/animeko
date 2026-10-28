@@ -3,6 +3,9 @@ package me.him188.ani.app.ui.novel
 
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import kotlinx.coroutines.async
+import kotlinx.coroutines.CoroutineStart
+import me.him188.ani.app.data.repository.reading.ReadingAutoCache
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
@@ -16,8 +19,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import me.him188.ani.app.data.persistent.dataStores
 import me.him188.ani.app.data.repository.novel.*
@@ -64,8 +65,11 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
     private val settingsKey = stringPreferencesKey("novel.reader.settings")
     private val filesKey = novelLocalFilesKey(id)
     private val directory = context.files.dataDir.resolve("novels").resolve(id.toString())
-    private val imageDirectory = context.files.cacheDir.resolve("novel-reader-${Random.nextLong().toULong()}")
-    private val cachedImages = mutableListOf<SystemPath>()
+    private val automaticCache = ReadingAutoCache(context.files.dataDir.resolve("reading-auto-cache").resolve("novel-$id"))
+    private val cacheReady = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) { automaticCache.enter() }
+    private val readAhead = NovelReadAheadCache(automaticCache) { book, chapter, directory, paths ->
+        cacheNovelImages(source, book, chapter, directory, paths)
+    }
     private val json = Json { ignoreUnknownKeys = true }
     private val mutable = MutableStateFlow(NovelState())
     val state = mutable.asStateFlow()
@@ -80,8 +84,6 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
     }
     private var memory: NovelMemory? = null
     private var document: NovelDocument? = null
-    private val readAhead = linkedMapOf<String, List<NovelBlock>>()
-    private val cacheMutex = Mutex()
     private var chapterJob: Job? = null
     private var selectionJob: Job? = null
     private val searchJobs = mutableMapOf<NovelSource, Job>()
@@ -199,7 +201,7 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
     }
 
     private suspend fun bind(book: NovelBook, chapters: List<NovelChapter>, pinned: Boolean) {
-        saveJob?.cancel(); document = null; cacheMutex.withLock { readAhead.clear() }
+        saveJob?.cancel(); document = null
         memory = (savedPosition(book)?.copy(chapters = chapters) ?: NovelMemory(book, chapters)).copy(sourcePinned = pinned)
         persist()
         mutable.update { it.copy(book = book, chapters = chapters, chapter = null, blocks = emptyList(), loading = false, sourcePinned = pinned) }
@@ -241,7 +243,7 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
             created += file
             file.writeText(json.encodeToString(parsed))
             val book = NovelBook(NovelSource.LOCAL, localId, parsed.title)
-            saveJob?.cancel(); document = parsed; cacheMutex.withLock { readAhead.clear() }
+            saveJob?.cancel(); document = parsed
             memory = savedPosition(book)?.copy(chapters = parsed.chapters) ?: NovelMemory(book, parsed.chapters); persist()
             val localBooks = state.value.localBooks + book
             preferences.edit { it[filesKey] = json.encodeToString(localBooks) }
@@ -260,7 +262,6 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
                 require(book.source == NovelSource.LOCAL && book in state.value.localBooks)
                 val parsed = json.decodeFromString<NovelDocument>(directory.resolve("${book.id}.json").readText())
                 saveJob?.cancel(); document = parsed
-                cacheMutex.withLock { readAhead.clear() }
                 memory = savedPosition(book)?.copy(chapters = parsed.chapters) ?: NovelMemory(book, parsed.chapters); persist()
                 mutable.update { it.copy(book = book, chapters = parsed.chapters, chapter = null, blocks = emptyList(), loading = false, error = null, autoSelecting = false, sourcePinned = true) }
             } catch (e: CancellationException) { throw e }
@@ -275,20 +276,19 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
         mutable.update { it.copy(chapter = chapter, blocks = emptyList(), loading = true, error = null, readAhead = "") }
         chapterJob = backgroundScope.launch {
             try {
+                cacheReady.await()
+                val next = state.value.chapters.getOrNull(state.value.chapters.indexOf(chapter) + 1)
+                if (book.source != NovelSource.LOCAL && book.source != NovelSource.ZLIBRARY)
+                    readAhead.opened(book, chapter, next)
                 val blocks = zlibraryLogin.retryWithLogin { content(book, chapter) }
                 if (currentGeneration != generation) return@launch
                 val saved = memory?.takeIf { it.chapterId == chapter.id }
                 mutable.update { it.copy(blocks = blocks, loading = false, initialParagraph = saved?.paragraph ?: 0, initialOffset = saved?.offset ?: 0) }
                 rememberPosition(saved?.paragraph ?: 0, saved?.offset ?: 0)
-                val next = state.value.chapters.getOrNull(state.value.chapters.indexOf(chapter) + 1)
                 if (next != null && book.source != NovelSource.LOCAL) prefetchJob = backgroundScope.launch {
                     mutable.update { it.copy(readAhead = "正在缓存下一章…") }
                     try {
-                        val nextBlocks = content(book, next)
-                        cacheMutex.withLock {
-                            readAhead.keys.retainAll(setOf(chapter.id, next.id))
-                            readAhead[next.id] = nextBlocks
-                        }
+                        content(book, next)
                         mutable.update { it.copy(readAhead = "本章和下一章已缓存") }
                     } catch (e: CancellationException) { throw e }
                     catch (e: Exception) { mutable.update { it.copy(readAhead = "下一章缓存失败，可重试") } }
@@ -299,9 +299,8 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
     }
     private suspend fun content(book: NovelBook, chapter: NovelChapter): List<NovelBlock> {
         if (book.source == NovelSource.LOCAL) return document?.contents?.getOrNull(state.value.chapters.indexOf(chapter)) ?: error("本地正文不存在，请重新导入")
-        return downloads.store.read(book, chapter) ?: cacheMutex.withLock {
-            readAhead[chapter.id] ?: cacheNovelImages(source, book, chapter, imageDirectory, cachedImages).also { readAhead[chapter.id] = it }
-        }
+        return downloads.store.read(book, chapter)
+            ?: if (book.source == NovelSource.ZLIBRARY) source.content(book, chapter) else readAhead.content(book, chapter)
     }
     fun resume() { (state.value.chapters.firstOrNull { it.id == memory?.chapterId } ?: state.value.chapters.firstOrNull())?.let(::open) }
     fun closeReader() { chapterJob?.cancel(); prefetchJob?.cancel(); mutable.update { it.copy(chapter = null, loading = false) } }
@@ -344,7 +343,6 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
             persist()
             latestHistory?.let { historyStore.record(it) }
             preferences.edit { it[settingsKey] = json.encodeToString(state.value.settings) }
-            cacheMutex.withLock { cachedImages.forEach { it.delete() }; readAhead.clear() }
         }
     }
 }
@@ -357,7 +355,7 @@ private suspend fun cacheNovelImages(repository: NovelSourceRepository, book: No
         val bytes = repository.image(book, image)
         directory.createDirectories()
         val file = directory.resolve("${Random.nextLong().toULong()}.image")
-        file.writeBytes(bytes); paths += file
+        paths += file; file.writeBytes(bytes)
         block.copy(image = mangaImageFileUri(file.absolutePath))
     }
 }

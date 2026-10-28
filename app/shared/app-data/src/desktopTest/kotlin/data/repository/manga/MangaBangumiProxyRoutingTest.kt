@@ -15,8 +15,10 @@ import kotlinx.coroutines.runBlocking
 import me.him188.ani.app.data.models.preference.ProxyConfig
 import me.him188.ani.app.data.models.preference.ProxyMode
 import me.him188.ani.app.data.models.preference.ProxySettings
-import me.him188.ani.utils.ktor.createDefaultHttpClient
-import me.him188.ani.utils.ktor.proxy
+import me.him188.ani.app.domain.foundation.DefaultHttpClientProvider
+import me.him188.ani.app.domain.settings.ProxySettingsFlowProxyProvider
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeout
 import java.net.ServerSocket
 import java.util.concurrent.CompletableFuture
 import kotlin.concurrent.thread
@@ -25,7 +27,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class MangaBangumiProxyRoutingTest {
-    @Test fun mangaBangumiUsesDedicatedProxyWhileSourceTrafficConnectsDirectly() = runBlocking {
+    @Test fun booksAndSourceRequestsShareGlobalProxyAndDisabledMeansDirect() = runBlocking {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         val data = object : DataStore<Preferences> {
             override val data = MutableStateFlow(emptyPreferences())
@@ -37,29 +39,33 @@ class MangaBangumiProxyRoutingTest {
         val proxyRequest = CompletableFuture<String>()
         fun serve(server: ServerSocket, body: String, capture: CompletableFuture<String>? = null) = thread(isDaemon = true) {
             server.soTimeout = 15_000
-            server.accept().use { socket ->
+            repeat(if (capture != null) 2 else 1) { server.accept().use { socket ->
                 val input = socket.getInputStream().bufferedReader()
                 capture?.complete(input.readLine()) ?: input.readLine()
                 while (!input.readLine().isNullOrEmpty()) { }
                 socket.getOutputStream().write("HTTP/1.1 200 OK\r\nContent-Length: ${body.length}\r\nConnection: close\r\n\r\n$body".encodeToByteArray())
-            }
+            } }
         }
         serve(proxy, "proxied", proxyRequest)
         serve(origin, "direct")
         val booksBase = "http://127.0.0.1:${origin.localPort}/api/books"
-        val network = MangaBangumiNetwork(data, scope, booksBase)
         val settings = ProxySettings.Disabled
-        network.settings.save(settings.copy(default = settings.default.copy(mode = ProxyMode.CUSTOM,
+        val global = MutableStateFlow(settings.copy(default = settings.default.copy(mode = ProxyMode.CUSTOM,
             customConfig = ProxyConfig("http://127.0.0.1:${proxy.localPort}"))))
-        val sourceClient = createDefaultHttpClient(bare = true) { proxy(null) }
+        val provider = DefaultHttpClientProvider(ProxySettingsFlowProxyProvider(global, scope), scope)
+        val sharedClient = provider.get(emptySet())
+        val network = MangaBangumiNetwork(data, sharedClient, booksApiBaseUrlProvider = { booksBase })
         try {
-            network.start()
+            provider.startProxyListening(emptySequence())
             val target = "http://127.0.0.1:${origin.localPort}/source"
             assertEquals("proxied", network.http.get("https://api.bgm.tv/v0/subjects/118167").requireSuccess())
             assertTrue(proxyRequest.get().contains("$booksBase/v0/subjects/118167"))
-            assertEquals("direct", sourceClient.get(target).bodyAsText())
+            assertEquals("proxied", sharedClient.use { get(target).bodyAsText() })
+            global.value = ProxySettings.Disabled
+            withTimeout(5_000) { provider.configurationFlow.first { provider.getCurrentProxyConfig() == null } }
+            assertEquals("direct", sharedClient.use { get(target).bodyAsText() })
         } finally {
-            sourceClient.close(); scope.cancel(); proxy.close(); origin.close()
+            scope.cancel(); proxy.close(); origin.close()
         }
     }
 }

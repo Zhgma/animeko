@@ -17,7 +17,7 @@ enum class MangaSource(val title: String, val subscriptionUrl: String, val home:
     // Kept for decoding saved offline records. No network adapter is registered.
     MANGADEX("MangaDex", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manga_dex.js", "https://mangadex.org");
 
-    val iconUrl: String get() = if (this == KOMIIC) "$KOMIIC_API_BASE_URL/icon" else "$home/favicon.ico"
+    val iconUrl: String get() = if (this == KOMIIC && RelayEndpoints.enabled.value) "$KOMIIC_API_BASE_URL/icon" else "$home/favicon.ico"
 
     companion object {
         val available = entries.filter { it != MANGADEX }
@@ -28,5 +28,6 @@ enum class MangaSource(val title: String, val subscriptionUrl: String, val home:
 data class MangaSourceBook(val source: MangaSource, val id: String, val title: String, val cover: String = "")
 @Serializable
 data class MangaChapter(val id: String, val title: String, val number: Double?, val group: String, val pageCount: Int = 0)
+@Serializable
 data class MangaPage(val url: String, val referer: String, val width: Int = 0, val height: Int = 0, val cccImageId: Int? = null)
 

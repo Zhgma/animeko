@@ -7,6 +7,8 @@ import io.ktor.client.engine.mock.respond
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import me.him188.ani.utils.ktor.asScopedHttpClient
+import kotlin.test.BeforeTest
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -14,6 +16,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class MangaSourceRepositoryTest {
+    @BeforeTest fun enableRelayFixture() { RelayRoutingPolicy.enabled.value = true }
+    @AfterTest fun resetRelayFixture() { RelayRoutingPolicy.enabled.value = false }
     @Test
     fun coverUpdateBadgeCannotReplaceTheBookTitleDuringDeduplication() {
         val books = MangaSourceRepository.parseBookLinks("""<a class="bcover" href="/comic/12887/" title="GRANDBLUE碧蓝之海"><img src="//cf.mhgui.com/cpic/b/12887.jpg"/><span>更新至112话</span></a>

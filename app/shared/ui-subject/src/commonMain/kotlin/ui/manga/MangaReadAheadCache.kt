@@ -1,6 +1,12 @@
 /* Copyright (C) 2026 OpenAni and contributors. SPDX-License-Identifier: AGPL-3.0-only */
 package me.him188.ani.app.ui.manga
 
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import me.him188.ani.app.data.repository.reading.ReadingAutoCache
+import me.him188.ani.utils.io.absolutePath
+import me.him188.ani.utils.io.resolve
+import me.him188.ani.utils.io.delete
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -23,12 +29,13 @@ data class MangaDownloadProgress(
     val title: String, val completed: Int = 0, val total: Int = 0, val error: String? = null,
 )
 
-/** Current and next chapter catalogs and images share the foreground reader's cache. */
+/** Foreground and read-ahead downloads share the persistent three-chapter window. */
 internal class MangaReadAheadCache(
     scope: CoroutineScope,
     private val fetchPages: suspend (MangaSourceBook, MangaChapter) -> List<MangaPage>,
     private val fetchImage: suspend (MangaPage) -> String,
     private val discardImage: (String) -> Unit,
+    private val persistent: ReadingAutoCache? = null,
 ) {
     private val downloadsJob = SupervisorJob(scope.coroutineContext[Job])
     private val downloadsScope = CoroutineScope(scope.coroutineContext + downloadsJob)
@@ -44,23 +51,63 @@ internal class MangaReadAheadCache(
     private fun imageKey(page: MangaPage) = if (page.url.startsWith("https://us.hamreus.com/"))
         page.copy(url = page.url.substringBefore('?')) else page
 
+    @Serializable
+    private data class SavedCatalog(val book: MangaSourceBook, val chapters: List<MangaChapter>)
+
+    suspend fun rememberChapters(book: MangaSourceBook, chapters: List<MangaChapter>) {
+        persistent?.catalog(json.encodeToString(SavedCatalog(book, chapters)))
+    }
+
+    suspend fun savedChapters(book: MangaSourceBook): List<MangaChapter> {
+        val saved = persistent?.catalog()?.let { json.decodeFromString<SavedCatalog>(it) }
+        return saved?.takeIf { it.book.source == book.source && it.book.id == book.id }?.chapters.orEmpty()
+    }
+
+    private val json = Json { ignoreUnknownKeys = true }
+    private fun assetKey(page: MangaPage) = json.encodeToString(imageKey(page))
+
+    suspend fun opened(book: MangaSourceBook, chapter: MangaChapter, next: MangaChapter?) {
+        persistent?.opened(key(book, chapter), next?.let { key(book, it) })
+        if (persistent != null) catalogMutex.withLock { catalogs.clear() }
+    }
+
     suspend fun pages(book: MangaSourceBook, chapter: MangaChapter): List<MangaPage> = catalogMutex.withLock {
-        catalogs.getOrPut(key(book, chapter)) { fetchPages(book, chapter) }
+        val key = key(book, chapter)
+        if (persistent == null) catalogs.getOrPut(key) { fetchPages(book, chapter) }
+        else {
+            val saved = persistent.read(key)?.takeIf { it.isNotEmpty() }
+            val pages = saved?.let { json.decodeFromString<List<MangaPage>>(it) } ?: fetchPages(book, chapter).also {
+                persistent.put(key, json.encodeToString(it), it.map(::assetKey).toSet())
+            }
+            catalogs[key] = pages
+            pages
+        }
     }
 
     suspend fun invalidateCatalogs(book: MangaSourceBook) = catalogMutex.withLock {
-        catalogs.keys.removeAll { it.startsWith("${book.source}:${book.id}:") }
+        val keys = catalogs.keys.filter { it.startsWith("${book.source}:${book.id}:") }.toSet()
+        persistent?.invalidate(keys)
+        catalogs.keys.removeAll(keys)
     }
 
     suspend fun image(page: MangaPage): String {
         val key = imageKey(page)
         val task = imageMutex.withLock {
-            images[key]?.let { return it }
+            if (persistent != null) persistent.asset(assetKey(page))?.let { return mangaImageFileUri(it.absolutePath) }
+            else images[key]?.let { return it }
             pending.getOrPut(key) {
                 downloadsScope.async {
                     try {
                         val uri = downloadSlots.withPermit { fetchImage(page) }
-                        imageMutex.withLock { images[key] = uri }
+                        if (persistent == null) imageMutex.withLock { images[key] = uri }
+                        else withContext(NonCancellable) {
+                            val file = persistent.images.resolve(uri.substringAfterLast('/'))
+                            var committed = false
+                            try {
+                                committed = persistent.putAsset(assetKey(page), file)
+                                if (!committed) throw CancellationException("Chapter left the automatic cache window")
+                            } finally { if (!committed) file.delete() }
+                        }
                         uri
                     } finally {
                         withContext(NonCancellable) { imageMutex.withLock { pending.remove(key) } }
@@ -115,7 +162,7 @@ internal class MangaReadAheadCache(
             onProgress(index, MangaDownloadProgress(chapter.title, completed, total, failure))
         }
         // Keep both chapters, including failed pages for retry; older chapters can be released.
-        if (allCatalogsLoaded) {
+        if (allCatalogsLoaded && persistent == null) {
             imageMutex.withLock {
                 images.keys.filter { it !in retained }.forEach { images.remove(it)?.let(discardImage) }
             }

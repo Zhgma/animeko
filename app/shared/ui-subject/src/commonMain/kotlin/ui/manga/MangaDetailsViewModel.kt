@@ -16,6 +16,9 @@ import kotlinx.coroutines.sync.withLock
 import io.ktor.http.encodeURLPath
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.CoroutineStart
+import me.him188.ani.app.data.repository.reading.ReadingAutoCache
 import kotlinx.coroutines.Job
 import me.him188.ani.app.domain.media.download.MediaDownloadManager
 import kotlinx.coroutines.cancel
@@ -102,10 +105,12 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context, privat
     private val readingStore = MangaReadingStore(context.dataStores.preferencesStore)
     private val historyStore = ReadingHistoryStore(context.dataStores.preferencesStore)
     private var latestHistory: ReadingHistoryEntry? = null
-    private val imageDirectory = context.files.cacheDir.resolve("manga-reader")
-    private val cache = MangaReadAheadCache(backgroundScope, sources::pages, ::downloadImage) { uri ->
-        imageDirectory.resolve(uri.substringAfterLast('/')).delete()
-    }
+    private val automaticCache = ReadingAutoCache(context.files.dataDir.resolve("reading-auto-cache").resolve("manga-${manga.subjectId}"))
+    private val cacheReady = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) { automaticCache.enter() }
+    private val imageDirectory = automaticCache.images
+    private val cache = MangaReadAheadCache(backgroundScope, sources::pages, ::downloadImage,
+        { uri -> imageDirectory.resolve(uri.substringAfterLast('/')).delete() }, automaticCache)
+    private var sourceProbe: Pair<MangaPage, ByteArray>? = null
     private var prefetchJob: Job? = null
     private val mutableState = MutableStateFlow(MangaDetailsUiState(subjectId = manga.subjectId))
     val state = mutableState.asStateFlow()
@@ -155,7 +160,9 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context, privat
             val memory = readingStore.read(manga.subjectId)
             if (sourceSelectionStarted) return@launch
             mutableState.update { it.copy(memory = memory) }
-            if (memory?.sourcePinned == true) selectBook(memory.book)
+            cacheReady.await()
+            if (memory != null && (memory.sourcePinned || cache.savedChapters(memory.book).isNotEmpty()))
+                selectBook(memory.book, memory.sourcePinned)
             else autoSelectSource()
         }
     }
@@ -386,8 +393,13 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context, privat
                 mutableState.update { it.copy(memory = memory) }
             }
             val found = findReadableMangaSource(aliases, sources::search, sources::chapters,
-                probe = { book, chapter -> cache.image(cache.pages(book, chapter).first()) }, progress = ::updateSource, sources = state.value.sourceSettings.enabled)
+                probe = { book, chapter ->
+                    val page = sources.pages(book, chapter).first()
+                    sourceProbe = page to sources.image(page)
+                }, progress = ::updateSource, sources = state.value.sourceSettings.enabled)
             if (found != null) {
+                cacheReady.await()
+                cache.rememberChapters(found.book, found.chapters)
                 val memory = state.value.memory?.takeIf { it.book.source == found.book.source && it.book.id == found.book.id }
                     ?.copy(sourcePinned = false) ?: MangaReadingMemory(found.book, sourcePinned = false)
                 readingStore.save(manga.subjectId, memory)
@@ -399,7 +411,9 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context, privat
         }
     }
 
-    fun selectBook(book: MangaSourceBook) {
+    fun selectBook(book: MangaSourceBook) = selectBook(book, true)
+
+    private fun selectBook(book: MangaSourceBook, pinSource: Boolean) {
         if (book.source !in state.value.sourceSettings.enabled) {
             mutableState.update { it.copy(sourceError = "已记住的来源已停用，请启用或选择其他来源") }; return
         }
@@ -411,16 +425,20 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context, privat
         val previousChapter = state.value.chapter
         chapterJob = backgroundScope.launch {
             val memory = state.value.memory?.takeIf { it.book.source == book.source && it.book.id == book.id }
-                ?.copy(sourcePinned = true) ?: MangaReadingMemory(book)
+                ?.copy(sourcePinned = pinSource) ?: MangaReadingMemory(book, sourcePinned = pinSource)
             mutableState.update { it.copy(book = book, source = book.source, chapters = emptyList(), chaptersLoading = true,
                 sourceError = null, autoSelecting = false, memory = memory, chapter = null, pages = emptyList()) }
             try {
                 // Persist the user's choice before network access, including when the source is temporarily down.
                 readingStore.save(manga.subjectId, memory)
+                cacheReady.await()
+                val cachedChapters = cache.savedChapters(book)
                 val offline = offlineStore.list().filter { it.book.source == book.source && it.book.id == book.id && it.complete }
-                if (offline.isNotEmpty()) mutableState.update { it.copy(chapters = offline.map { entry -> entry.chapter }) }
+                val available = cachedChapters.ifEmpty { offline.map { entry -> entry.chapter } }
+                if (available.isNotEmpty()) mutableState.update { it.copy(chapters = available) }
                 val chapters = try { sources.chapters(book) } catch (e: CancellationException) { throw e }
-                    catch (e: Exception) { if (offline.isEmpty()) throw e else offline.map { it.chapter } }
+                    catch (e: Exception) { if (available.isEmpty()) throw e else available }
+                cache.rememberChapters(book, chapters)
                 mutableState.update { it.copy(chapters = chapters, chaptersLoading = false) }
                 if (previousChapter != null) {
                     val matching = matchingMangaChapter(previousChapter, chapters)
@@ -445,6 +463,10 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context, privat
             mutableState.update { it.copy(chapter = chapter, pages = emptyList(), pagesLoading = true, pagesError = null, downloads = emptyList(),
                 initialPage = if (memory?.chapterId == chapter.id) memory.page else 0) }
             try {
+                cacheReady.await()
+                val siblings = state.value.chapters.filter { it.group == chapter.group }
+                val index = siblings.indexOfFirst { it.id == chapter.id }
+                cache.opened(book, chapter, siblings.getOrNull(index + 1))
                 val pages = offlineStore.pages(book, chapter) ?: cache.pages(book, chapter)
                 mutableState.update { it.copy(pages = pages, pagesLoading = false, initialPage = it.initialPage.coerceIn(pages.indices)) }
                 if (pages.none { it.url.startsWith("file:") }) prefetchChapters()
@@ -531,10 +553,12 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context, privat
     suspend fun image(page: MangaPage): String = if (page.url.startsWith("file:")) page.url else cache.image(page)
 
     private suspend fun downloadImage(page: MangaPage): String {
-        val bytes = sources.image(page)
+        val probe = sourceProbe?.takeIf { it.first == page }
+        val bytes = probe?.second ?: sources.image(page)
+        if (probe != null) sourceProbe = null
         imageDirectory.createDirectories()
         val file = imageDirectory.resolve("${manga.subjectId}-${Random.nextLong().toULong()}.image")
-        file.writeBytes(bytes)
+        try { file.writeBytes(bytes) } catch (e: Exception) { file.delete(); throw e }
         return mangaImageFileUri(file.absolutePath)
     }
 

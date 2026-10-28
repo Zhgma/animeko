@@ -1,6 +1,8 @@
 /* Copyright (C) 2026 OpenAni and contributors. SPDX-License-Identifier: AGPL-3.0-only */
 package me.him188.ani.app.ui.manga
 
+import me.him188.ani.app.data.repository.reading.ReadingAutoCache
+import me.him188.ani.utils.io.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -21,6 +23,36 @@ class MangaReadAheadCacheTest {
     private val book = MangaSourceBook(MangaSource.KOMIIC, "book", "Test")
     private val chapters = List(3) { MangaChapter("$it", "Chapter $it", it.toDouble(), "章节") }
     private fun pages(chapter: MangaChapter) = List(3) { MangaPage("${chapter.id}/$it", "referer") }
+
+    @Test
+    fun persistentWindowReusesCatalogsAndImagesAfterClosingAndRestarting() = runTest {
+        val root = SystemPaths.createTempDirectory("manga-auto")
+        val disk = ReadingAutoCache(root)
+        disk.enter()
+        var catalogs = 0
+        var downloads = 0
+        fun reader() = MangaReadAheadCache(backgroundScope, { _, chapter -> catalogs++; pages(chapter) }, {
+            disk.images.createDirectories()
+            val file = disk.images.resolve("${downloads++}.image")
+            file.writeBytes(byteArrayOf(1))
+            mangaImageFileUri(file.absolutePath)
+        }, { error("Persistent files must survive close") }, disk)
+        val first = reader()
+        first.rememberChapters(book, chapters)
+        first.opened(book, chapters[0], chapters[1])
+        first.prefetch(book, chapters.take(2)) { _, _ -> }
+        first.clear()
+        disk.enter()
+        val restarted = reader()
+        assertEquals(chapters, restarted.savedChapters(book))
+        assertEquals(emptyList(), restarted.savedChapters(book.copy(id = "other")))
+        restarted.opened(book, chapters[1], chapters[2])
+        restarted.prefetch(book, chapters.drop(1)) { _, _ -> }
+        restarted.pages(book, chapters[0]).forEach { restarted.image(it) }
+        assertEquals(3, catalogs); assertEquals(9, downloads)
+        restarted.clear()
+        root.deleteRecursively()
+    }
 
     @Test
     fun refreshingMangaGuiSignaturesRetainsAlreadyDownloadedPages() = runTest {

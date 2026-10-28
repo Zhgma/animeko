@@ -142,7 +142,6 @@ import me.him188.ani.app.ui.settings.tabs.media.source.MangaSubscriptionGroup
 import me.him188.ani.app.ui.settings.tabs.media.source.NovelSubscriptionGroup
 import me.him188.ani.app.ui.settings.tabs.media.source.rememberMediaSourceSelectionState
 import me.him188.ani.app.ui.settings.tabs.network.RelaySettingsGroup
-import me.him188.ani.app.ui.settings.tabs.network.MangaBangumiProxyGroup
 import me.him188.ani.app.ui.settings.tabs.network.ConfigureProxyGroup
 import me.him188.ani.app.ui.settings.tabs.network.ServerSelectionGroup
 import me.him188.ani.app.ui.settings.tabs.theme.ThemeGroup
@@ -336,7 +335,6 @@ fun SettingsScreen(
                             SettingsTab.SERVER -> ServerSelectionGroup(vm.danmakuSettingsState, vm.danmakuServerTesters)
                             SettingsTab.PROXY -> {
                                 RelaySettingsGroup()
-                                MangaBangumiProxyGroup()
                                 ConfigureProxyGroup(
                                 state = vm.configureProxyState,
                                 onStartProxyTestLoop = { vm.startProxyTesterLoop() },

@@ -16,11 +16,8 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.io.bytestring.ByteString
@@ -29,42 +26,21 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.jsonObject
-import me.him188.ani.app.data.models.preference.ProxySettings
 import me.him188.ani.app.data.repository.RepositoryAuthorizationException
-import me.him188.ani.app.domain.foundation.DefaultHttpClientProvider
-import me.him188.ani.app.domain.foundation.ScopedHttpClientUserAgent
-import me.him188.ani.app.domain.foundation.withValue
-import me.him188.ani.app.domain.foundation.UserAgentFeature
-import me.him188.ani.app.domain.settings.ProxySettingsFlowProxyProvider
 import me.him188.ani.utils.io.DigestAlgorithm
 import me.him188.ani.utils.io.digest
 import me.him188.ani.utils.ktor.ScopedHttpClient
 import me.him188.ani.utils.platform.currentTimeMillis
 
-class MangaBangumiSettingsStore(private val store: DataStore<Preferences>) {
-    private val key = stringPreferencesKey("manga.bangumi.proxy")
-    private val json = Json { ignoreUnknownKeys = true }
-    val flow = store.data.map { preferences ->
-        preferences[key]?.let { runCatching { json.decodeFromString<ProxySettings>(it) }.getOrNull() }
-            ?: ProxySettings.Disabled
-    }.distinctUntilChanged()
-    suspend fun save(settings: ProxySettings) { store.edit { it[key] = json.encodeToString(settings) } }
-}
-
-/** Owns only manga Bangumi API traffic. Source subscriptions and reader images use their own clients. */
+/** Bangumi books share the global proxy provider used by anime, source adapters and images. */
 class MangaBangumiNetwork(
-    store: DataStore<Preferences>, scope: CoroutineScope, booksApiBaseUrl: String = BOOKS_API_BASE_URL,
+    store: DataStore<Preferences>, client: ScopedHttpClient,
+    booksApiBaseUrlProvider: () -> String? = { BOOKS_API_BASE_URL.takeIf { RelayRoutingPolicy.enabled.value } },
     refreshAuthorization: (suspend (String) -> String?)? = null,
 ) {
-    val settings = MangaBangumiSettingsStore(store)
-    private val features = setOf(UserAgentFeature.withValue(ScopedHttpClientUserAgent.ANI))
-    private val provider = DefaultHttpClientProvider(ProxySettingsFlowProxyProvider(settings.flow, scope), scope)
     val cache = MangaBangumiCache(store)
-    val http = MangaBangumiHttp(provider.get(features), cache, booksApiBaseUrl, refreshAuthorization,
-        booksApiBaseUrlProvider = { BOOKS_API_BASE_URL })
-    suspend fun start() {
-        provider.startProxyListening(sequenceOf(DefaultHttpClientProvider.HoldingInstanceMatrix(features)))
-    }
+    val http = MangaBangumiHttp(client, cache, refreshAuthorization = refreshAuthorization,
+        booksApiBaseUrlProvider = booksApiBaseUrlProvider)
 }
 
 @Serializable
@@ -192,7 +168,7 @@ class MangaBangumiHttp(
     }
 
     private suspend fun send(method: HttpMethod, url: String, token: String?, parameters: Map<String, Any>, body: String?): MangaBangumiResponse {
-        val route = MangaRequestRouting.resolve(method.value, url, body, booksApiBaseUrlProvider?.invoke() ?: booksApiBaseUrl)
+        val route = MangaRequestRouting.resolve(method.value, url, body, if (booksApiBaseUrlProvider != null) booksApiBaseUrlProvider.invoke() else booksApiBaseUrl)
         val response = sendOnce(method, route, token, parameters, body)
         if (response.status != 401 || !route.sendAuthorization || token.isNullOrBlank()) return response
         val refreshed = refreshAuthorization?.invoke(token)?.takeIf { it.isNotBlank() && it != token } ?: return response

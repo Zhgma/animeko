@@ -10,12 +10,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import me.him188.ani.utils.ktor.asScopedHttpClient
+import kotlin.test.BeforeTest
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
 import kotlin.test.assertNull
 
 class RelaySettingsTest {
+    @BeforeTest fun enableRelayFixture() { RelayRoutingPolicy.enabled.value = true }
+    @AfterTest fun resetRelayFixture() { RelayRoutingPolicy.enabled.value = false }
     private fun preferences() = object : DataStore<Preferences> {
         override val data = MutableStateFlow(emptyPreferences())
         override suspend fun updateData(transform: suspend (Preferences) -> Preferences) =

@@ -321,6 +321,7 @@ private fun SettingsScope.ProxyConfigGroup(
 
     Group(
         title = { Text(stringResource(Lang.settings_network_proxy_title)) },
+        description = { Text("番剧、漫画和小说共用此代理设置，禁用表示直连。") },
         actions = {
             TextButton({ onUpdate(currentConfig.value) }) {
                 Text(stringResource(Lang.settings_network_proxy_save_and_test))
