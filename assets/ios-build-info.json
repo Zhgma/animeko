@@ -1,0 +1,10 @@
+{
+  "version": "0.3.2-beta.5",
+  "bundle_id": "org.animeko.animeko",
+  "build": "0.3.235",
+  "minimum_ios": "16.0",
+  "source_sha": "48862a492f7de3ccd96a48a8d4e610d1cfbe22bd",
+  "sha256": "b47326a6d9eb01b8854b49481f8858b068ed1840473e6f49159b907d207e9f8f",
+  "size": 47881443,
+  "signing": "ad-hoc placeholder only; requires user signing before installation"
+}

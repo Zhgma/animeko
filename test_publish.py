@@ -62,6 +62,62 @@ class PublicationChannelTest(unittest.TestCase):
 
 
 class DesktopPublicationTest(unittest.TestCase):
+    def test_ipa_cannot_be_published_without_android_and_windows(self):
+        assets = {"ani-release.apk": {"package": "me.him188.ani"},
+                  "app.ipa": {}, "ios-build-info.json": {}}
+        with self.assertRaisesRegex(ValueError, "full release"):
+            publish.validate_public_assets({"assets": assets})
+        assets["ani-release-windows-x86_64.zip"] = {}
+        publish.validate_public_assets({"assets": assets})
+
+    def test_republication_checks_existing_bytes_before_withdrawal(self):
+        ipa = Path("app.ipa")
+        state = dict(isPrerelease=True, assets=[{"name": ipa.name}])
+        calls = []
+        with patch.object(publish, "verify_uploaded", side_effect=lambda *a: calls.append("verify")), \
+                patch.object(publish, "run", side_effect=lambda *a: calls.append(a)):
+            publish.withdraw_for_republication("0.3.2-beta.5", [ipa], state, True)
+        self.assertEqual(calls[0], "verify")
+        self.assertIn("--draft=true", calls[1])
+        self.assertIn("Animecomic 0.3.2-beta.5", calls[1])
+
+    def test_republication_rejects_stable_and_conflicting_existing_bytes(self):
+        with patch.object(publish, "run") as run:
+            with self.assertRaisesRegex(ValueError, "Only a beta"):
+                publish.withdraw_for_republication("0.3.1", [], dict(isPrerelease=False), False)
+            with patch.object(publish, "verify_uploaded", side_effect=ValueError("Uploaded bytes differ")):
+                with self.assertRaisesRegex(ValueError, "Uploaded bytes differ"):
+                    publish.withdraw_for_republication("0.3.2-beta.5", [], dict(isPrerelease=True), True)
+            run.assert_not_called()
+
+    def test_unified_republication_ends_public_and_preserves_latest(self):
+        tag = "0.3.2-beta.5"
+        meta = dict(tag=tag, prerelease=True, republish=True, sourceCommit="a" * 40)
+        calls = []
+        views = iter([
+            dict(isDraft=False, isPrerelease=True, assets=[]),
+            dict(name=f"Animecomic {tag}", isDraft=False, isPrerelease=True),
+        ])
+        def run(*args, **kwargs):
+            calls.append(args)
+            if args[1] == "api":
+                output = "0.3.1" if args[2].endswith("releases/latest") else "a" * 40
+            elif args[1:3] == ("release", "view"):
+                output = json.dumps(next(views))
+            else:
+                output = ""
+            return subprocess.CompletedProcess(args, 0, output)
+        with patch.object(publish, "validate", return_value=(meta, [])), \
+                patch.object(publish, "run", side_effect=run), \
+                patch.object(publish, "verify_uploaded"), \
+                patch.dict(os.environ, GH_REPO="Zhgma/animeko"):
+            publish.main()
+        edits = [c for c in calls if c[1:3] == ("release", "edit")]
+        self.assertIn("--draft=true", edits[0])
+        self.assertIn("--draft=false", edits[1])
+        self.assertIn("--latest=false", edits[1])
+        self.assertEqual(sum(c[1] == "api" and c[2].endswith("releases/latest") for c in calls), 2)
+
     def test_missing_platform_is_added_without_overwriting_android(self):
         apk, desktop = Path("android.apk"), Path("windows.zip")
         with patch.object(publish, "verify_uploaded") as verify, patch.object(publish, "run") as run:

@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
+import plistlib
 import re
 import shutil
 import struct
@@ -69,6 +70,29 @@ def run(*args, check=True):
     return subprocess.run(args, check=check, capture_output=True, text=True, encoding="utf-8")
 
 
+def validate_ipa(path, meta):
+    provenance = json.loads((ROOT / "assets" / "ios-build-info.json").read_text())
+    require(provenance["version"] == meta["version"] and
+            provenance["source_sha"] == meta["sourceCommit"], "IPA source/version differs")
+    require(provenance["size"] == path.stat().st_size and
+            provenance["sha256"] == digest(path), "IPA provenance bytes differ")
+    with zipfile.ZipFile(path) as archive:
+        require(archive.testzip() is None, "Damaged IPA")
+        names = archive.namelist()
+        prefix = "Payload/Animeko.app/"
+        info = plistlib.loads(archive.read(prefix + "Info.plist"))
+        require(info["CFBundleIdentifier"] == "org.animeko.animeko", "Unexpected iOS app")
+        require(info["CFBundleShortVersionString"] == meta["version"].split("-")[0] and
+                info["CFBundleVersion"] == provenance["build"], "IPA bundle version differs")
+        require(info["CFBundleSupportedPlatforms"] == ["iPhoneOS"], "Expected device IPA")
+        require(info["MinimumOSVersion"] == provenance["minimum_ios"] == "16.0", "IPA minimum OS differs")
+        require(not any(name.endswith("embedded.mobileprovision") for name in names), "Unexpected iOS profile")
+        executable = archive.read(prefix + info["CFBundleExecutable"])
+        require(struct.unpack_from("<II", executable) == (0xFEEDFACF, 0x0100000C), "Expected ARM64 IPA")
+        for framework in ("application", "MediampFFmpegKit"):
+            require(prefix + f"Frameworks/{framework}.framework/{framework}" in names, "Missing iOS framework")
+
+
 def validate():
     meta = json.loads((ROOT / "release.json").read_text(encoding="utf-8"))
     version = meta["version"]
@@ -101,6 +125,8 @@ def validate():
         elif name.endswith("-windows-x86_64.zip"):
             require(name == f"ani-{version}-windows-x86_64.zip", "Windows asset/version mismatch")
             validate_windows_zip(p, meta)
+        elif name.endswith(".ipa"):
+            validate_ipa(p, meta)
         files.append(p)
     return meta, files
 
@@ -111,6 +137,9 @@ def validate_public_assets(meta):
     apks = [asset for name, asset in assets.items() if name.endswith(".apk")]
     require(apks, "Expected a signed release APK")
     require(all(asset.get("package") == "me.him188.ani" for asset in apks), "Expected release application ID")
+    if any(name.endswith(".ipa") for name in assets):
+        require(any(name.endswith("-windows-x86_64.zip") for name in assets), "IPA must share the full release")
+        require("ios-build-info.json" in assets, "IPA provenance is required")
 
 
 def verify_uploaded(tag, files):
@@ -131,6 +160,15 @@ def add_missing_public_assets(tag, files, published_assets):
         verify_uploaded(tag, missing_files)
 
 
+def withdraw_for_republication(tag, files, state, prerelease):
+    require(prerelease and state["isPrerelease"], "Only a beta release may be republished")
+    # Validate existing installation packages before taking the release offline.
+    names = {asset["name"] for asset in state.get("assets", [])}
+    verify_uploaded(tag, [file for file in files if file.name in names])
+    run("gh", "release", "edit", tag, "--draft=true", "--title", f"Animecomic {tag}",
+        "--notes-file", str(ROOT / "release-notes.md"))
+
+
 def main():
     meta, files = validate()
     print("Validated release packages and checksums", flush=True)
@@ -144,6 +182,19 @@ def main():
     existing = run("gh", "release", "view", tag, "--json", "isDraft,isPrerelease,assets", check=False)
     if existing.returncode == 0:
         state = json.loads(existing.stdout)
+        if meta.get("republish", False):
+            stable_before = run("gh", "api", "repos/Zhgma/animeko/releases/latest", "--jq", ".tag_name").stdout.strip()
+            withdraw_for_republication(tag, files, state, prerelease)
+            add_missing_public_assets(tag, files, state.get("assets", []))
+            run("gh", "release", "edit", tag, "--draft=false", "--prerelease=true", "--latest=false")
+            published = json.loads(run("gh", "release", "view", tag,
+                                       "--json", "name,isDraft,isPrerelease").stdout)
+            require(published == dict(name=f"Animecomic {tag}", isDraft=False, isPrerelease=True),
+                    "Unified prerelease title or state differs")
+            stable_after = run("gh", "api", "repos/Zhgma/animeko/releases/latest", "--jq", ".tag_name").stdout.strip()
+            require(stable_after == stable_before, "Stable Latest changed")
+            print(f"Republished https://github.com/Zhgma/animeko/releases/tag/{tag}")
+            return
         if not state["isDraft"]:
             require(state["isPrerelease"] == prerelease, "Unexpected release channel")
             add_missing_public_assets(tag, files, state.get("assets", []))
