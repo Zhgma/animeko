@@ -1,7 +1,5 @@
-name: Publish existing iOS IPA
+name: Attach existing IPA to a complete release
 on:
-  push:
-    branches: [ios-release-artifacts]
   workflow_dispatch:
 permissions:
   contents: read

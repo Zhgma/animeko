@@ -76,7 +76,7 @@ def prepare_release(version, source):
     require(api(tag_path)["object"]["sha"] == source, "Release source differs")
     if existing is None:
         run("gh", "release", "create", version, "--verify-tag", "--target", source,
-            "--draft", "--prerelease", "--title", f"Animecomic {version} · iOS",
+            "--draft", "--prerelease", "--title", f"Animecomic {version}",
             "--notes-file", "release-notes.md")
         existing = find_release(version)
         require(existing is not None and existing["draft"] and existing["prerelease"],
@@ -90,6 +90,12 @@ def main():
     version, source = config["version"], config["source_sha"]
     require(re.fullmatch(r"0\.\d+\.\d+-beta\.[1-9]\d*", version), "Expected a beta release")
     require(re.fullmatch(r"[0-9a-f]{40}", source), "Invalid source commit")
+    release = find_release(version)
+    require(release is not None, "Publish the unified Android/Windows release first")
+    asset_names = [asset["name"] for asset in release["assets"]]
+    require(any(name.endswith(".apk") for name in asset_names) and
+            any(name.endswith("-windows-x86_64.zip") for name in asset_names),
+            "IPA must be attached to the same release as APK and Windows ZIP")
     build = api(f"actions/runs/{config['run_id']}")
     require(build["status"] == "completed" and build["conclusion"] == "success", "Build has not succeeded")
     require(build["path"] == ".github/workflows/ios-unsigned.yml", "Unexpected build workflow")
