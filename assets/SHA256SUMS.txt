@@ -1,3 +1,1 @@
-b64dbeb43f679eee5fa3fb7260de9bf84c69a7bc8a5d6c33c05546ace9ea4d4c  ani-0.3.2-beta.5-arm64-v8a.apk
-88fbebb1fcd1324c2aebd95b5b8c873e95c1e8d267f1810da906b890c5ad01d4  ani-0.3.2-beta.5-windows-x86_64.zip
-b47326a6d9eb01b8854b49481f8858b068ed1840473e6f49159b907d207e9f8f  Animecomic-0.3.2-beta.5-ios-arm64-unsigned.ipa
+27239090aa6cda7a19fc33f76a559e624b27e8a90975616cbe9dfdb492a233e0  ani-0.3.2-beta.6-arm64-v8a.apk

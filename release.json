@@ -1,85 +1,24 @@
 {
-  "version": "0.3.2-beta.5",
-  "versionCode": 50430,
-  "tag": "0.3.2-beta.5",
+  "version": "0.3.2-beta.6",
+  "versionCode": 50431,
+  "tag": "0.3.2-beta.6",
   "prerelease": true,
-  "republish": true,
-  "sourceCommit": "48862a492f7de3ccd96a48a8d4e610d1cfbe22bd",
+  "republish": false,
+  "sourceCommit": "5deb94f782e119bc87c476474f41624ea2569e15",
   "assets": {
-    "ani-0.3.2-beta.5-arm64-v8a.apk": {
-      "sha256": "b64dbeb43f679eee5fa3fb7260de9bf84c69a7bc8a5d6c33c05546ace9ea4d4c",
-      "size": 38529721,
+    "ani-0.3.2-beta.6-arm64-v8a.apk": {
+      "sha256": "27239090aa6cda7a19fc33f76a559e624b27e8a90975616cbe9dfdb492a233e0",
+      "size": 38542009,
       "package": "me.him188.ani",
       "certificateSha256": "0e9cd761d18f282964ed79b7ec06e1ee5f6be84e84d065e8766151291915365a"
     },
-    "ani-0.3.2-beta.5-arm64-v8a.apk.sha1": {
-      "sha256": "22ffb8825e033f88907bda57ce66120a0920a8b7df7dfa0ef47d54a14fa1fbf3",
+    "ani-0.3.2-beta.6-arm64-v8a.apk.sha1": {
+      "sha256": "bb8276867fb304c958a6856aff25fb9fbd3d589b33c49a0c7a3a50ac9f7e757f",
       "size": 40
     },
     "SHA256SUMS.txt": {
-      "size": 312,
-      "sha256": "bdc88609f15ca7cab9b91b37a29dc761d20d15adaa08d8a188a59c6c42e93337"
-    },
-    "ani-0.3.2-beta.5-windows-x86_64.zip": {
-      "size": 318897479,
-      "sha256": "88fbebb1fcd1324c2aebd95b5b8c873e95c1e8d267f1810da906b890c5ad01d4",
-      "parts": [
-        {
-          "name": "ani-0.3.2-beta.5-windows-x86_64.zip.part000",
-          "size": 50331648,
-          "sha256": "30d67952412778ce32397b742ed015b64557ff894e98acbd0fdfcc67d514e6bd"
-        },
-        {
-          "name": "ani-0.3.2-beta.5-windows-x86_64.zip.part001",
-          "size": 50331648,
-          "sha256": "b37b4522779c9396bdd6950d8d157649e8d50c2a81330e984d80e6b3e606f05a"
-        },
-        {
-          "name": "ani-0.3.2-beta.5-windows-x86_64.zip.part002",
-          "size": 50331648,
-          "sha256": "0faffce02359024b0ee6d26465714dc02eb38ba821da38da4b830ff3090f479e"
-        },
-        {
-          "name": "ani-0.3.2-beta.5-windows-x86_64.zip.part003",
-          "size": 50331648,
-          "sha256": "408745ec1eaa192084b768d54bed8b30a06e46a0ad7b0fb1ea5d970392e298f4"
-        },
-        {
-          "name": "ani-0.3.2-beta.5-windows-x86_64.zip.part004",
-          "size": 50331648,
-          "sha256": "23ab089d9e541b061412b6450f01833429abc34cae2a1bb400978225fde3a7eb"
-        },
-        {
-          "name": "ani-0.3.2-beta.5-windows-x86_64.zip.part005",
-          "size": 50331648,
-          "sha256": "3ba7556988eeb375d07f490456c013be5e9bfafb5689e2fa4182d7beabdb91b3"
-        },
-        {
-          "name": "ani-0.3.2-beta.5-windows-x86_64.zip.part006",
-          "size": 16907591,
-          "sha256": "afebdf987110450a63d9fec3c37e967b07c261abfd9b7328f89bf1ccc6579ea0"
-        }
-      ]
-    },
-    "ani-0.3.2-beta.5-windows-x86_64.zip.sha1": {
-      "size": 40,
-      "sha256": "250f916b59657b26a1fc2717bc765f2a965d3da97129bd24563b7a086cc0da97"
-    },
-    "ani-0.3.2-beta.5-windows-x86_64.zip.sha256": {
-      "size": 102,
-      "sha256": "f1bb7a639f137f9062c7611dbb5e7129f0ecb07105ac7f4e01c693c1e3eafbb5"
-    },
-    "Animecomic-0.3.2-beta.5-ios-arm64-unsigned.ipa": {
-      "size": 47881443,
-      "sha256": "b47326a6d9eb01b8854b49481f8858b068ed1840473e6f49159b907d207e9f8f"
-    },
-    "ios-build-info.json": {
-      "size": 360,
-      "sha256": "2c5c3b701db10f4368c9e9fcd1df8efbe3afcbead8d9440559a75dfb081af1b6"
-    },
-    "ios-installation.txt": {
-      "size": 339,
-      "sha256": "5d6513549e2ee426b724a6fec35567b64d8a983d33b01af24af5aac5a853a527"
+      "sha256": "2b4ed83adea82a484c2521c74ced00572d4eeed025599a03c70a41c70a421764",
+      "size": 97
     }
   }
 }
