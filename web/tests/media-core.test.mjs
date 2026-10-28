@@ -25,7 +25,7 @@ test('Animeko RSS v1 format supports search templates and preserves unknown sour
  assert.equal(parseSubscriptionJson(JSON.stringify({mediaSources:[{...formats[0],version:2}]}),base)[0].supported,false);
 });
 test('fetch omits credentials/referrer and rejects oversized streams and HTTP failures',async()=>{
- const content=await boundedFetch('https://example.com',async(url,options)=>{assert.equal(url,'https://43.131.255.74:8443/api/web/feeds?url=https%3A%2F%2Fexample.com');assert.equal(options.credentials,'omit');assert.equal(options.referrerPolicy,'no-referrer');return new Response('ok');});
+ const content=await boundedFetch('https://example.com',async(url,options)=>{assert.equal(url,'https://43.131.252.236:8443/api/web/feeds?url=https%3A%2F%2Fexample.com');assert.equal(options.credentials,'omit');assert.equal(options.referrerPolicy,'no-referrer');return new Response('ok');});
  assert.equal(new TextDecoder().decode(content),'ok');
  await assert.rejects(boundedFetch('https://example.com',async()=>new Response('too large'),3));
  await assert.rejects(boundedFetch('https://example.com',async()=>new Response('',{status:403})),/403/);

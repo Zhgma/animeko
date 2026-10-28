@@ -2,7 +2,7 @@
 
 ## 架构
 
-浏览器加载静态 HTML、JavaScript、Wasm、字体和图片资源。业务 API 使用 `https://43.131.255.74:8443/api/web`，由远程网关访问 Animeko、Bangumi、订阅和网站。用户电脑无需 Node/API 进程。漫画继续编译 App 的 `MangaRequestRouting`，使用现有书籍 API；Komiic 原有服务保持独立。
+浏览器加载静态 HTML、JavaScript、Wasm、字体和图片资源。业务 API 使用 `https://43.131.252.236:8443/api/web`，由远程网关访问 Animeko、Bangumi、订阅和网站。用户电脑无需 Node/API 进程。漫画继续编译 App 的 `MangaRequestRouting`，使用现有书籍 API；Komiic 原有服务保持独立。
 
 `api-endpoints.js` 声明远程入口。App 生成的 Animeko 客户端使用 `/animeko` 前缀，保留请求模型；浏览器 OAuth/邮箱适配使用 `/auth/animeko`。全部路由、鉴权、来源策略和部署方法见 [Web API 契约](../services/web-api/README.md)。
 
@@ -57,7 +57,7 @@
 - 原目录共享 App 播放页布局、标题与剧集网格；Web 平台用 HtmlElementView 连接 HTML video/HLS。对应源码包同时包含 `services/web-api`、视频提取器与签名媒体转发实现。
 - Node 111 项回归、Kotlin/Wasm 23 项测试通过；App 选源相关 Compose 14 项测试通过。生产构建通过。
 - 本地 4210 静态站配合 4212 API 验证稀饭备用线路 HLS 实播 1920×1080，倍速控制和第二集切换生效。原有 4173/4180 服务保持运行。
-- API 已迁移到 `43.131.255.74:8443`，旧主机任务停用。新主机基础接口正常，但 `/api/web/online/resolve` 返回 404，尚未部署此播放页所需的视频提取后端；本地 API 实播验证不代表公网播放可用。
+- API 已迁移到 `43.131.252.236:8443`，旧主机任务停用。新主机基础接口正常，但 `/api/web/online/resolve` 返回 404，尚未部署此播放页所需的视频提取后端；本地 API 实播验证不代表公网播放可用。
 - 动态 JS、验证码、DRM、弹幕、外挂字幕和播放进度云端写入不在当前已验证功能中。手机布局验证使用浏览器尺寸模拟，不是真机。
 
 ## 2026-10-13 API 地址迁移验收

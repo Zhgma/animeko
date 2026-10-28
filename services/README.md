@@ -1,6 +1,6 @@
 # AnimeComic API 部署
 
-生产入口为 `https://43.131.255.74:8443`，SSH 为 `ubuntu@43.131.255.74`。
+生产入口为 `https://43.131.252.236:8443`，SSH 为 `ubuntu@43.131.252.236`。
 本机 SSH 别名为 `ubuntuserver`。三个 Node.js 服务由 systemd 开机启动并在失败时重启，
 Caddy 提供 HTTPS、证书续期和真实客户端 IP 转发。
 
@@ -43,9 +43,9 @@ sudo bash <release>/services/deploy-ubuntu.sh <release>
 ```bash
 systemctl status pocket-books pocket-komiic pocket-web
 systemctl is-enabled pocket-books pocket-komiic pocket-web caddy
-curl --fail https://43.131.255.74:8443/api/books/health
-curl --fail https://43.131.255.74:8443/api/komiic/health
-curl --fail https://43.131.255.74:8443/api/web/health
+curl --fail https://43.131.252.236:8443/api/books/health
+curl --fail https://43.131.252.236:8443/api/komiic/health
+curl --fail https://43.131.252.236:8443/api/web/health
 ```
 
 Windows 部署使用各服务目录中的 `install.ps1`，其计划任务说明仅适用于 Windows 主机。

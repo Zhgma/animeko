@@ -3,7 +3,7 @@ package me.him188.ani.app.data.repository.manga
 
 import kotlinx.serialization.Serializable
 
-const val KOMIIC_API_BASE_URL = "https://43.131.255.74:8443/api/komiic"
+val KOMIIC_API_BASE_URL: String get() = RelayEndpoints.origin.value + "/api/komiic"
 
 enum class MangaSource(val title: String, val subscriptionUrl: String, val home: String) {
     KOMIIC("Komiic", "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/komiic.js", "https://komiic.com"),

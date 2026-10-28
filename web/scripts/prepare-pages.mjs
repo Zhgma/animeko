@@ -34,7 +34,7 @@ function add(path){const absolute=join(root,path);for(const e of readdirSync(abs
  const p=join(path,e.name);if(e.isDirectory())add(p);else files.add(p.replaceAll('\\','/'));
 }}
 for(const dir of ['services/web-api','web/src','web/tests','web/scripts','web/kotlin-js-store','app/shared/app-lang/src/commonMain/kotlin','app/shared/app-lang/src/androidMain/res'])add(dir);
-for(const path of ['gradlew','gradlew.bat','gradle/wrapper/gradle-wrapper.jar','gradle/wrapper/gradle-wrapper.properties','gradle/libs.versions.toml','LICENSE.txt','app/shared/thirdparty/reorderable/LICENSE','subs/manga.json','app/desktop/src/main/composeResources/drawable/a_round.png','web/app-language/build.gradle.kts'])files.add(path);
+for(const path of ['gradlew','gradlew.bat','gradle/wrapper/gradle-wrapper.jar','gradle/wrapper/gradle-wrapper.properties','gradle/libs.versions.toml','LICENSE.txt','app/shared/thirdparty/reorderable/LICENSE','subs/manga.json','subs/api.json','app/desktop/src/main/composeResources/drawable/a_round.png','web/app-language/build.gradle.kts'])files.add(path);
 for(const e of readdirSync(web,{withFileTypes:true}))if(e.isFile() && !e.name.endsWith('.log'))files.add('web/'+e.name);
 const manifest=join(output,'source-files.json');writeFileSync(manifest,JSON.stringify([...files].sort()));
 const pack = String.raw`import sys,json,zipfile,pathlib

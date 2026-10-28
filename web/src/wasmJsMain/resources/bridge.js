@@ -2,7 +2,6 @@
 // Browser transport for shared Kotlin policies, local storage and media adapters.
 (() => {
   'use strict';
-  const API = window.aniApi.bangumi;
   window.aniAnimekoToken = callback => window.aniAuthSession().then(session => {
     const token = session?.tokens.accessToken;
     callback(token || '', '');
@@ -39,7 +38,7 @@
     collection: s.collection || {}, histogram: s.rating?.count || {}, relation: s.relation || '',
     progress: s.progress || 0, volumeProgress: s.volumeProgress || 0, nsfw: Boolean(s.nsfw) }); };
   async function fetchJson(path, options = {}, token = '', manga = false) {
-    let target = API + path, timeout = 20000;
+    let target = window.aniApi.bangumi + path, timeout = 20000;
     if (manga) {
       if (!mangaRoute) throw new Error('共享漫画接口尚未初始化');
       const [pathname, query] = path.split('?');

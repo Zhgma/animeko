@@ -23,7 +23,7 @@ import kotlin.test.assertNull
 
 class MangaApiImageMigrationTest {
     private val old = "https://119.28.149.19:8443"
-    private val current = "https://43.131.255.74:8443"
+    private val current = "https://43.131.252.236:8443"
     private fun preferences() = object : DataStore<Preferences> {
         override val data = MutableStateFlow(emptyPreferences())
         override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences =
@@ -72,7 +72,7 @@ class MangaApiImageMigrationTest {
             addCookie(Url(current), Cookie("another-service", "secret", path = "/", secure = true))
         }
         val client = HttpClient(MockEngine { request ->
-            assertEquals("43.131.255.74", request.url.host)
+            assertEquals("43.131.252.236", request.url.host)
             assertNull(request.headers["Cookie"])
             assertNull(request.headers["Authorization"])
             if (request.url.encodedPath.endsWith("/query")) {

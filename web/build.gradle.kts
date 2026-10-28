@@ -56,7 +56,7 @@ kotlin {
             }
         }
         wasmJsMain {
-            kotlin.include("MangaSourceModels.kt", "MangaSourceSearch.kt", "MangaJson.kt", "MangaApiImageMigration.kt",
+            kotlin.include("MangaSourceModels.kt", "MangaSourceSearch.kt", "MangaJson.kt", "MangaApiImageMigration.kt", "RelayEndpoints.kt",
                 "AdditionalMangaSources.kt", "VerifiedMangaSources.kt", "ManualResultsList.kt", "MediaSelectorTopBar.kt")
             kotlin.srcDir("../app/shared/app-data/src/commonMain/kotlin/data/models/danmaku")
             kotlin.srcDir("../app/shared/app-platform/src/commonMain/kotlin/utils")

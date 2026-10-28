@@ -60,7 +60,7 @@ for route in books:4180 komiic:4181 web:4182; do
   name=${route%:*}; port=${route#*:}
   curl --fail --silent --show-error --retry 5 --retry-connrefused --retry-delay 1 \
     "http://127.0.0.1:$port/api/$name/health" >/dev/null
-  curl --fail --silent --show-error --max-time 20 "https://43.131.255.74:8443/api/$name/health" >/dev/null
+  curl --fail --silent --show-error --max-time 20 "https://43.131.252.236:8443/api/$name/health" >/dev/null
 done
 trap - ERR
 echo "Activated: $release"

@@ -121,7 +121,7 @@ class MangaSourceRepository internal constructor(
     }.also { check(it.isNotEmpty()) { "该章节没有返回图片" } }
 
     suspend fun image(page: MangaPage): ByteArray = retryTransient {
-        if (page.url.startsWith("$KOMIIC_API_BASE_URL/images/")) {
+        if (migrateMangaApiImageUrl(page.url).startsWith("$KOMIIC_API_BASE_URL/images/")) {
             komiicImages.request { fetchImage(page) }
         } else fetchImage(page)
     }

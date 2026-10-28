@@ -76,7 +76,7 @@ if ($ConfigureHttps) {
             $tlsReady = $false
             for ($i = 0; $i -lt 20; $i++) {
                 Start-Sleep -Seconds 1
-                $code = & curl.exe -q --noproxy '*' --connect-timeout 2 --max-time 4 -s -o NUL -w '%{http_code}' 'https://43.131.255.74:8443/api/web/health'
+                $code = & curl.exe -q --noproxy '*' --connect-timeout 2 --max-time 4 -s -o NUL -w '%{http_code}' 'https://43.131.252.236:8443/api/web/health'
                 if ($LASTEXITCODE -eq 0 -and $code -eq '200') { $tlsReady = $true; break }
             }
             if (-not $tlsReady) { throw 'HTTPS health check failed' }
@@ -89,5 +89,5 @@ if ($ConfigureHttps) {
         }
     }
 }
-Write-Output "DEPLOYED: https://43.131.255.74:8443/api/web/health"
+Write-Output "DEPLOYED: https://43.131.252.236:8443/api/web/health"
 Write-Output "BACKUP: $backupDir"

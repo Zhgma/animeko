@@ -115,6 +115,7 @@ fun WebSettings(settings: ThemeSettings, onChange: (ThemeSettings) -> Unit, sess
                             "bt" -> WebMediaSettings()
                             "player" -> WebPlayerSettings()
                             "proxy" -> Group(title = { Text(entry!!.label) }) {
+                                WebRelaySettings()
                                 TextItem(description = { Text("网页通过远程 HTTPS API 访问 Animeko、Bangumi、订阅和网站来源；漫画使用 App 的漫画 API。无需本机转发进程。") }) { Text("网络路径") }
                                 TextItem(onClick = { scope.launch { result = try { request("networkCheck").raw } catch (e: Exception) { e.message } } }) { Text("检查漫画 API") }
                                 TextItem(description = { Text("若 bgm.tv 出现 ERR_CERT_COMMON_NAME_INVALID，请修复 DNS / 代理路由后重新发起授权。不要关闭证书校验。") }) { Text("Bangumi 授权证书错误") }

@@ -1,6 +1,6 @@
 # AnimeComic Web
 
-网页以静态文件部署，API 通过 `https://43.131.255.74:8443/api/web` 访问 当前远程服务器上的远程服务。`serve.mjs` 仅用于本地静态预览；用户电脑无需 Node 转发进程。漫画继续使用 App 的原有 API。路由、部署与边界见 [Web API](../services/web-api/README.md) 和 [静态部署验收](STATIC_DEPLOYMENT.md)。
+网页以静态文件部署，API 通过 `https://43.131.252.236:8443/api/web` 访问 当前远程服务器上的远程服务。`serve.mjs` 仅用于本地静态预览；用户电脑无需 Node 转发进程。漫画继续使用 App 的原有 API。路由、部署与边界见 [Web API](../services/web-api/README.md) 和 [静态部署验收](STATIC_DEPLOYMENT.md)。
 
 
 Kotlin/Wasm + Compose Multiplatform 静态网页预览。已接入追漫、追番、Animeko 热榜和搜索、站内详情、评论、收藏编辑、云端播放历史、账号资料和部分设置。已接入 WebTorrent、RSS 订阅和浏览器媒体播放；漫画正文及完整原生播放流程尚未接入。完整分类与差异见 [功能清单](PARITY.md)。

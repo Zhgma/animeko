@@ -11,7 +11,8 @@ test('browser sources have no host-relative API or loopback transport dependency
     if(entry.isDirectory()) inspect(file);
     else if(/\.(kt|js|mjs)$/.test(entry.name)) {
       const source=readFileSync(file,'utf8');
-      assert.doesNotMatch(source,/['"]\/api\//,file.pathname);
+      // Endpoint configuration constructs absolute URLs from a validated HTTPS origin.
+      if(entry.name !== "api-endpoints.js") assert.doesNotMatch(source,/['"]\/api\//,file.pathname);
       assert.doesNotMatch(source,/https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?\/api/,file.pathname);
     }
   }}
@@ -23,7 +24,7 @@ test('website source is fetched through the HTTPS gateway anonymously',async(t)=
   const calls=[];
   t.mock.method(globalThis,'fetch',async(url,init)=>{calls.push({url,init});return new Response(JSON.stringify({text:'<a>episode</a>',url:'https://source.example/episodes'}),{status:200});});
   assert.deepEqual(await onlineRead('https://source.example/episodes'),{text:'<a>episode</a>',url:'https://source.example/episodes'});
-  assert.equal(calls[0].url,'https://43.131.255.74:8443/api/web/online/page?url=https%3A%2F%2Fsource.example%2Fepisodes');
+  assert.equal(calls[0].url,'https://43.131.252.236:8443/api/web/online/page?url=https%3A%2F%2Fsource.example%2Fepisodes');
   assert.equal(calls[0].init.mode,'cors'); assert.equal(calls[0].init.credentials,'omit');
   assert.equal(calls[0].init.headers,undefined);
   await assert.rejects(()=>onlineRead('https://user:password@source.example/'),/HTTPS/);

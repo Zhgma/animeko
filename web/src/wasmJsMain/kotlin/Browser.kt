@@ -2,6 +2,7 @@
 
 import kotlinx.coroutines.suspendCancellableCoroutine
 import me.him188.ani.app.data.repository.manga.BOOK_SEARCH_PAGE_SIZE
+import me.him188.ani.app.data.repository.manga.RelayEndpoints
 import me.him188.ani.app.data.repository.manga.MangaRequestRouting
 import me.him188.ani.app.data.repository.manga.bookSearchBody
 import me.him188.ani.app.domain.search.SearchSort
@@ -116,7 +117,12 @@ suspend fun loadMangaCollection(status: Int): List<Subject> {
 
 external fun aniInstallMangaApi(route: (String, String, String) -> String, search: (String, String) -> String, pageSize: Int)
 
+external fun aniWatchRelay(callback: (String, String) -> Unit)
+external fun aniRelayStart()
+
 fun installSharedMangaApi() {
+    aniWatchRelay { origin, previous -> RelayEndpoints.apply(origin, webJson.decodeFromString<List<String>>(previous)) }
+    aniRelayStart()
     aniInstallMangaApi(
         { method, url, body -> webJson.encodeToString(MangaRequestRouting.resolve(method, url, body.takeIf { it.isNotEmpty() })) },
         { keyword, sort -> bookSearchBody(keyword, when (sort) {

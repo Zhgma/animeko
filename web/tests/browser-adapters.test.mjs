@@ -101,7 +101,7 @@ test('OAuth opens Bangumi and stores returned session without manual token input
   assert.equal(result.username,'reader'); assert.equal(h.popup.closed,true);
   assert.equal([...h.localStorage.map.keys()].filter(k=>k!=='animecomic.web.session').length,0);
   assert.equal(JSON.parse(h.localStorage.getItem('animecomic.web.session')).tokens.bangumiAccessToken,'bgm-test');
-  assert.ok(requests.every(x => x.url.startsWith('https://43.131.255.74:8443/api/web/auth/animeko/') && !x.options.headers.Authorization));
+  assert.ok(requests.every(x => x.url.startsWith('https://43.131.252.236:8443/api/web/auth/animeko/') && !x.options.headers.Authorization));
   h.aniLogout(); assert.equal(h.sessionStorage.map.size,0);
 });
 
@@ -135,7 +135,7 @@ test('OAuth reports invalid API responses, popup blocking and closed authorizati
 
 test('expired OAuth sessions refresh once and logout prevents late refresh persistence', async () => {
   let requests=0,finish;
-  const h=harness(async(url,options)=>{requests++;assert.equal(url,'https://43.131.255.74:8443/api/web/auth/animeko/refresh');assert.equal(JSON.parse(options.body).refreshToken,'refresh-test');return new Promise(resolve=>{finish=resolve;});});
+  const h=harness(async(url,options)=>{requests++;assert.equal(url,'https://43.131.252.236:8443/api/web/auth/animeko/refresh');assert.equal(JSON.parse(options.body).refreshToken,'refresh-test');return new Promise(resolve=>{finish=resolve;});});
   const expired=authData();expired.tokens.expiresAtMillis=0;h.localStorage.setItem('animecomic.web.session',JSON.stringify(expired));
   const a=h.call('session'),b=h.call('session');await Promise.resolve();
   assert.equal(requests,1);h.aniLogout();finish(response(authData()));
@@ -144,7 +144,7 @@ test('expired OAuth sessions refresh once and logout prevents late refresh persi
 
 test('refreshed credentials are saved and only the Bangumi token reaches its API', async () => {
   const h=harness(async(url,options)=>{
-    if(url==='https://43.131.255.74:8443/api/web/auth/animeko/refresh')return response(authData());
+    if(url==='https://43.131.252.236:8443/api/web/auth/animeko/refresh')return response(authData());
     assert.equal(url,'https://books.example/api/books/v0/me');
     assert.equal(options.headers.Authorization,'Bearer bgm-test');
     return response({username:'reader'});
@@ -160,7 +160,7 @@ test('refreshed credentials are saved and only the Bangumi token reaches its API
 test('public browsing does not transmit the logged-in token and can fall back to labelled cache', async () => {
   let offline = false;
   const h = harness(async (url, options) => {
-    assert.ok(url.startsWith('https://43.131.255.74:8443/api/web/bangumi/v0/'));
+    assert.ok(url.startsWith('https://43.131.252.236:8443/api/web/bangumi/v0/'));
     assert.equal(options.mode, 'cors');
     assert.equal(options.headers.Authorization, undefined);
     if (offline) throw new TypeError('offline');
@@ -246,7 +246,7 @@ test('cancelled email login cannot restore a session from a late response', asyn
 
 test('Bangumi binding sends only the existing Animeko token to the remote Animeko authorization API', async () => {
   const h = harness(async (url, options) => {
-    assert.ok(url.startsWith('https://43.131.255.74:8443/api/web/auth/animeko/start?')); assert.ok(url.includes('provider=bangumi')); assert.ok(url.includes('mode=bind'));
+    assert.ok(url.startsWith('https://43.131.252.236:8443/api/web/auth/animeko/start?')); assert.ok(url.includes('provider=bangumi')); assert.ok(url.includes('mode=bind'));
     assert.equal(options.headers.Authorization, 'Bearer ani-test');
     return response({ url: 'https://bgm.tv/oauth/authorize?state=test' });
   });
@@ -325,11 +325,11 @@ test('static Pages deployment calls public HTTPS APIs without an origin-local ba
   const calls=[];
   const h=harness(async(url,options)=>{calls.push({url,options}); return response({providers:['bangumi']});});
   h.location={origin:'https://zhgma.github.io',pathname:'/animeko/',hash:''};
-  assert.equal(h.aniAnimekoBaseUrl(),'https://43.131.255.74:8443/api/web/animeko');
+  assert.equal(h.aniAnimekoBaseUrl(),'https://43.131.252.236:8443/api/web/animeko');
   await h.call('providers');
   await h.call('episodes',{id:622288});
   await h.call('comments',{id:622288,type:2});
-  assert.deepEqual(calls.map(c=>new URL(c.url).origin),Array(3).fill('https://43.131.255.74:8443'));
+  assert.deepEqual(calls.map(c=>new URL(c.url).origin),Array(3).fill('https://43.131.252.236:8443'));
   assert.ok(calls.every(c=>c.options.credentials==='omit' && c.options.mode==='cors' && !c.options.headers.Authorization));
 });
 
@@ -338,7 +338,7 @@ test('failed remote login is explicit and never retries a mutation', async () =>
   const h=harness(async(url)=>{calls.push(url);throw new TypeError('Failed to fetch');});
   const result=await h.call('emailOtp',{email:'reader@example.test'});
   assert.equal(result.ok,false); assert.match(result.error,/远程账号 API/);
-  assert.deepEqual(calls,['https://43.131.255.74:8443/api/web/auth/animeko/email-otp']);
+  assert.deepEqual(calls,['https://43.131.252.236:8443/api/web/auth/animeko/email-otp']);
   assert.equal(h.sessionStorage.map.size,0);
 });
 
@@ -372,7 +372,7 @@ test('migrated image links preserve signatures and only rewrite known API image 
   const context = vm.createContext({});
   vm.runInContext(endpointSource, context);
   const old = 'https://119.28.149.19:8443/api/books/images/path/signature?size=400';
-  assert.equal(context.aniApi.image(old), 'https://43.131.255.74:8443/api/books/images/path/signature?size=400');
+  assert.equal(context.aniApi.image(old), 'https://43.131.252.236:8443/api/books/images/path/signature?size=400');
   for (const other of ['https://119.28.149.19:8443/other', 'https://119.28.149.19:8443.evil.example/api/books/images/path']) {
     assert.equal(context.aniApi.image(other), other);
   }

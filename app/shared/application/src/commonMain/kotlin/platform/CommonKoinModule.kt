@@ -9,6 +9,7 @@
 
 package me.him188.ani.app.platform
 
+import me.him188.ani.app.data.repository.manga.RelaySettingsStore
 import me.him188.ani.app.data.repository.manga.MangaBangumiNetwork
 import me.him188.ani.app.data.repository.manga.MangaSourceSettingsStore
 import me.him188.ani.app.data.repository.manga.MangaSubscriptionRepository
@@ -191,6 +192,7 @@ private fun KoinApplication.otherModules(
     }
     single { NovelSourceSettingsStore(getContext().dataStores.preferencesStore) }
     single { NovelSubscriptionRepository(get(), get<HttpClientProvider>().get()) }
+    single { RelaySettingsStore(getContext().dataStores.preferencesStore, get<HttpClientProvider>().get(userAgent = ScopedHttpClientUserAgent.NONE)) }
     single { MangaSourceSettingsStore(getContext().dataStores.preferencesStore) }
     single { MangaSubscriptionRepository(get(), get<HttpClientProvider>().get()) }
     single<HttpClientProvider> {
@@ -510,6 +512,7 @@ fun KoinApplication.startCommonKoinModule(
     // Start the proxy provider very soon (before initialization of any other components)
     runBlocking {
         koin.get<SessionManager>().clearSessionIfAccessTokenExpired()
+        koin.get<RelaySettingsStore>().initialize()
         koin.get<MangaBangumiNetwork>().start()
         // We have to block here to read the saved proxy settings
         when (val proxyProvider = koin.get<HttpClientProvider>()) {
@@ -567,6 +570,7 @@ fun KoinApplication.startCommonKoinModule(
         koin.get<MangaSubscriptionRepository>().runAutoRefresh()
     }
     coroutineScope.launch { koin.get<NovelSubscriptionRepository>().runAutoRefresh() }
+    coroutineScope.launch { koin.get<RelaySettingsStore>().runAutoRefresh() }
 
     coroutineScope.launch {
         val currentSaves = context.dataStores.mediaSourceSaveStore.data.first()

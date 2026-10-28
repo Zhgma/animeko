@@ -60,7 +60,8 @@ class MangaBangumiNetwork(
     private val features = setOf(UserAgentFeature.withValue(ScopedHttpClientUserAgent.ANI))
     private val provider = DefaultHttpClientProvider(ProxySettingsFlowProxyProvider(settings.flow, scope), scope)
     val cache = MangaBangumiCache(store)
-    val http = MangaBangumiHttp(provider.get(features), cache, booksApiBaseUrl, refreshAuthorization)
+    val http = MangaBangumiHttp(provider.get(features), cache, booksApiBaseUrl, refreshAuthorization,
+        booksApiBaseUrlProvider = { BOOKS_API_BASE_URL })
     suspend fun start() {
         provider.startProxyListening(sequenceOf(DefaultHttpClientProvider.HoldingInstanceMatrix(features)))
     }
@@ -161,6 +162,7 @@ class MangaBangumiHttp(
     private val cache: MangaBangumiCache? = null,
     private val booksApiBaseUrl: String? = null,
     private val refreshAuthorization: (suspend (String) -> String?)? = null,
+    private val booksApiBaseUrlProvider: (() -> String?)? = null,
 ) {
     internal suspend fun get(url: String, token: String? = null, parameters: Map<String, Any> = emptyMap()): MangaBangumiResponse =
         read(HttpMethod.Get, url, token, parameters)
@@ -190,7 +192,7 @@ class MangaBangumiHttp(
     }
 
     private suspend fun send(method: HttpMethod, url: String, token: String?, parameters: Map<String, Any>, body: String?): MangaBangumiResponse {
-        val route = MangaRequestRouting.resolve(method.value, url, body, booksApiBaseUrl)
+        val route = MangaRequestRouting.resolve(method.value, url, body, booksApiBaseUrlProvider?.invoke() ?: booksApiBaseUrl)
         val response = sendOnce(method, route, token, parameters, body)
         if (response.status != 401 || !route.sendAuthorization || token.isNullOrBlank()) return response
         val refreshed = refreshAuthorization?.invoke(token)?.takeIf { it.isNotBlank() && it != token } ?: return response

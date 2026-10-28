@@ -7,7 +7,7 @@ import { createOAuthRelay } from '../../web/oauth-relay.mjs';
 import { createOnlineRelay, readOnlinePage } from '../../web/online-relay.mjs';
 
 export const prefix = '/api/web';
-export const allowedOrigins = ['https://zhgma.github.io', 'https://43.131.255.74:8443', 'https://119.28.149.19:8443',
+export const allowedOrigins = ['https://zhgma.github.io', 'https://43.131.252.236:8443', 'https://119.28.149.19:8443',
   'http://127.0.0.1:4173', 'http://127.0.0.1:4180', 'http://localhost:4173', 'http://localhost:4180'];
 const methods = ['GET', 'POST', 'PATCH', 'DELETE'];
 const allowedHeaders = ['authorization', 'content-type', 'accept', 'range'];
