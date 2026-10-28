@@ -1,0 +1,100 @@
+name: Benchmark optimized iOS Release IPA
+on:
+  push:
+    branches: [build/ios-optimize-beta6]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ios-optimized-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  ipa:
+    if: github.repository == 'Zhgma/animeko'
+    runs-on: macos-15-intel
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: 5deb94f782e119bc87c476474f41624ea2569e15
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+      - name: Restore Kotlin Native toolchain cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-ios-small-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
+      - name: Configure iOS Release build
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          cat > local.properties <<'EOF'
+          ani.enable.ios=true
+          ani.build.framework=true
+          ani.enable.firebase=false
+          jvm.toolchain.vendor=Eclipse Adoptium
+          jvm.toolchain.version=21
+          EOF
+          xcodebuild -version
+          pod --version
+          sysctl hw.memsize
+          mkdir -p ipa-output
+          test "$(git rev-parse HEAD)" = 5deb94f782e119bc87c476474f41624ea2569e15
+          printf '\nkotlin.native.binary.smallBinary=true\n' >> gradle.properties
+          git diff -- gradle.properties > ipa-output/compiler-options.patch
+          printf '%s\n' 'source=5deb94f782e119bc87c476474f41624ea2569e15' 'smallBinary=true' 'workers=1' 'heap=10g' > ipa-output/benchmark-options.txt
+          printf '%s\n' '## iOS Release optimization experiment' 'Pinned beta.6 source, Kotlin 2.4.10, smallBinary=true.' 'This artifact is for validation; publication uses the original build.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Install iOS dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          SECONDS=0
+          ./gradlew :app:ios:podInstall --console=plain --no-configuration-cache --max-workers=1 \
+            '-Dorg.gradle.jvmargs=-Xmx10g -Dfile.encoding=UTF-8' \
+            -Pkotlin.compiler.execution.strategy=in-process 2>&1 | tee ipa-output/pod-install.log
+          echo "Dependency preparation: ${SECONDS}s" | tee -a ipa-output/timings.txt >> "$GITHUB_STEP_SUMMARY"
+      - name: Build Release IPA for user signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          touch ipa-output/build.log
+          (
+            previous_task=''
+            while sleep 60; do
+              { date -u; ps -axo pid,pcpu,rss,comm | sort -k3 -nr | head -n 10; vm_stat; } >> ipa-output/resources.log 2>&1 || true
+              current_task=$(sed -n 's/^> Task //p' ipa-output/build.log | tail -n 1)
+              if [ -n "$current_task" ] && [ "$current_task" != "$previous_task" ]; then
+                printf '::notice title=iOS build progress::%s\n' "$current_task"
+                previous_task="$current_task"
+              fi
+            done
+          ) &
+          progress_pid=$!
+          trap 'kill "$progress_pid" 2>/dev/null || true' EXIT
+          SECONDS=0
+          ./gradlew :app:ios:buildReleaseIpa --profile --console=plain --no-configuration-cache --max-workers=1 \
+            '-Dorg.gradle.jvmargs=-Xmx10g -Dfile.encoding=UTF-8' \
+            -Pkotlin.compiler.execution.strategy=in-process 2>&1 | tee ipa-output/build.log
+          echo "Release build: ${SECONDS}s" | tee -a ipa-output/timings.txt >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify and collect IPA
+        run: python3 ci-helper/verify/unsigned_ipa.py app/ios/build/archives/release/Animeko.ipa ipa-output
+      - name: Collect Gradle timing reports
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p ipa-output
+          if [ -d build/reports/profile ]; then cp -R build/reports/profile ipa-output/gradle-profile; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: animecomic-ios-optimized-experiment-${{ github.sha }}
+          path: ipa-output/
+          if-no-files-found: error
+          retention-days: 30
