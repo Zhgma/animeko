@@ -44,6 +44,46 @@ def digest(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
+def find_release(version):
+    # The tag endpoint excludes drafts; authenticated release lists include them.
+    matches = []
+    page = 1
+    while True:
+        releases = api(f"releases?per_page=100&page={page}")
+        matches.extend(release for release in releases if release["tag_name"] == version)
+        if len(releases) < 100:
+            break
+        page += 1
+    require(len(matches) <= 1, "Multiple releases use the requested tag")
+    return matches[0] if matches else None
+
+
+def prepare_release(version, source):
+    existing = find_release(version)
+    if existing is not None:
+        require(existing["prerelease"], "Refusing to modify a stable release")
+        if existing["draft"]:
+            require(existing["target_commitish"] == source, "Draft source differs")
+    tag_path = f"git/ref/tags/{version}"
+    tag = optional_api(tag_path)
+    require(tag is None or tag["object"]["sha"] == source,
+            "Release tag already points to another source")
+    if tag is None:
+        require(existing is None or existing["draft"], "Published release has no source tag")
+        # Draft creation can defer tag creation until publication.
+        run("gh", "api", "repos/Zhgma/animeko/git/refs", "--method", "POST",
+            "-f", f"ref=refs/tags/{version}", "-f", f"sha={source}")
+    require(api(tag_path)["object"]["sha"] == source, "Release source differs")
+    if existing is None:
+        run("gh", "release", "create", version, "--verify-tag", "--target", source,
+            "--draft", "--prerelease", "--title", f"Animecomic {version} · iOS",
+            "--notes-file", "release-notes.md")
+        existing = find_release(version)
+        require(existing is not None and existing["draft"] and existing["prerelease"],
+                "Expected draft prerelease was not created")
+    return existing
+
+
 def main():
     require(os.environ.get("GH_REPO") == "Zhgma/animeko", "Unexpected repository")
     config = json.loads(Path("ipa-release.json").read_text())
@@ -86,15 +126,7 @@ def main():
         checksums = outgoing / "SHA256SUMS-ios.txt"
         checksums.write_text("".join(f"{digest(file)}  {file.name}\n" for file in files))
         files.append(checksums)
-        tag = optional_api(f"git/ref/tags/{version}")
-        require(tag is None or tag["object"]["sha"] == source, "Release tag already points to another source")
-        existing = optional_api(f"releases/tags/{version}")
-        if existing is None:
-            run("gh", "release", "create", version, "--target", source, "--draft", "--prerelease",
-                "--title", f"Animecomic {version} · iOS", "--notes-file", "release-notes.md")
-            existing = api(f"releases/tags/{version}")
-        require(existing["prerelease"], "Refusing to modify a stable release")
-        require(api(f"git/ref/tags/{version}")["object"]["sha"] == source, "Release source differs")
+        existing = prepare_release(version, source)
         existing_names = {asset["name"] for asset in existing["assets"]}
         verify = root / "verified"
         verify.mkdir()
@@ -105,6 +137,8 @@ def main():
             require(digest(verify / file.name) == digest(file), "Published bytes mismatch: " + file.name)
         if existing["draft"]:
             run("gh", "release", "edit", version, "--draft=false", "--prerelease=true", "--latest=false")
+        published = api(f"releases/tags/{version}")
+        require(not published["draft"] and published["prerelease"], "Prerelease is not public")
         require(api("releases/latest")["tag_name"] == stable_before, "Stable Latest changed")
         print(f"Published verified IPA: https://github.com/Zhgma/animeko/releases/tag/{version}")
 
