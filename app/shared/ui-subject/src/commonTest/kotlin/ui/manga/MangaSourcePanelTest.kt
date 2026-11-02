@@ -21,6 +21,25 @@ import kotlin.test.assertEquals
 @OptIn(TestOnly::class)
 class MangaSourcePanelTest {
     @Test
+    fun automaticPanelCapsManualSearchResultsAndKeepsSelectionIdentity() = runAniComposeUiTest {
+        val books = (1..12).map { MangaSourceBook(MangaSource.GODA, "$it", "Result $it") }
+        var selected: MangaSourceBook? = null
+        setContent {
+            ProvideCompositionLocalsForPreview {
+                Box(Modifier.requiredSize(380.dp, 900.dp)) {
+                    MangaChapterList(MangaDetailsUiState(sourceSearches = mapOf(
+                        MangaSource.GODA to MangaSourceSearchState("Result", books))),
+                        "Result", { _, _ -> }, { selected = it }, {}, {})
+                }
+            }
+        }
+        onNodeWithText("Result 10", substring = false).performScrollTo().performClick()
+        assertEquals(books[9], selected)
+        onNodeWithText("Result 11", substring = false).assertDoesNotExist()
+        onNodeWithText("Result 12", substring = false).assertDoesNotExist()
+    }
+
+    @Test
     fun sharedSourceRowsSelectTheBookAndExposeAutomaticSelection() = runAniComposeUiTest {
         val book = MangaSourceBook(MangaSource.GODA, "a", "碧蓝之海")
         var selected: MangaSourceBook? = null

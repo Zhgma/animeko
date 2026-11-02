@@ -37,7 +37,7 @@ data class UISettings(
     /**
      * 启动 App 时的初始页面
      */
-    val mainSceneInitialPage: MainScreenPage = MainScreenPage.Exploration,
+    val mainSceneInitialPage: MainScreenPage = MainScreenPage.Collection,
 
     @Suppress("DEPRECATION") @Deprecated(
         "For migration. Use themeSettings instead",

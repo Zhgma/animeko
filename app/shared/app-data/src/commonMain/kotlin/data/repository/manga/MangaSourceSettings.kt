@@ -13,8 +13,8 @@ import kotlinx.serialization.json.Json
 
 @Serializable
 data class MangaSourceSettings(
-    val order: List<MangaSource> = MangaSource.available,
-    val disabled: Set<MangaSource> = setOf(MangaSource.YKMH),
+    val order: List<MangaSource> = MangaSource.defaultOrder,
+    val disabled: Set<MangaSource> = setOf(MangaSource.YKMH, MangaSource.KOMIIC),
     val builtinsRevision: Int = 0,
     val subscriptions: List<MangaSubscription> = MangaSubscription.defaults(),
 ) {

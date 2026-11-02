@@ -176,7 +176,7 @@ data class VideoScaffoldConfig @SerializationOnly constructor(
      *
      * @since 5.8
      */
-    val maxPlaybackSpeed: Float = 2.5f,
+    val maxPlaybackSpeed: Float = 2f,
     /**
      * 播放器的音量.
      *

@@ -91,7 +91,7 @@ constructor(
         @Stable
         @Suppress("DEPRECATION_ERROR")
         val Default = MediaSelectorSettings(
-            preferKind = MediaSourceKind.WEB, // 新用户
+            preferKind = MediaSourceKind.BitTorrent,
         )
 
         /**

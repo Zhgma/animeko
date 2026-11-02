@@ -5,9 +5,14 @@ import me.him188.ani.app.domain.mediasource.web.SolveRequest
 import me.him188.ani.app.domain.mediasource.web.BlockedException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import me.him188.ani.app.data.repository.manga.MangaChapter
 import me.him188.ani.app.data.repository.manga.MangaSource
 import me.him188.ani.app.data.repository.manga.MangaSourceBook
+import me.him188.ani.app.data.repository.manga.MangaSourceSettings
 
 data class MangaSourceSearchState(
     val keyword: String = "", val books: List<MangaSourceBook> = emptyList(),
@@ -16,49 +21,46 @@ data class MangaSourceSearchState(
     val retryBook: MangaSourceBook? = null,
 )
 
-internal data class ReadableManga(val book: MangaSourceBook, val chapters: List<MangaChapter>)
+internal const val MANGA_AUTO_MATCH_RESULT_LIMIT = 10
 
-/** Select only a matching title whose catalog and first page can actually be downloaded. */
-internal suspend fun findReadableMangaSource(
+/** Search all enabled sources independently, selecting once in source priority order. */
+internal suspend fun findFirstMangaSource(
     aliases: List<String>,
     search: suspend (MangaSource, String) -> List<MangaSourceBook>,
-    chapters: suspend (MangaSourceBook) -> List<MangaChapter>,
-    probe: suspend (MangaSourceBook, MangaChapter) -> Unit,
     progress: (MangaSource, MangaSourceSearchState) -> Unit,
-    sources: List<MangaSource> = MangaSource.available,
-): ReadableManga? {
-    val query = aliases.first()
-    for (source in sources) {
+    sources: List<MangaSource> = MangaSourceSettings().enabled,
+    select: (MangaSourceBook) -> Unit = {},
+): MangaSourceBook? = coroutineScope {
+    val query = aliases.firstOrNull { it.isNotBlank() } ?: return@coroutineScope null
+    val permits = Semaphore(3)
+    val searches = sources.associateWith { source ->
         progress(source, MangaSourceSearchState(query, loading = true))
-        var books = emptyList<MangaSourceBook>()
-        try {
-            var completed = false
-            val result = withTimeoutOrNull(30_000) {
-                books = search(source, query)
-                val candidates = books.filter { book -> aliases.any { mangaTitlesMatch(book.title, it) } }
-                var lastFailure: Exception? = null
-                for (book in candidates.take(3)) {
-                    try {
-                        val catalog = chapters(book)
-                        val first = catalog.firstOrNull { it.group == "章节" } ?: catalog.firstOrNull() ?: continue
-                        probe(book, first)
-                        completed = true
-                        return@withTimeoutOrNull ReadableManga(book, catalog)
-                    } catch (e: CancellationException) { throw e }
-                    catch (e: Exception) { lastFailure = e }
-                }
-                lastFailure?.let { throw it }
-                completed = true
-                null
+        async {
+            permits.withPermit {
+                searchMangaSource(source, query, search).also { progress(source, it) }
             }
-            progress(source, MangaSourceSearchState(query, books,
-                error = if (!completed) "来源检查超时，请重试或切换来源" else null))
-            if (result != null) return result
-        } catch (e: CancellationException) { throw e }
-        catch (e: Exception) { progress(source, MangaSourceSearchState(query, books, error = e.message ?: "来源不可用", captcha = (e as? BlockedException)?.request)) }
+        }
     }
-    return null
+    var selected: MangaSourceBook? = null
+    for (source in sources) {
+        val result = searches.getValue(source).await()
+        if (selected == null) result.books.firstOrNull()?.let { book ->
+            selected = book
+            select(book)
+        }
+    }
+    selected
 }
+
+internal suspend fun searchMangaSource(
+    source: MangaSource, query: String, search: suspend (MangaSource, String) -> List<MangaSourceBook>,
+): MangaSourceSearchState = try {
+    val books = withTimeoutOrNull(30_000) { search(source, query).take(MANGA_AUTO_MATCH_RESULT_LIMIT) }
+    MangaSourceSearchState(query, books.orEmpty(),
+        error = if (books == null) "来源搜索超时，请重试或切换来源" else null)
+} catch (e: CancellationException) { throw e }
+catch (e: Exception) { MangaSourceSearchState(query, error = e.message ?: "来源不可用",
+    captcha = (e as? BlockedException)?.request) }
 
 internal fun mangaTitlesMatch(title: String, alias: String): Boolean {
     fun normalized(value: String) = value.lowercase().filter { it.isLetterOrDigit() }

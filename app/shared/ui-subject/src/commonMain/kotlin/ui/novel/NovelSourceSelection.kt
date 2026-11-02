@@ -11,15 +11,13 @@ import me.him188.ani.app.data.repository.novel.*
 import me.him188.ani.app.ui.manga.mangaTitlesMatch
 
 internal data class NovelSearchState(val keyword: String = "", val books: List<NovelBook> = emptyList(), val loading: Boolean = false, val error: String? = null)
-internal data class ReadableNovel(val book: NovelBook, val chapters: List<NovelChapter>)
-
-internal suspend fun findReadableNovelSource(
+/** Searches run independently; the first result is selected in configured source order. */
+internal suspend fun findFirstNovelSource(
     aliases: List<String>, sources: List<NovelSource>,
     search: suspend (NovelSource, String) -> List<NovelBook>,
-    chapters: suspend (NovelBook) -> List<NovelChapter>,
-    probe: suspend (NovelBook, NovelChapter) -> Unit,
     progress: (NovelSource, NovelSearchState) -> Unit,
-): ReadableNovel? = coroutineScope {
+    select: (NovelBook) -> Unit,
+): NovelBook? = coroutineScope {
     val query = aliases.firstOrNull { it.isNotBlank() } ?: return@coroutineScope null
     val permits = Semaphore(3)
     val searches = sources.associateWith { source ->
@@ -32,33 +30,15 @@ internal suspend fun findReadableNovelSource(
             }
         }
     }
-    var selected: ReadableNovel? = null
+    var selected: NovelBook? = null
     for (source in sources) {
         val searched = searches.getValue(source).await()
-        if (selected != null || searched.error != null) continue
-        val books = searched.books
-        try {
-            var completed = false
-            val result = withTimeoutOrNull(30_000) {
-                var lastError: Exception? = null
-                for (book in books.filter { book -> aliases.any { mangaTitlesMatch(book.title, it) } }.take(3)) {
-                    try {
-                        val catalog = chapters(book)
-                        val first = catalog.firstOrNull() ?: continue
-                        probe(book, first)
-                        completed = true
-                        return@withTimeoutOrNull ReadableNovel(book, catalog)
-                    } catch (e: CancellationException) { throw e }
-                    catch (e: Exception) { lastError = e }
-                }
-                lastError?.let { throw it }
-                completed = true
-                null
+        if (selected == null && searched.error == null) {
+            searched.books.firstOrNull()?.let { book ->
+                selected = book
+                select(book)
             }
-            progress(source, NovelSearchState(query, books, error = if (completed) null else "来源检查超时，请重试或切换来源"))
-            if (result != null) selected = result
-        } catch (e: CancellationException) { throw e }
-        catch (e: Exception) { progress(source, NovelSearchState(query, books, error = e.message ?: "来源不可用")) }
+        }
     }
     selected
 }

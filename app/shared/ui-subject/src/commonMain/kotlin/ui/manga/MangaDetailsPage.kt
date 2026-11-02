@@ -94,6 +94,7 @@ fun MangaDetailsRoute(manga: MangaCollection, onBack: () -> Unit, modifier: Modi
     var showRelations by rememberSaveable { mutableStateOf(false) }
     val openRelated = rememberOpenBookRelation(manga.subjectId, state.relations, { showRelations = false }, vm::resolveRelation)
     var sourceOpen by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(sourceOpen, state.sourceSettings.enabled) { if (sourceOpen) vm.loadSourceSearches() }
     var cacheOpen by rememberSaveable { mutableStateOf(false) }
     var chaptersOpen by rememberSaveable { mutableStateOf(false) }
     val actions = MangaPageActions(vm.commentState, vm::setCollection, vm::setProgress, vm::markChapterRead,

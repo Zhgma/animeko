@@ -21,7 +21,7 @@ import me.him188.ani.utils.platform.isIos
 @Serializable
 data class UpdateSettings(
     val autoCheckUpdate: Boolean = true,
-    val releaseClass: ReleaseClass = ReleaseClass.STABLE,
+    val releaseClass: ReleaseClass = ReleaseClass.BETA,
     val autoDownloadUpdate: Boolean = false,
     /**
      * 是否在应用内下载更新

@@ -113,6 +113,10 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
                 }
                 restored = true
                 if (id > 0 && memory == null) autoSelect()
+                else memory?.takeIf { it.book.source != NovelSource.LOCAL }?.let {
+                    select(it.book, it.sourcePinned, promptLogin = false)
+                    loadSourceSearches()
+                }
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { mutable.update { it.copy(error = "阅读记录加载失败：${e.message}") } }
         }
@@ -148,7 +152,7 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
     }
 
     fun loadSourceSearches() {
-        if (state.value.autoSelecting || title.isBlank()) return
+        if (autoJob?.isActive == true || title.isBlank()) return
         state.value.sourceSettings.enabled.forEach { provider ->
             val result = state.value.sourceSearches[provider]
             if (result == null || result.loading && searchJobs[provider]?.isActive != true) search(provider, title, false)
@@ -174,7 +178,7 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
         val updated = (listOf(title) + values).filter { it.isNotBlank() }.distinct()
         if (updated == aliases) return
         aliases = updated
-        if (restored && memory == null && !state.value.sourcePinned) autoSelect()
+        if (restored && memory == null && state.value.book == null && !state.value.sourcePinned) autoSelect()
     }
 
     fun autoSelect() {
@@ -186,17 +190,18 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
         autoJob = backgroundScope.launch {
             try {
                 memory = memory?.copy(sourcePinned = false); persist()
-                val result = findReadableNovelSource(aliases, state.value.sourceSettings.enabled,
-                    source::search, source::chapters, { book, chapter -> source.content(book, chapter) },
-                    { provider, result -> mutable.update { it.copy(sourceSearches = it.sourceSearches + (provider to result)) } })
+                val result = findFirstNovelSource(aliases, state.value.sourceSettings.enabled, source::search,
+                    { provider, result -> mutable.update { it.copy(sourceSearches = it.sourceSearches + (provider to result)) } },
+                    { book ->
+                        if (autoSequence == selectionGeneration && book.source in state.value.sourceSettings.enabled)
+                            select(book, pinned = false, promptLogin = false)
+                    })
                 currentCoroutineContext().ensureActive()
-                if (autoSequence != selectionGeneration) return@launch
-                if (result != null && result.book.source in state.value.sourceSettings.enabled) {
-                    bind(result.book, result.chapters, false)
-                } else mutable.update { it.copy(error = "自动匹配未找到可读来源，请手动查找") }
+                if (autoSequence == selectionGeneration && result == null)
+                    mutable.update { it.copy(error = "未找到搜索结果，请手动查找") }
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { mutable.update { it.copy(error = e.message) } }
-            finally { if (autoSequence == selectionGeneration) mutable.update { it.copy(autoSelecting = false, loading = false) } }
+            finally { if (autoSequence == selectionGeneration) mutable.update { it.copy(autoSelecting = false) } }
         }
     }
 
@@ -207,17 +212,27 @@ internal class NovelViewModel(private val id: Int, context: Context, private val
         mutable.update { it.copy(book = book, chapters = chapters, chapter = null, blocks = emptyList(), loading = false, sourcePinned = pinned) }
     }
 
-    fun select(book: NovelBook) {
-        if (book.source !in state.value.sourceSettings.enabled) return
-        autoJob?.cancel(); autoSequence++; selectionJob?.cancel(); chapterJob?.cancel(); prefetchJob?.cancel(); generation++
-        mutable.update { it.copy(loading = true, error = null, autoSelecting = false, sourcePinned = true) }
+    fun select(book: NovelBook) = select(book, pinned = true, promptLogin = true)
+
+    private fun select(book: NovelBook, pinned: Boolean, promptLogin: Boolean) {
+        if (book.source !in state.value.sourceSettings.enabled) {
+            mutable.update { it.copy(error = "已记住的来源已停用，请启用或选择其他来源") }
+            return
+        }
+        if (pinned) { autoJob?.cancel(); autoSequence++ }
+        selectionJob?.cancel(); saveJob?.cancel(); chapterJob?.cancel(); prefetchJob?.cancel(); generation++
+        mutable.update { it.copy(book = book, loading = true, error = null, autoSelecting = false, sourcePinned = pinned) }
+        if (pinned) loadSourceSearches()
         selectionJob = backgroundScope.launch {
             try {
-                // Persist the explicit binding before networking, so a failed request never silently chooses another source.
-                memory = (savedPosition(book) ?: NovelMemory(book, emptyList())).copy(sourcePinned = true)
+                // Save the binding before catalog access so network failures preserve the selected book.
+                memory = (savedPosition(book) ?: memory?.takeIf { it.book == book }
+                    ?: NovelMemory(book, emptyList())).copy(sourcePinned = pinned)
                 persist()
                 mutable.update { it.copy(book = book, chapters = memory!!.chapters, chapter = null, blocks = emptyList()) }
-                bind(book, zlibraryLogin.retryWithLogin { source.chapters(book) }, true)
+                val chapters = if (promptLogin) zlibraryLogin.retryWithLogin { source.chapters(book) }
+                    else source.chapters(book)
+                bind(book, chapters, pinned)
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { mutable.update { it.copy(loading = false, error = e.message ?: "目录加载失败") } }
         }

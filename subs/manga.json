@@ -5,15 +5,6 @@
         "factoryId": "manga-native",
         "version": 1,
         "arguments": {
-          "name": "Komiic",
-          "key": "komiic",
-          "url": "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/komiic.js"
-        }
-      },
-      {
-        "factoryId": "manga-native",
-        "version": 1,
-        "arguments": {
           "name": "漫画柜",
           "key": "manhuagui",
           "url": "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/manhuagui.js"
@@ -62,6 +53,15 @@
           "name": "Comick",
           "key": "comick",
           "url": "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/comick.js"
+        }
+      },
+      {
+        "factoryId": "manga-native",
+        "version": 1,
+        "arguments": {
+          "name": "Komiic",
+          "key": "komiic",
+          "url": "https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/komiic.js"
         }
       }
     ]

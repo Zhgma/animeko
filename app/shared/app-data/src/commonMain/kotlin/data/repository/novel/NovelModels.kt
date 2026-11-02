@@ -30,7 +30,7 @@ data class NovelBlock(val text: String = "", val image: String? = null)
 data class NovelDocument(val title: String, val chapters: List<NovelChapter>, val contents: List<List<NovelBlock>>)
 
 @Serializable
-data class NovelReaderSettings(val fontSize: Int = 20, val lineHeight: Float = 1.7f, val theme: Int = 0)
+data class NovelReaderSettings(val fontSize: Int = 24, val lineHeight: Float = 1.7f, val theme: Int = 1)
 
 @Serializable
 data class NovelMemory(

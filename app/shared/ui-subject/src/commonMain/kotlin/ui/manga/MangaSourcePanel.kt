@@ -61,7 +61,7 @@ internal fun MangaSourcePanel(
     }
     val rows = state.sourceSettings.enabled.map { candidate ->
         val result = state.sourceSearches[candidate]
-        val books = booksBySource.getValue(candidate)
+        val books = booksBySource.getValue(candidate).take(MANGA_AUTO_MATCH_RESULT_LIMIT)
         WebSource(candidate.name, candidate.name, candidate.iconUrl, candidate.title,
             books.map { book -> WebSourceChannel(if (books.count { it.title == book.title } > 1) "${book.title} · #${book.id}" else book.title) }, isLoading = result?.loading == true,
             isError = result?.error != null, isPreferred = state.book?.source == candidate,
@@ -108,7 +108,7 @@ internal fun MangaSourcePanel(
         if (manual == null) MediaSelectorModeChip(inlineMode, { inlineMode = it }, showBt = false)
         Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onAutoSelect, enabled = !state.autoSelecting && choices.isNotEmpty(), modifier = Modifier.testTag("manga-auto-source")) { Text("自动选择") }
-            Text(if (state.autoSelecting) "正在检查可下载的来源…"
+            Text(if (state.autoSelecting) "正在搜索来源…"
                 else if (state.memory?.sourcePinned == true) "已记住手动选择"
                 else "按来源优先级自动选择", style = MaterialTheme.typography.bodySmall)
         }

@@ -32,6 +32,25 @@ class MangaSubscriptionTest {
     }
 
     @Test
+    fun defaultKomiicOptOutSurvivesRefreshAndExplicitOptInSurvivesReload() = runTest {
+        val data = preferences()
+        val store = MangaSourceSettingsStore(data)
+        assertEquals(MangaSource.KOMIIC, store.read().all.last())
+        assertFalse(MangaSource.KOMIIC in store.read().enabled)
+        val client = HttpClient(MockEngine { respond("""[{"key":"komiic"},{"key":"goda"}]""") })
+        try {
+            val repo = MangaSubscriptionRepository(store, client.asScopedHttpClient())
+            repo.refresh(store.read().subscriptions.single())
+            assertEquals(listOf(MangaSource.GODA), store.read().enabled)
+            assertEquals(MangaSource.KOMIIC, store.read().all.last())
+            store.savePreferences(store.read().copy(order = listOf(MangaSource.KOMIIC, MangaSource.GODA),
+                disabled = emptySet()))
+            repo.refresh(store.read().subscriptions.single())
+            assertEquals(listOf(MangaSource.KOMIIC, MangaSource.GODA), MangaSourceSettingsStore(data).read().enabled)
+        } finally { client.close() }
+    }
+
+    @Test
     fun removesRetiredSourceAndAddsNewBuiltinsOnceWithoutResettingCustomSubscriptions() = runTest {
         val data = preferences()
         data.edit { it[stringPreferencesKey("manga.sources.settings")] = """{
@@ -49,7 +68,7 @@ class MangaSubscriptionTest {
         assertTrue(migrated.subscriptions.any { it.url == MangaSubscription.REPOSITORY_URL })
         store.save(migrated.copy(subscriptions = migrated.subscriptions.filter { it.id != MangaSubscription.REPOSITORY_ID }))
         assertFalse(store.read().subscriptions.any { it.id == MangaSubscription.REPOSITORY_ID })
-        store.save(MangaSourceSettings(subscriptions = emptyList()))
+        store.save(MangaSourceSettings(subscriptions = emptyList(), disabled = emptySet()))
         assertTrue(store.read().all.isEmpty())
     }
 
@@ -90,7 +109,7 @@ class MangaSubscriptionTest {
     fun addEditDisableAndDeleteArePersistedAndAffectAvailableSources() = runTest {
         val data = preferences()
         val store = MangaSourceSettingsStore(data)
-        store.save(MangaSourceSettings(subscriptions = emptyList()))
+        store.save(MangaSourceSettings(subscriptions = emptyList(), disabled = emptySet()))
         val client = HttpClient(MockEngine { request ->
             respond(if (request.url.encodedPath == "/two") """[{"key":"goda"}]""" else """[{"key":"Komiic"},{"key":"baozi"}]""")
         })
@@ -137,7 +156,7 @@ class MangaSubscriptionTest {
         val store = MangaSourceSettingsStore(preferences())
         val a = MangaSubscription("a", "A", "https://a.test", sources = listOf(MangaSource.KOMIIC))
         val b = a.copy(id = "b", url = "https://b.test")
-        store.save(MangaSourceSettings(subscriptions = listOf(a, b)))
+        store.save(MangaSourceSettings(subscriptions = listOf(a, b), disabled = emptySet()))
         val stale = store.read()
         store.update { it.copy(subscriptions = it.subscriptions.filterNot { sub -> sub.id == "a" }) }
         store.savePreferences(stale.copy(order = listOf(MangaSource.GODA)))

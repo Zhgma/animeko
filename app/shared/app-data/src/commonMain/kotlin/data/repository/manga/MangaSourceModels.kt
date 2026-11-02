@@ -21,7 +21,8 @@ enum class MangaSource(val title: String, val subscriptionUrl: String, val home:
 
     companion object {
         val available = entries.filter { it != MANGADEX }
-        val maintained = available.filter { it != BAOZI }
+        val defaultOrder = available.filter { it != KOMIIC } + KOMIIC
+        val maintained = defaultOrder.filter { it != BAOZI }
     }
 }
 @Serializable

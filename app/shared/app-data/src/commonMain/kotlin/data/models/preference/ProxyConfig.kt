@@ -22,7 +22,7 @@ data class ProxySettings(
     /**
      * Default settings to use if [MediaSourceProxySettings] is not set for a media source.
      */
-    val default: MediaSourceProxySettings = MediaSourceProxySettings.Default,
+    val default: MediaSourceProxySettings = MediaSourceProxySettings(mode = ProxyMode.DISABLED),
     @Suppress("PropertyName") @Transient val _placeHolder: Int = 0,
 ) {
     companion object {

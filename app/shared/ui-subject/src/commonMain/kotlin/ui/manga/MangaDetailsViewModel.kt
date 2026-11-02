@@ -14,6 +14,8 @@ import me.him188.ani.app.domain.mediasource.web.captcha.SolveOutcome
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import io.ktor.http.encodeURLPath
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
@@ -110,12 +112,14 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context, privat
     private val imageDirectory = automaticCache.images
     private val cache = MangaReadAheadCache(backgroundScope, sources::pages, ::downloadImage,
         { uri -> imageDirectory.resolve(uri.substringAfterLast('/')).delete() }, automaticCache)
-    private var sourceProbe: Pair<MangaPage, ByteArray>? = null
     private var prefetchJob: Job? = null
     private val mutableState = MutableStateFlow(MangaDetailsUiState(subjectId = manga.subjectId))
     val state = mutableState.asStateFlow()
     private val searchJobs = mutableMapOf<MangaSource, Job>()
     private var autoSourceJob: Job? = null
+    private var autoSelectionGeneration = 0
+    private val searchVersions = mutableMapOf<MangaSource, Int>()
+    private val searchPermits = Semaphore(3)
     private var sourceSelectionStarted = false
     private var chapterJob: Job? = null
     private var pagesJob: Job? = null
@@ -150,7 +154,7 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context, privat
             launch {
                 sourceSettingsStore.flow.collect { updated ->
                     if (state.value.sourceSettings.enabled != updated.enabled) {
-                        cancelAutoSelection()
+                        cancelAutoSelection(stopSearches = true)
                         searchJobs.filterKeys { it !in updated.enabled }.values.forEach { it.cancel() }
                     }
                     mutableState.update { it.copy(sourceSettings = updated,
@@ -161,9 +165,11 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context, privat
             if (sourceSelectionStarted) return@launch
             mutableState.update { it.copy(memory = memory) }
             cacheReady.await()
-            if (memory != null && (memory.sourcePinned || cache.savedChapters(memory.book).isNotEmpty()))
+            if (sourceSelectionStarted) return@launch
+            if (memory != null) {
                 selectBook(memory.book, memory.sourcePinned)
-            else autoSelectSource()
+                loadSourceSearches()
+            } else autoSelectSource()
         }
     }
 
@@ -206,7 +212,7 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context, privat
         else if (chapter.group == "章节" && number > entry.chapters) setProgress(number, entry.volumes)
     }
     fun saveSourceSettings(settings: MangaSourceSettings) {
-        cancelAutoSelection()
+        cancelAutoSelection(stopSearches = true)
         mutableState.update { it.copy(sourceSettings = settings) }
         backgroundScope.launch { sourceSettingsStore.savePreferences(settings) }
     }
@@ -340,6 +346,7 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context, privat
         if (target !in state.value.sourceSettings.enabled) {
             mutableState.update { it.copy(sourceError = "链接对应来源已停用，请先启用") }; return
         }
+        searchVersions[target] = (searchVersions[target] ?: 0) + 1
         searchJobs[target]?.cancel()
         mutableState.update { it.copy(source = target, autoSelecting = false, sourceError = null) }
         updateSource(target, MangaSourceSearchState(keyword, loading = true))
@@ -358,11 +365,27 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context, privat
         updateSource(book.source, previous.copy(captcha = failure.request, error = failure.message, retryBook = book))
     }
 
-    private fun cancelAutoSelection() {
-        autoSourceJob?.cancel()
-        mutableState.update { current ->
-            if (!current.autoSelecting) current else current.copy(autoSelecting = false,
-                sourceSearches = current.sourceSearches.mapValues { (_, value) -> value.copy(loading = false) })
+    private fun cancelAutoSelection(stopSearches: Boolean = false) {
+        autoSelectionGeneration++
+        if (stopSearches) autoSourceJob?.cancel()
+        mutableState.update { current -> current.copy(autoSelecting = false,
+            sourceSearches = if (stopSearches) current.sourceSearches.filterValues { !it.loading }
+                else current.sourceSearches) }
+    }
+
+    /** Fill source rows without changing a restored or manually selected book. */
+    fun loadSourceSearches() {
+        if (autoSourceJob?.isActive == true) return
+        val query = defaultKeyword()
+        if (query.isBlank()) return
+        state.value.sourceSettings.enabled.forEach { source ->
+            val existing = state.value.sourceSearches[source]
+            if (existing != null && (!existing.loading || searchJobs[source]?.isActive == true)) return@forEach
+            updateSource(source, MangaSourceSearchState(query, loading = true))
+            searchJobs[source] = backgroundScope.launch {
+                val result = searchPermits.withPermit { searchMangaSource(source, query, sources::search) }
+                updateSource(source, result)
+            }
         }
     }
 
@@ -377,13 +400,16 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context, privat
     fun autoSelectSource() {
         sourceSelectionStarted = true
         autoSourceJob?.cancel()
+        val selectionGeneration = ++autoSelectionGeneration
+        val versions = state.value.sourceSettings.enabled.associateWith { source ->
+            ((searchVersions[source] ?: 0) + 1).also { searchVersions[source] = it }
+        }
         chapterJob?.cancel()
         prefetchJob?.cancel()
         pagesJob?.cancel()
         searchJobs.values.forEach { it.cancel() }
-        val previousChapter = state.value.chapter
         mutableState.update { it.copy(autoSelecting = true, chaptersLoading = false, searching = false,
-            sourceError = null, sourceSearches = emptyMap(), chapter = null, pages = emptyList()) }
+            sourceError = null, sourceSearches = emptyMap(), pages = emptyList()) }
         autoSourceJob = backgroundScope.launch {
             val aliases = listOf(defaultKeyword(), manga.title, manga.originalTitle).filter { it.isNotBlank() }.distinct()
             // Explicitly choosing automatic mode releases a pinned source even if all sources fail.
@@ -392,22 +418,16 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context, privat
                 readingStore.save(manga.subjectId, memory)
                 mutableState.update { it.copy(memory = memory) }
             }
-            val found = findReadableMangaSource(aliases, sources::search, sources::chapters,
-                probe = { book, chapter ->
-                    val page = sources.pages(book, chapter).first()
-                    sourceProbe = page to sources.image(page)
-                }, progress = ::updateSource, sources = state.value.sourceSettings.enabled)
-            if (found != null) {
-                cacheReady.await()
-                cache.rememberChapters(found.book, found.chapters)
-                val memory = state.value.memory?.takeIf { it.book.source == found.book.source && it.book.id == found.book.id }
-                    ?.copy(sourcePinned = false) ?: MangaReadingMemory(found.book, sourcePinned = false)
-                readingStore.save(manga.subjectId, memory)
-                mutableState.update { it.copy(book = found.book, source = found.book.source, chapters = found.chapters,
-                    chaptersLoading = false, autoSelecting = false, searching = false, memory = memory, sourceError = null) }
-                matchingMangaChapter(previousChapter, found.chapters)?.let(::openChapter)
-            } else mutableState.update { it.copy(autoSelecting = false, searching = false,
-                sourceError = "未找到可下载的匹配来源，请手动搜索别名或选择作品。") }
+            val found = findFirstMangaSource(aliases, sources::search,
+                progress = { source, result ->
+                    if (searchVersions[source] == versions[source] && source in state.value.sourceSettings.enabled)
+                        updateSource(source, result)
+                }, sources = versions.keys.toList(), select = { book ->
+                    if (autoSelectionGeneration == selectionGeneration) selectBook(book, false)
+                })
+            if (found == null && autoSelectionGeneration == selectionGeneration)
+                mutableState.update { it.copy(autoSelecting = false, searching = false,
+                    sourceError = "未找到搜索结果，请手动搜索别名或选择作品。") }
         }
     }
 
@@ -553,9 +573,7 @@ class MangaDetailsViewModel(val manga: MangaCollection, context: Context, privat
     suspend fun image(page: MangaPage): String = if (page.url.startsWith("file:")) page.url else cache.image(page)
 
     private suspend fun downloadImage(page: MangaPage): String {
-        val probe = sourceProbe?.takeIf { it.first == page }
-        val bytes = probe?.second ?: sources.image(page)
-        if (probe != null) sourceProbe = null
+        val bytes = sources.image(page)
         imageDirectory.createDirectories()
         val file = imageDirectory.resolve("${manga.subjectId}-${Random.nextLong().toULong()}.image")
         try { file.writeBytes(bytes) } catch (e: Exception) { file.delete(); throw e }
