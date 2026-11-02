@@ -28,17 +28,50 @@ import kotlin.test.assertTrue
 class RelayRoutingPolicyTest {
     @AfterTest fun reset() { RelayRoutingPolicy.enabled.value = false; RelayEndpoints.apply(DEFAULT_RELAY_ORIGIN) }
 
-    @Test fun onlyExplicitMainlandAndDisabledProxyEnableRelay() {
-        for (region in listOf(null, true, false)) for (mode in ProxyMode.entries) {
-            assertEquals(region == false && mode == ProxyMode.DISABLED, RelayRoutingPolicy.shouldRelay(region, mode), "$region $mode")
+    @Test fun manualAndAutomaticRegionsRespectEveryProxyMode() {
+        for (automaticGlobal in listOf(false, true)) {
+            for (region in listOf(null, true, false)) for (mode in ProxyMode.entries) {
+                val expected = !(region ?: automaticGlobal) && mode == ProxyMode.DISABLED
+                assertEquals(expected, RelayRoutingPolicy.shouldRelay(region, mode, automaticGlobal),
+                    "region=$region automaticGlobal=$automaticGlobal proxy=$mode")
+            }
         }
+    }
+
+    @Test fun automaticMainlandEnablesRelayAtStartupAndProxyChangesRemainAuthoritative() = runTest {
+        val region = MutableStateFlow<Boolean?>(null)
+        val proxy = MutableStateFlow(ProxySettings.Disabled)
+        var automaticGlobal = false
+        RelayRoutingPolicy.start(region, proxy, backgroundScope, automaticUseGlobal = { automaticGlobal })
+        assertTrue(RelayRoutingPolicy.enabled.value)
+        region.value = true
+        runCurrent()
+        assertEquals(false, RelayRoutingPolicy.enabled.value)
+        region.value = null
+        runCurrent()
+        assertTrue(RelayRoutingPolicy.enabled.value)
+        for (mode in ProxyMode.entries.filter { it != ProxyMode.DISABLED }) {
+            proxy.value = proxy.value.copy(default = proxy.value.default.copy(mode = mode))
+            runCurrent()
+            assertEquals(false, RelayRoutingPolicy.enabled.value)
+        }
+        proxy.value = ProxySettings.Disabled
+        runCurrent()
+        assertTrue(RelayRoutingPolicy.enabled.value)
+        automaticGlobal = true
+        region.value = false
+        runCurrent()
+        assertTrue(RelayRoutingPolicy.enabled.value)
+        region.value = null
+        runCurrent()
+        assertEquals(false, RelayRoutingPolicy.enabled.value)
     }
 
     @Test fun savedSettingsAreReadyBeforeStartupAndChangesTakeEffect() = runTest {
         val region = MutableStateFlow<Boolean?>(false)
         val proxy = MutableStateFlow(ProxySettings.Disabled)
         var changes = 0
-        RelayRoutingPolicy.start(region, proxy, backgroundScope) { changes++ }
+        RelayRoutingPolicy.start(region, proxy, backgroundScope, automaticUseGlobal = { true }) { changes++ }
         assertTrue(RelayRoutingPolicy.enabled.value)
         proxy.value = proxy.value.copy(default = proxy.value.default.copy(mode = ProxyMode.SYSTEM))
         runCurrent()

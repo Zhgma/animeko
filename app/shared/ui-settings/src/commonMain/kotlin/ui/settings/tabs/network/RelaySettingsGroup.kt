@@ -49,7 +49,7 @@ internal fun SettingsScope.RelaySettingsGroup() {
         }
     }
     Group(title = { Text("漫画与书籍中转") },
-        description = { Text("仅在服务器区域选择中国大陆且全局代理禁用（直连）时，用于 Bangumi 书籍和 Komiic。番剧、漫画和小说共用全局代理。手动地址留空时跟随配置订阅，启动后及每小时自动更新。收藏同步所需的 Bangumi 授权会发送到所选服务器，请使用可信地址。") }) {
+        description = { Text("仅在服务器区域为中国大陆（含自动选择）且全局代理禁用（直连）时，用于 Bangumi 书籍和 Komiic。番剧、漫画和小说共用全局代理。手动地址留空时跟随配置订阅，启动后及每小时自动更新。收藏同步所需的 Bangumi 授权会发送到所选服务器，请使用可信地址。") }) {
         TextItem(title = { Text(if (relayEnabled) "中转已启用" else "中转未启用") })
         TextItem(title = { Text("当前地址") }, description = { Text(current.effectiveOrigin) })
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {

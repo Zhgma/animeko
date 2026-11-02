@@ -13,17 +13,19 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import me.him188.ani.app.data.models.preference.ProxyMode
 import me.him188.ani.app.data.models.preference.ProxySettings
+import me.him188.ani.app.platform.AniServers
 
-/** Only an explicit mainland selection with the global proxy disabled enables relay traffic. */
+/** Mainland selection, including the automatic region shown in settings, enables relay only without a proxy. */
 object RelayRoutingPolicy {
     val enabled get() = RelayEndpoints.enabled
 
-    fun shouldRelay(useGlobal: Boolean?, proxyMode: ProxyMode): Boolean =
-        useGlobal == false && proxyMode == ProxyMode.DISABLED
+    fun shouldRelay(useGlobal: Boolean?, proxyMode: ProxyMode, automaticUseGlobal: Boolean): Boolean =
+        !(useGlobal ?: automaticUseGlobal) && proxyMode == ProxyMode.DISABLED
 
     suspend fun start(regions: Flow<Boolean?>, proxies: Flow<ProxySettings>, scope: CoroutineScope,
+                      automaticUseGlobal: () -> Boolean = AniServers::shouldUseGlobalServer,
                       onChange: suspend () -> Unit = {}) {
-        combine(regions, proxies) { region, proxy -> shouldRelay(region, proxy.default.mode) }
+        combine(regions, proxies) { region, proxy -> shouldRelay(region, proxy.default.mode, automaticUseGlobal()) }
             .distinctUntilChanged().onEach { enabled.value = it; onChange() }.stateIn(scope)
     }
 }
